@@ -61,8 +61,7 @@ window.ApprovalActions = function ApprovalActions({ event, onSuccess }) {
           e.venue === venueName && 
           e.start.startsWith(dateStr) &&
           e.id !== event.id && // Exclude current event
-          e.status !== 'Rejected' && 
-          e.status !== 'Draft'
+          e.status !== 'Rejected'
         );
         setDaySchedule(dayEvents.sort((a, b) => a.start.localeCompare(b.start)));
       }
@@ -174,9 +173,9 @@ window.ApprovalActions = function ApprovalActions({ event, onSuccess }) {
     const actions = [];
     const status = event.status;
 
-    // Super Admin: Review & Approve at Draft/Pending/Under Review, Reject any status
+    // Super Admin: Review & Approve at Pending/Under Review, Reject any status
     if (isSuperAdmin) {
-      if (status === 'Draft' || status === 'Pending' || status === 'Under Review') {
+      if (status === 'Pending' || status === 'Under Review') {
         actions.push({ label: 'Review & Approve', endpoint: 'superadmin-approve', variant: 'success' });
       }
       if (status !== 'Archived') {
@@ -196,12 +195,6 @@ window.ApprovalActions = function ApprovalActions({ event, onSuccess }) {
     if (isStaffOnly && status === 'Pending') {
       actions.push({ label: 'Approve & Forward', endpoint: 'approve-forward', variant: 'primary' });
       actions.push({ label: 'Reject', endpoint: 'reject', variant: 'danger' });
-      return actions;
-    }
-
-    // Requestor: Submit for Review at Draft
-    if (isRequestorOnly && status === 'Draft') {
-      actions.push({ label: 'Submit for Review', endpoint: 'submit', variant: 'primary' });
       return actions;
     }
 
@@ -306,7 +299,7 @@ window.ApprovalActions = function ApprovalActions({ event, onSuccess }) {
       });
       const data = await res.json();
       if (data.success) {
-        alert(data.message || 'Event returned to Draft');
+        alert(data.message || 'Event rejected');
         setShowRejectModal(false);
         setSelectedReason('');
         setCustomNote('');
@@ -326,19 +319,38 @@ window.ApprovalActions = function ApprovalActions({ event, onSuccess }) {
   if (!actions.length) return null;
 
   return (
-    <div className="flex gap-2">
+    <div className="flex gap-1">
       {actions.map(action => {
-        const btnClass = action.variant === 'success' ? 'bg-green-600 hover:bg-green-700' :
-                        action.variant === 'danger' ? 'bg-red-600 hover:bg-red-700' :
-                        'bg-blue-600 hover:bg-blue-700';
+        const isReject = action.variant === 'danger';
+        const isReview = action.endpoint === 'superadmin-approve';
+        const isApprove = action.variant === 'success' && !isReview;
+        
         return (
           <button 
             key={action.endpoint}
             onClick={() => handleApprovalAction(action.endpoint)} 
             disabled={loading}
-            className={`px-3 py-1.5 ${btnClass} text-white rounded-lg text-xs font-semibold transition disabled:opacity-50 disabled:cursor-not-allowed`}
+            className={`p-1.5 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
+              isReject ? 'text-red-600 hover:bg-red-50' :
+              isReview ? 'text-blue-600 hover:bg-blue-50' :
+              isApprove ? 'text-green-600 hover:bg-green-50' :
+              'text-slate-600 hover:bg-slate-100'
+            }`}
+            title={loading ? 'Processing...' : action.label}
           >
-            {loading ? 'Processing...' : action.label}
+            {isReject ? (
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            ) : isReview ? (
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
+              </svg>
+            ) : (
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+            )}
           </button>
         );
       })}
@@ -674,7 +686,7 @@ window.ApprovalActions = function ApprovalActions({ event, onSuccess }) {
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-xl shadow-2xl max-w-md w-full">
             <div className="border-b border-gray-200 px-6 py-4">
-              <h2 className="text-xl font-bold text-gray-900">Return Event to Draft</h2>
+              <h2 className="text-xl font-bold text-gray-900">Reject Event</h2>
             </div>
             <div className="p-6 space-y-4">
               <div>
@@ -714,7 +726,7 @@ window.ApprovalActions = function ApprovalActions({ event, onSuccess }) {
                 disabled={loading || !selectedReason} 
                 className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 text-sm font-semibold disabled:opacity-50 disabled:cursor-not-allowed transition"
               >
-                {loading ? 'Processing...' : 'Return to Draft'}
+                {loading ? 'Processing...' : 'Reject Event'}
               </button>
             </div>
           </div>

@@ -222,8 +222,13 @@
                     // Store user info in localStorage for client-side checks
                     localStorage.setItem('user', JSON.stringify(data.user));
                     
-                    // Redirect to admin dashboard (Events Manager)
-                    window.location.href = '/admin';
+                    // Redirect based on role
+                    const role = data.user.role_name;
+                    if (role === 'Staff') {
+                        window.location.href = '/staff';
+                    } else {
+                        window.location.href = '/admin';
+                    }
                 } else {
                     showError(data.error || 'Login failed. Please try again.');
                 }
@@ -258,8 +263,14 @@
                 const data = await response.json();
                 
                 if (data.logged_in) {
-                    // Already logged in, redirect to admin dashboard
-                    window.location.href = '/admin';
+                    // Already logged in, redirect based on role
+                    const user = data.user;
+                    const role = user.role_name;
+                    if (role === 'Staff') {
+                        window.location.href = '/staff';
+                    } else {
+                        window.location.href = '/admin';
+                    }
                 }
             } catch (error) {
                 console.log('Session check failed:', error);

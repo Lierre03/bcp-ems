@@ -73,16 +73,12 @@ class ApprovalActionsManager {
         const isRequestorOnly = userRole === 'Requestor';
         
         if (isSuperAdmin) {
-            if (status === 'Draft') actions.push({ action: 'review', label: 'Review & Approve', variant: 'success' });
             if (status === 'Pending') actions.push({ action: 'review', label: 'Review & Approve', variant: 'success' });
             if (status === 'Under Review') actions.push({ action: 'approve', label: 'Approve Event', variant: 'success' });
-            if (['Draft', 'Pending', 'Under Review', 'Approved', 'Ongoing'].includes(status)) {
+            if (['Pending', 'Under Review', 'Approved', 'Ongoing'].includes(status)) {
                 actions.push({ action: 'reject', label: 'Reject', variant: 'danger' });
             }
         } else {
-            if (status === 'Draft' && isRequestorOnly) {
-                actions.push({ action: 'submit', label: 'Submit for Review', variant: 'primary' });
-            }
             if (status === 'Pending' && isStaffOnly) {
                 actions.push({ action: 'review', label: 'Approve & Forward', variant: 'primary' });
             }

@@ -8,9 +8,27 @@ def save_event_equipment(db, event_id, equipment_list):
     if not equipment_list or not isinstance(equipment_list, list):
         return
     
-    query = "INSERT INTO event_equipment (event_id, equipment_name) VALUES (%s, %s)"
-    for equipment in equipment_list:
-        db.execute_insert(query, (event_id, equipment))
+    # First, clear existing equipment for this event (for updates)
+    db.execute_update("DELETE FROM event_equipment WHERE event_id = %s", (event_id,))
+    
+    # Look up equipment IDs
+    for item_name in equipment_list:
+        # Handle both string names and objects
+        name = item_name['name'] if isinstance(item_name, dict) else item_name
+        quantity = item_name['quantity'] if isinstance(item_name, dict) else 1
+        
+        # Find equipment ID (Validation only)
+        equip = db.execute_one("SELECT id FROM equipment WHERE name = %s", (name,))
+        
+        if equip:
+            # Insert into linking table (using name as per schema)
+            db.execute_insert(
+                "INSERT INTO event_equipment (event_id, equipment_name, quantity) VALUES (%s, %s, %s)", 
+                (event_id, name, quantity)
+            )
+        else:
+            # Optional: Log warning that equipment was not found
+            print(f"Warning: Equipment '{name}' not found in inventory.")
 
 
 def save_event_activities(db, event_id, activities_list):
@@ -40,14 +58,21 @@ def save_budget_breakdown(db, event_id, breakdown):
 
 def get_event_equipment(db, event_id):
     """Get equipment list for an event"""
-    rows = db.execute_query(
-        "SELECT equipment_name, quantity FROM event_equipment WHERE event_id = %s ORDER BY id",
-        (event_id,)
-    )
+    # Get equipment names directly from linking table
+    query = """
+        SELECT equipment_name, quantity 
+        FROM event_equipment
+        WHERE event_id = %s 
+        ORDER BY equipment_name
+    """
+    rows = db.execute_query(query, (event_id,))
+    
     if not rows:
         return []
-    # Return objects with equipment_name and quantity
-    return [{"equipment_name": row['equipment_name'], "quantity": row.get('quantity', 1)} for row in rows]
+    
+    # Return objects with name and quantity to match frontend expectations
+    # Frontend expects: { equipment_name: "Projector", quantity: 1 }
+    return [{'equipment_name': row['equipment_name'], 'quantity': row['quantity']} for row in rows]
 
 
 def get_event_activities(db, event_id):

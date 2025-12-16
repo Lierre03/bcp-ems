@@ -1,5 +1,6 @@
 // AdminDashboard - Main dashboard component (Reusable)
 const { useState, useEffect } = React;
+const Sidebar = window.Sidebar;
 
 window.AdminDashboard = function AdminDashboard() {
   const [user, setUser] = useState(null);
@@ -25,54 +26,41 @@ window.AdminDashboard = function AdminDashboard() {
     }
   };
 
+  const menuItems = [
+    {
+      id: 'events',
+      label: 'Events Manager',
+      icon: <svg className="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
+    },
+    {
+      id: 'resources',
+      label: 'Resource Management',
+      icon: <svg className="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" /></svg>
+    }
+  ];
+
   return (
     <div className="flex h-screen bg-gray-50">
-      <div className="w-64 bg-gradient-to-b from-blue-950 to-blue-900 text-white flex flex-col">
-        <div className="p-6 border-b border-blue-800">
-          <div className="flex flex-col items-center text-center">
-            <div className="w-16 h-16 bg-white rounded-full flex items-center justify-center text-2xl font-bold text-blue-900 mb-3">
-              {user && user.username ? user.username.charAt(0).toUpperCase() : 'A'}
-            </div>
-            <p className="font-bold text-white text-sm">{user && user.full_name ? user.full_name : 'Admin'}</p>
-            <p className="text-blue-300 text-xs mt-1">{user && user.role_name ? user.role_name : 'Administrator'}</p>
-          </div>
-        </div>
-
-        <nav className="flex-1 p-6 space-y-2">
-          <button 
-            onClick={() => setActiveView('events')}
-            className={`w-full flex items-center px-4 py-3 rounded-lg transition ${activeView === 'events' ? 'bg-blue-700 text-white' : 'text-blue-100 hover:bg-blue-800'}`}
-          >
-            <span className="mr-3 font-bold">📋</span>
-            <span className="text-sm font-medium">Events Manager</span>
-          </button>
-          
-          <button 
-            onClick={() => setActiveView('resources')}
-            className={`w-full flex items-center px-4 py-3 rounded-lg transition ${activeView === 'resources' ? 'bg-blue-700 text-white' : 'text-blue-100 hover:bg-blue-800'}`}
-          >
-            <span className="mr-3 font-bold">🏢</span>
-            <span className="text-sm font-medium">Resources</span>
-          </button>
-        </nav>
-
-        <div className="p-6 border-t border-blue-800">
-          <button onClick={handleLogout} className="w-full px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition text-sm font-semibold">
-            Logout
-          </button>
-          <p className="text-blue-300 text-xs mt-4 text-center">© 2025 School Event Management</p>
-        </div>
-      </div>
+      <Sidebar 
+        user={user}
+        menuItems={menuItems}
+        activeView={activeView}
+        onViewChange={setActiveView}
+        onLogout={handleLogout}
+      />
 
       <div className="flex-1 flex flex-col overflow-hidden">
-        <header className="bg-white border-b border-gray-200 px-8 py-4 shadow-sm">
-          <p className="text-blue-600 text-sm font-medium mb-1">Admin Dashboard</p>
+        <header className="bg-white border-b border-gray-200 px-6 py-3 shadow-sm">
+          <p className="text-blue-600 text-xs font-medium mb-0.5">Admin Dashboard</p>
           <h1 className="text-2xl font-bold text-gray-900">
             {activeView === 'events' ? 'Events Manager' : 'Resource Management'}
           </h1>
+          <p className="text-gray-500 text-xs mt-1">
+            {activeView === 'events' ? 'Create, manage, and track all school events' : 'Manage venues, equipment, and view schedules'}
+          </p>
         </header>
 
-        <main className="flex-1 overflow-y-auto p-8">
+        <main className="flex-1 overflow-y-auto p-4">
           {activeView === 'events' && <AdminEventsManager />}
           {activeView === 'resources' && <ResourceManagement userRole={user ? user.role_name : 'Admin'} />}
         </main>

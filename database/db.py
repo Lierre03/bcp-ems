@@ -40,9 +40,9 @@ class Database:
     
     def get_connection(self):
         """Get active connection or create new one"""
-        if self.connection is None or not self.connection.open:
-            return self.connect()
-        return self.connection
+        # Always create a new connection to avoid thread safety issues
+        # In production, use a proper connection pool
+        return self.connect()
     
     def close(self):
         """Close database connection"""
@@ -57,13 +57,19 @@ class Database:
         cursor = conn.cursor()
         try:
             yield cursor
-            conn.commit()
+            # Don't commit if autocommit is enabled
+            if not self.config.get('autocommit', False):
+                conn.commit()
         except Exception as e:
-            conn.rollback()
+            # Don't rollback if autocommit is enabled
+            if not self.config.get('autocommit', False):
+                conn.rollback()
             logger.error(f"Database error: {e}")
             raise
         finally:
             cursor.close()
+            # Close the connection after each request to prevent reuse issues
+            conn.close()
     
     def execute_query(self, query, params=None):
         """Execute SELECT query and return results"""

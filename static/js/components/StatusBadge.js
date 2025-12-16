@@ -1,7 +1,6 @@
 // StatusBadge Component - Reusable status display with color coding
 window.StatusBadge = function StatusBadge({ status }) {
   const statusColors = {
-    'Draft': 'bg-gray-100 text-gray-700 border-gray-300',
     'Pending': 'bg-yellow-100 text-yellow-700 border-yellow-300',
     'Under Review': 'bg-blue-100 text-blue-700 border-blue-300',
     'Approved': 'bg-green-100 text-green-700 border-green-300',

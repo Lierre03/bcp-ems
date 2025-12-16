@@ -76,6 +76,11 @@ def create_app(config_name='development'):
     def admin():
         """Serve admin dashboard"""
         return send_from_directory(app.template_folder, 'admin.html')
+
+    @app.route('/staff')
+    def staff():
+        """Serve staff dashboard"""
+        return send_from_directory(app.template_folder, 'staff.html')
     
     @app.route('/static/<path:filename>')
     def serve_static(filename):

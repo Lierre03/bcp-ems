@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Staff Dashboard - School Event Management</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <script src="https://unpkg.com/lucide-react@latest"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        html, body, #root { width: 100%; height: 100%; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif; }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+    
+    <!-- Authentication utilities -->
+    <script src="/static/js/auth.js"></script>
+    
+    <!-- Components -->
+    <script type="text/babel" src="/static/js/components/Sidebar.js"></script>
+    <script type="text/babel" src="/static/js/pages/StaffEquipmentApprovals.js"></script>
+    
+    <!-- Main Dashboard Script -->
+    <script type="text/babel">
+        const { useState, useEffect } = React;
+        const Sidebar = window.Sidebar;
+        const EquipmentApprovals = window.EquipmentApprovals;
+
+        function StaffDashboard() {
+            const [user, setUser] = useState(null);
+            const [activeView, setActiveView] = useState('approvals');
+
+            useEffect(() => {
+                const userJson = localStorage.getItem('user');
+                if (userJson) {
+                    setUser(JSON.parse(userJson));
+                }
+            }, []);
+
+            const handleLogout = async () => {
+                try {
+                    await fetch('/api/auth/logout', { method: 'POST' });
+                    localStorage.removeItem('user');
+                    window.location.href = '/';
+                } catch (error) {
+                    console.error('Logout failed:', error);
+                }
+            };
+
+            const menuItems = [
+                {
+                    id: 'approvals',
+                    label: 'Equipment Approvals',
+                    icon: <svg className="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                },
+                // Add other staff menu items here
+            ];
+
+            return (
+                <div className="flex h-screen bg-gray-50">
+                    <Sidebar 
+                        user={user}
+                        menuItems={menuItems}
+                        activeView={activeView}
+                        onViewChange={setActiveView}
+                        onLogout={handleLogout}
+                    />
+
+                    <div className="flex-1 flex flex-col overflow-hidden">
+                        <header className="bg-white border-b border-gray-200 px-8 py-4 shadow-sm">
+                            <p className="text-blue-600 text-sm font-medium mb-1">Staff Portal</p>
+                            <p className="text-gray-500 text-sm mb-2">
+                                {activeView === 'approvals' ? 'Review and approve equipment requests for upcoming events' : 'Manage your staff operations'}
+                            </p>
+                            <h1 className="text-3xl font-bold text-gray-900">
+                                {activeView === 'approvals' ? 'Equipment Approvals' : 'Dashboard'}
+                            </h1>
+                        </header>
+
+                        <main className="flex-1 overflow-y-auto bg-gray-50">
+                            {activeView === 'approvals' && <EquipmentApprovals />}
+                        </main>
+                    </div>
+                </div>
+            );
+        }
+
+        // Authentication check
+        checkAuth();
+
+        // Render
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<StaffDashboard />);
+    </script>
+</body>
+</html>

@@ -13,6 +13,7 @@ from backend.api_venues import get_venue_conflicts
 from database.db import get_db
 from datetime import datetime
 import logging
+import traceback
 
 logger = logging.getLogger(__name__)
 
@@ -26,20 +27,17 @@ events_bp = Blueprint('events', __name__, url_prefix='/api/events')
 
 # Valid status transitions: {current_status: {action: (new_status, allowed_roles)}}
 STATUS_TRANSITIONS = {
-    'Draft': {
-        'submit': ('Pending', ['Super Admin', 'Admin', 'Requestor'])
-    },
     'Pending': {
         'review': ('Under Review', ['Super Admin', 'Admin', 'Staff']),
-        'reject': ('Draft', ['Super Admin', 'Admin', 'Staff'])
+        'reject': ('Rejected', ['Super Admin', 'Admin', 'Staff'])
     },
     'Under Review': {
         'approve': ('Approved', ['Super Admin', 'Admin']),
-        'reject': ('Draft', ['Super Admin', 'Admin'])
+        'reject': ('Rejected', ['Super Admin', 'Admin'])
     },
     'Approved': {
         'start': ('Ongoing', ['Super Admin', 'Admin', 'Staff']),
-        'reject': ('Draft', ['Super Admin', 'Admin'])
+        'reject': ('Rejected', ['Super Admin', 'Admin'])
     },
     'Ongoing': {
         'complete': ('Completed', ['Super Admin', 'Admin', 'Staff'])
@@ -51,10 +49,10 @@ STATUS_TRANSITIONS = {
 
 # Status display info for frontend
 STATUS_INFO = {
-    'Draft': {'color': 'gray', 'icon': 'edit', 'label': 'Draft'},
     'Pending': {'color': 'yellow', 'icon': 'clock', 'label': 'Pending Approval'},
     'Under Review': {'color': 'blue', 'icon': 'search', 'label': 'Under Review'},
     'Approved': {'color': 'green', 'icon': 'check', 'label': 'Approved'},
+    'Rejected': {'color': 'red', 'icon': 'x', 'label': 'Rejected'},
     'Ongoing': {'color': 'purple', 'icon': 'play', 'label': 'Ongoing'},
     'Completed': {'color': 'teal', 'icon': 'flag', 'label': 'Completed'},
     'Archived': {'color': 'slate', 'icon': 'archive', 'label': 'Archived'}
@@ -91,17 +89,16 @@ def _handle_conflicts(db, event_id, action_on_conflict):
     )
     
     for conflict in conflicts:
-        # Set conflicting event to Draft (or Rejected/Pending)
-        # Using 'Draft' so they can reschedule
+        # Set conflicting event to Pending (can be rescheduled)
         db.execute_update(
-            "UPDATE events SET status = 'Draft', updated_at = NOW() WHERE id = %s",
+            "UPDATE events SET status = 'Pending', updated_at = NOW() WHERE id = %s",
             (conflict['id'],)
         )
         
         # Log history
         db.execute_insert(
             """INSERT INTO event_status_history (event_id, old_status, new_status, changed_by, reason)
-               VALUES (%s, %s, 'Draft', %s, %s)""",
+               VALUES (%s, %s, 'Pending', %s, %s)""",
             (conflict['id'], conflict['status'], session['user_id'], f"Displaced by high priority event #{event_id}")
         )
         logger.info(f"Event {conflict['id']} displaced by {event_id}")
@@ -179,8 +176,11 @@ def get_events():
     Get all events (with optional filters)
     GET /api/events?status=Planning&type=Academic&requestor_id=5
     """
+    print("\n=== GET /api/events called ===")
+    print(f"User role: {session.get('role_name')}")
     try:
         db = get_db()
+        print("Database connection obtained")
         
         # Build query with filters - use aliases to match frontend expectations
         query = """
@@ -224,6 +224,15 @@ def get_events():
         
         events = db.execute_query(query, tuple(params))
         
+        # Convert Decimal types to float for JSON serialization
+        for e in events:
+            try:
+                if e.get('budget') is not None:
+                    e['budget'] = float(e['budget'])
+            except Exception as conversion_err:
+                logger.error(f"Error converting budget for event {e.get('id')}: {conversion_err}")
+                e['budget'] = 0.0
+        
         return jsonify({
             'success': True,
             'events': events,
@@ -232,7 +241,14 @@ def get_events():
         
     except Exception as e:
         logger.error(f"Get events error: {e}")
-        return jsonify({'error': 'Failed to fetch events', 'details': str(e)}), 500
+        import traceback
+        traceback_str = traceback.format_exc()
+        print(traceback_str) # Ensure it prints to stdout/stderr
+        return jsonify({
+            'error': 'Failed to fetch events', 
+            'details': str(e),
+            'traceback': traceback_str
+        }), 500
 
 
 @events_bp.route('/<int:event_id>', methods=['GET'])
@@ -254,6 +270,16 @@ def get_event(event_id):
         
         if not event:
             return jsonify({'error': 'Event not found'}), 404
+            
+        # Convert Decimal types
+        if event.get('total_budget') is not None:
+            event['total_budget'] = float(event['total_budget'])
+        if event.get('budget') is not None:
+            event['budget'] = float(event['budget'])
+        if event.get('spent') is not None:
+            event['spent'] = float(event['spent'])
+        if event.get('prediction_confidence') is not None:
+            event['prediction_confidence'] = float(event['prediction_confidence'])
         
         # Get related data
         event['equipment'] = get_event_equipment(db, event_id)
@@ -269,6 +295,14 @@ def get_event(event_id):
                  event['end_datetime'], 
                  exclude_event_id=event_id
              )
+             
+             # Format conflict dates to ISO strings to prevent timezone shifting in frontend
+             for conflict in conflicts:
+                 if conflict.get('start_datetime'):
+                     conflict['start_datetime'] = conflict['start_datetime'].isoformat()
+                 if conflict.get('end_datetime'):
+                     conflict['end_datetime'] = conflict['end_datetime'].isoformat()
+                     
              event['conflicts'] = conflicts
              event['has_conflicts'] = len(conflicts) > 0
         else:
@@ -337,7 +371,7 @@ def create_event():
             data.get('venue', ''),
             data.get('organizer', ''),
             data.get('expected_attendees', 0),
-            data.get('status', 'Draft'),
+            data.get('status', 'Pending'),
             session['user_id']
         ))
         
@@ -360,7 +394,7 @@ def create_event():
         """
         db.execute_insert(history_query, (
             event_id,
-            data.get('status', 'Draft'),
+            data.get('status', 'Pending'),
             session['user_id'],
             'Event created'
         ))
