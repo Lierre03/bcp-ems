@@ -4,7 +4,7 @@ const Sidebar = window.Sidebar;
 
 window.AdminDashboard = function AdminDashboard() {
   const [user, setUser] = useState(null);
-  const [activeView, setActiveView] = useState('events'); // 'events' or 'resources'
+  const [activeView, setActiveView] = useState('events'); // 'events', 'resources', or 'users'
 
   useEffect(() => {
     const userJson = localStorage.getItem('user');
@@ -26,6 +26,8 @@ window.AdminDashboard = function AdminDashboard() {
     }
   };
 
+  const isSuperAdmin = user && user.role_name === 'Super Admin';
+
   const menuItems = [
     {
       id: 'events',
@@ -36,7 +38,12 @@ window.AdminDashboard = function AdminDashboard() {
       id: 'resources',
       label: 'Resource Management',
       icon: <svg className="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" /></svg>
-    }
+    },
+    ...(isSuperAdmin ? [{
+      id: 'users',
+      label: 'User Management',
+      icon: <svg className="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" /></svg>
+    }] : [])
   ];
 
   return (
@@ -53,16 +60,19 @@ window.AdminDashboard = function AdminDashboard() {
         <header className="bg-white border-b border-gray-200 px-6 py-3 shadow-sm">
           <p className="text-blue-600 text-xs font-medium mb-0.5">Admin Dashboard</p>
           <h1 className="text-2xl font-bold text-gray-900">
-            {activeView === 'events' ? 'Events Manager' : 'Resource Management'}
+            {activeView === 'events' ? 'Events Manager' : activeView === 'resources' ? 'Resource Management' : 'User Management'}
           </h1>
           <p className="text-gray-500 text-xs mt-1">
-            {activeView === 'events' ? 'Create, manage, and track all school events' : 'Manage venues, equipment, and view schedules'}
+            {activeView === 'events' ? 'Create, manage, and track all school events' : 
+             activeView === 'resources' ? 'Manage venues, equipment, and view schedules' :
+             'Manage system users and permissions'}
           </p>
         </header>
 
         <main className="flex-1 overflow-y-auto p-4">
           {activeView === 'events' && <AdminEventsManager />}
           {activeView === 'resources' && <ResourceManagement userRole={user ? user.role_name : 'Admin'} />}
+          {activeView === 'users' && <UserManagement />}
         </main>
       </div>
     </div>

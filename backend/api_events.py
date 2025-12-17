@@ -478,6 +478,10 @@ def update_event(event_id):
                     "INSERT INTO budgets (event_id, total_budget) VALUES (%s, %s)",
                     (event_id, data['budget'])
                 )
+
+        # Update activities timeline if provided
+        if 'activities' in data:
+            save_event_activities(db, event_id, data.get('activities') or [])
         
         # Log status change if status updated
         if 'status' in data and data['status'] != event['status']:

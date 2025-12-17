@@ -2,6 +2,19 @@
 window.EventTimelineGenerator = function EventTimelineGenerator({ timelineData }) {
   const [expandedPhase, setExpandedPhase] = React.useState(0);
   if (!timelineData) return null;
+  
+  // Convert 24-hour time to 12-hour format with AM/PM
+  const formatTime12Hour = (time) => {
+    if (!time || time === 'TBD') return time;
+    const match = time.match(/^(\d{2}):(\d{2})$/);
+    if (!match) return time;
+    let [, hours, minutes] = match;
+    hours = parseInt(hours);
+    const ampm = hours >= 12 ? 'PM' : 'AM';
+    hours = hours % 12 || 12;
+    return `${hours.toString().padStart(2, '0')}:${minutes} ${ampm}`;
+  };
+  
   return (
     <div className="bg-white rounded-lg border border-slate-200 shadow-md overflow-hidden">
       <div className="bg-gradient-to-r from-purple-600 to-pink-600 px-4 py-3 border-b border-purple-700">
@@ -21,7 +34,7 @@ window.EventTimelineGenerator = function EventTimelineGenerator({ timelineData }
                   </div>
                   <div className="text-left">
                     <p className="font-semibold text-slate-700 text-sm">{phase.phase}</p>
-                    <p className="text-xs text-slate-600">{phase.startTime} - {phase.endTime}</p>
+                    <p className="text-xs text-slate-600">{formatTime12Hour(phase.startTime)} - {formatTime12Hour(phase.endTime)}</p>
                   </div>
                 </div>
                 <svg className={`w-4 h-4 text-slate-600 transition ${expandedPhase === idx ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 14l-7 7m0 0l-7-7m7 7V3" /></svg>
@@ -38,7 +51,7 @@ window.EventTimelineGenerator = function EventTimelineGenerator({ timelineData }
                     </div>
                     <div className="bg-purple-50 rounded p-2">
                       <p className="text-slate-600">Time</p>
-                      <p className="font-bold text-purple-700">{phase.startTime}-{phase.endTime}</p>
+                      <p className="font-bold text-purple-700">{formatTime12Hour(phase.startTime)}-{formatTime12Hour(phase.endTime)}</p>
                     </div>
                   </div>
                 </div>

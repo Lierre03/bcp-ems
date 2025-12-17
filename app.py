@@ -19,6 +19,7 @@ from backend.auth import auth_bp
 from backend.api_events import events_bp
 from backend.api_ml import ml_bp
 from backend.api_venues import venues_bp
+from backend.api_users import users_bp
 
 
 # ============================================================================
@@ -57,6 +58,8 @@ def create_app(config_name='development'):
     print("DEBUG: ML blueprint registered")
     app.register_blueprint(venues_bp)
     print("DEBUG: Venues blueprint registered")
+    app.register_blueprint(users_bp)
+    print("DEBUG: Users blueprint registered")
     
     # Test route
     @app.route('/test')

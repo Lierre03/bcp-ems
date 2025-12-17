@@ -33,6 +33,38 @@ window.AdminEventsManager = function AdminEventsManager() {
   });
   const [venueOptions, setVenueOptions] = useState(['Auditorium', 'Gymnasium', 'Main Hall', 'Cafeteria', 'Lab', 'Courtyard', 'Library']);
 
+  // Helpers
+  const formatDate = (dateStr) => {
+    if (!dateStr) return '—';
+    try {
+      const d = new Date(dateStr);
+      return new Intl.DateTimeFormat('en', {
+        month: 'short',
+        day: 'numeric',
+        year: 'numeric'
+      }).format(d);
+    } catch {
+      return dateStr;
+    }
+  };
+
+  const formatTimeRange = (start, end) => {
+    if (!start && !end) return '—';
+    const to12h = (t) => {
+      if (!t) return '';
+      const [h, m] = t.split(':');
+      const date = new Date();
+      date.setHours(parseInt(h, 10), parseInt(m, 10));
+      return new Intl.DateTimeFormat('en', {
+        hour: 'numeric',
+        minute: '2-digit'
+      }).format(date);
+    };
+    const startFmt = to12h(start);
+    const endFmt = to12h(end);
+    return `${startFmt}${endFmt ? ` – ${endFmt}` : ''}`;
+  };
+
   useEffect(() => {
     loadEvents();
     loadEquipment();
@@ -447,29 +479,29 @@ window.AdminEventsManager = function AdminEventsManager() {
       </div>
 
       {/* Events Table */}
-      <div className="bg-white rounded-lg border border-slate-200 shadow-sm overflow-hidden">
+      <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
         <table className="w-full">
-          <thead className="bg-slate-700 text-white">
+          <thead className="bg-slate-50 text-slate-600 border-b border-slate-200">
             <tr>
               <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider">
                 Event Name
-                <span className="ml-1 text-slate-300">↕</span>
+                <span className="ml-1 text-slate-400">↕</span>
               </th>
               <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider">
                 Type
-                <span className="ml-1 text-slate-300">↕</span>
+                <span className="ml-1 text-slate-400">↕</span>
               </th>
               <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider">
-                Date
-                <span className="ml-1 text-slate-300">↕</span>
+                Schedule
+                <span className="ml-1 text-slate-400">↕</span>
               </th>
               <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider">
                 Budget
-                <span className="ml-1 text-slate-300">↕</span>
+                <span className="ml-1 text-slate-400">↕</span>
               </th>
               <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider">
                 Status
-                <span className="ml-1 text-slate-300">↕</span>
+                <span className="ml-1 text-slate-400">↕</span>
               </th>
               <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider">Approvals</th>
               <th className="px-4 py-3 text-center text-xs font-semibold uppercase tracking-wider">Actions</th>
@@ -482,14 +514,14 @@ window.AdminEventsManager = function AdminEventsManager() {
                 <tr key={event.id} className="hover:bg-slate-50 transition-colors">
                   <td className="px-4 py-3.5">
                     <div className="flex items-center gap-2">
-                      <div className="w-8 h-8 bg-slate-100 rounded-lg flex items-center justify-center flex-shrink-0">
-                        <svg className="w-4 h-4 text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <div className="w-9 h-9 bg-slate-100 rounded-lg flex items-center justify-center flex-shrink-0">
+                        <svg className="w-5 h-5 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                         </svg>
                       </div>
                       <div>
-                        <div className="font-semibold text-slate-900 text-sm">{event.name}</div>
-                        <div className="text-xs text-slate-500">{event.organizer}</div>
+                        <div className="font-semibold text-slate-900 text-sm leading-tight">{event.name}</div>
+                        <div className="text-xs text-slate-500">{event.organizer || '—'}</div>
                       </div>
                     </div>
                   </td>
@@ -506,18 +538,18 @@ window.AdminEventsManager = function AdminEventsManager() {
                     </span>
                   </td>
                   <td className="px-4 py-3.5">
-                    <div className="flex items-center gap-2">
-                      <svg className="w-4 h-4 text-slate-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                      </svg>
-                      <div>
-                        <div className="text-sm text-slate-900 font-medium">{event.date}</div>
-                        <div className="text-xs text-slate-500 flex items-center gap-1">
-                          <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                          </svg>
-                          {event.startTime} - {event.endTime}
-                        </div>
+                    <div className="space-y-1">
+                      <div className="flex items-center gap-2 text-sm text-slate-900 font-medium">
+                        <svg className="w-4 h-4 text-slate-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                        </svg>
+                        <span>{formatDate(event.date)}</span>
+                      </div>
+                      <div className="flex items-center gap-1 text-xs text-slate-500">
+                        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                        <span>{formatTimeRange(event.startTime, event.endTime)}</span>
                       </div>
                     </div>
                   </td>
@@ -531,41 +563,27 @@ window.AdminEventsManager = function AdminEventsManager() {
                     <ApprovalActions event={event} userRole={user.role_name} onSuccess={loadEvents} />
                   </td>
                   <td className="px-4 py-3.5">
-                    <div className="flex items-center justify-center gap-1">
+                    <div className="flex items-center justify-center gap-1.5">
                       <button 
                         onClick={() => handleEditEvent(event)} 
-                        className="p-1.5 text-slate-600 hover:bg-slate-100 rounded-lg transition-colors" 
+                        className="px-2.5 py-1.5 text-slate-600 hover:bg-slate-100 rounded-lg transition-colors border border-transparent hover:border-slate-200 text-xs font-medium" 
                         title="Edit"
                       >
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                        </svg>
+                        Edit
                       </button>
                       <button 
                         onClick={() => setSelectedEventHistory(event.id)} 
-                        className="p-1.5 text-slate-600 hover:bg-slate-100 rounded-lg transition-colors" 
+                        className="px-2.5 py-1.5 text-slate-600 hover:bg-slate-100 rounded-lg transition-colors border border-transparent hover:border-slate-200 text-xs font-medium" 
                         title="History"
                       >
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                        </svg>
+                        History
                       </button>
                       <button 
                         onClick={() => handleDeleteEvent(event.id)} 
-                        className="p-1.5 text-red-600 hover:bg-red-50 rounded-lg transition-colors" 
+                        className="px-2.5 py-1.5 text-red-600 hover:bg-red-50 rounded-lg transition-colors border border-transparent hover:border-red-200 text-xs font-medium" 
                         title="Delete"
                       >
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                        </svg>
-                      </button>
-                      <button 
-                        className="p-1.5 text-slate-600 hover:bg-slate-100 rounded-lg transition-colors" 
-                        title="More options"
-                      >
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z" />
-                        </svg>
+                        Delete
                       </button>
                     </div>
                   </td>
