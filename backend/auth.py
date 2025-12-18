@@ -143,6 +143,124 @@ def logout():
         return jsonify({'error': 'Logout failed'}), 500
 
 
+@auth_bp.route('/register', methods=['POST'])
+def register():
+    """
+    Student registration endpoint
+    POST /api/auth/register
+    Body: {
+        "first_name": "John",
+        "last_name": "Doe",
+        "email": "john@example.com",
+        "username": "johndoe",
+        "password": "securepassword"
+    }
+    """
+    try:
+        data = request.json
+        first_name = data.get('first_name', '').strip()
+        last_name = data.get('last_name', '').strip()
+        email = data.get('email', '').strip()
+        username = data.get('username', '').strip()
+        password = data.get('password', '')
+        course = data.get('course', '').strip()
+        section = data.get('section', '').strip()
+
+        # Validate input
+        if not all([first_name, last_name, email, username, password, course, section]):
+            return jsonify({
+                'success': False,
+                'message': 'All fields are required (first_name, last_name, email, username, password, course, section)'
+            }), 400
+
+        if len(password) < 8:
+            return jsonify({
+                'success': False,
+                'message': 'Password must be at least 8 characters'
+            }), 400
+
+        # Email validation
+        if '@' not in email or '.' not in email:
+            return jsonify({
+                'success': False,
+                'message': 'Invalid email address'
+            }), 400
+
+        db = get_db()
+
+        # Check if username already exists
+        existing_user = db.execute_one(
+            'SELECT id FROM users WHERE username = %s',
+            (username,)
+        )
+        if existing_user:
+            return jsonify({
+                'success': False,
+                'message': 'Username already exists'
+            }), 400
+
+        # Check if email already exists
+        existing_email = db.execute_one(
+            'SELECT id FROM users WHERE email = %s',
+            (email,)
+        )
+        if existing_email:
+            return jsonify({
+                'success': False,
+                'message': 'Email already registered'
+            }), 400
+
+        # Get Participant role ID (students register as Participant)
+        role = db.execute_one(
+            'SELECT id FROM roles WHERE name = %s',
+            ('Participant',)
+        )
+        if not role:
+            return jsonify({
+                'success': False,
+                'message': 'System error: Participant role not found'
+            }), 500
+
+        role_id = role['id']
+
+        # Hash password using bcrypt
+        hashed_password = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt(rounds=12)).decode('utf-8')
+
+        # Insert new user
+        user_id = db.execute_insert('''
+            INSERT INTO users (username, email, password_hash, first_name, last_name, role_id, is_active)
+            VALUES (%s, %s, %s, %s, %s, %s, 1)
+        ''', (username, email, hashed_password, first_name, last_name, role_id))
+
+        # Insert into students table
+        if user_id:
+            db.execute_insert('''
+                INSERT INTO students (user_id, course, section)
+                VALUES (%s, %s, %s)
+            ''', (user_id, course, section))
+            
+            logger.info(f"New student registered: {username} ({email}) - {course} {section}")
+
+            return jsonify({
+                'success': True,
+                'message': 'Account created successfully. Please log in.'
+            }), 201
+        else:
+             return jsonify({
+                'success': False,
+                'message': 'Failed to create user record.'
+            }), 500
+
+    except Exception as e:
+        logger.error(f"Registration error: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({
+            'success': False,
+            'message': 'Registration failed. Please try again.'
+        }), 500
+
+
 @auth_bp.route('/session', methods=['GET'])
 def check_session():
     """

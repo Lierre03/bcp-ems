@@ -75,6 +75,11 @@ def create_app(config_name='development'):
         """Serve login page"""
         return render_template('login.html')
     
+    @app.route('/register')
+    def register():
+        """Serve registration page"""
+        return render_template('register.html')
+    
     @app.route('/admin')
     def admin():
         """Serve admin dashboard"""
