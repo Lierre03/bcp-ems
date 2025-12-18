@@ -17,6 +17,9 @@ from database.db import init_db
 # Import blueprints
 from backend.auth import auth_bp
 from backend.api_events import events_bp
+from backend.api_feedback import feedback_bp
+from backend.api_registrations import registration_bp
+from backend.api_attendance import attendance_bp
 from backend.api_ml import ml_bp
 from backend.api_venues import venues_bp
 from backend.api_users import users_bp
@@ -50,10 +53,16 @@ def create_app(config_name='development'):
     
     # Register blueprints
     print("DEBUG: About to register blueprints")
+    app.register_blueprint(attendance_bp)
+    print("DEBUG: Attendance blueprint registered")
     app.register_blueprint(auth_bp)
     print("DEBUG: Auth blueprint registered")
     app.register_blueprint(events_bp)
     print("DEBUG: Events blueprint registered")
+    app.register_blueprint(feedback_bp)
+    print("DEBUG: Feedback blueprint registered")
+    app.register_blueprint(registration_bp)
+    print("DEBUG: Registration blueprint registered")
     app.register_blueprint(ml_bp)
     print("DEBUG: ML blueprint registered")
     app.register_blueprint(venues_bp)
@@ -89,7 +98,12 @@ def create_app(config_name='development'):
     def staff():
         """Serve staff dashboard"""
         return send_from_directory(app.template_folder, 'staff.html')
-    
+
+    @app.route('/student')
+    def student():
+        """Serve student dashboard"""
+        return send_from_directory(app.template_folder, 'student.html')
+
     @app.route('/static/<path:filename>')
     def serve_static(filename):
         """Serve static files"""

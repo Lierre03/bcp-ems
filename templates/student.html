@@ -1,0 +1,900 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Student Dashboard - School Event Management</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <script src="https://unpkg.com/lucide-react@latest"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        html, body, #root { width: 100%; height: 100%; }
+        body { font-family: 'Inter', 'Roboto', sans-serif; }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+
+    <!-- Authentication utilities -->
+    <script src="/static/js/auth.js"></script>
+
+    <!-- Components -->
+    <script type="text/babel" src="/static/js/components/Sidebar.js"></script>
+    <script type="text/babel" src="/static/js/components/StudentEventCalendar.js"></script>
+    <script type="text/babel" src="/static/js/components/FeedbackModal.js"></script>
+
+    <!-- Main Dashboard Script -->
+    <script type="text/babel">
+        const { useState, useEffect } = React;
+        const Sidebar = window.Sidebar;
+
+        function StudentDashboard() {
+            const [user, setUser] = useState(null);
+            const [activeView, setActiveView] = useState('calendar');
+
+            useEffect(() => {
+                const userJson = localStorage.getItem('user');
+                if (userJson) {
+                    setUser(JSON.parse(userJson));
+                }
+            }, []);
+
+
+
+            const handleLogout = async () => {
+                try {
+                    await fetch('/api/auth/logout', { method: 'POST' });
+                    localStorage.removeItem('user');
+                    window.location.href = '/';
+                } catch (error) {
+                    console.error('Logout failed:', error);
+                }
+            };
+
+            const loadMyRegistrations = async () => {
+                try {
+                    const response = await fetch('/api/registration/my-registrations', {
+                        credentials: 'include'
+                    });
+
+                    const data = await response.json();
+
+                    if (response.ok && data.success) {
+                        const registrations = data.registrations;
+                        const registeredCount = registrations.filter(r => r.registration_status === 'Registered').length;
+                        const waitlistCount = registrations.filter(r => r.registration_status === 'Waitlisted').length;
+                        const upcomingCount = registrations.filter(r => new Date(r.start_datetime) > new Date()).length;
+
+                        document.getElementById('registeredCount').textContent = registeredCount;
+                        document.getElementById('waitlistCount').textContent = waitlistCount;
+                        document.getElementById('upcomingCount').textContent = upcomingCount;
+
+                        const container = document.getElementById('registrationsContainer');
+                        const loading = document.getElementById('registrationsLoading');
+                        const noRegistrations = document.getElementById('noRegistrations');
+
+                        loading.classList.add('hidden');
+
+                        if (registrations.length === 0) {
+                            noRegistrations.classList.remove('hidden');
+                            return;
+                        }
+
+                        container.classList.remove('hidden');
+                        container.innerHTML = '';
+
+                        registrations.forEach(reg => {
+                            const statusColor = reg.registration_status === 'Registered' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800';
+                            const statusText = reg.registration_status === 'Registered' ? '✅ Confirmed' : '⏳ Waitlisted';
+
+                            const card = document.createElement('div');
+                            card.className = 'border border-gray-200 rounded-lg p-6 hover:shadow-md transition';
+                            card.innerHTML = `
+                                <div class="flex justify-between items-start mb-4">
+                                    <div class="flex-1">
+                                        <h3 class="font-semibold text-gray-900 mb-1">${reg.name}</h3>
+                                        <p class="text-sm text-gray-600 mb-2">${new Date(reg.start_datetime).toLocaleDateString()} • ${reg.venue} • ${new Date(reg.start_datetime).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}</p>
+                                        <div class="flex items-center gap-4 text-sm">
+                                            <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${statusColor}">
+                                                ${statusText}
+                                            </span>
+                                            <span class="text-gray-500">Reg ID: #${reg.id}</span>
+                                        </div>
+                                    </div>
+                                    <div class="flex gap-2">
+                                        ${reg.registration_status === 'Registered' ? '<button class="px-3 py-1 border border-red-300 text-red-700 rounded-lg text-sm hover:bg-red-50 transition cancel-btn" data-event-id="' + reg.event_id + '">Cancel</button>' : '<button class="px-3 py-1 border border-gray-300 text-gray-700 rounded-lg text-sm hover:bg-gray-50 transition">Leave Waitlist</button>'}
+                                    </div>
+                                </div>
+
+                                <!-- QR Code Section for Confirmed Registrations -->
+                                ${reg.registration_status === 'Registered' ? `
+                                <div class="border-t border-gray-100 pt-4">
+                                    <div class="flex items-center justify-between mb-3">
+                                        <h4 class="text-sm font-medium text-gray-900">Attendance QR Code</h4>
+                                        <button class="text-blue-600 hover:text-blue-800 text-sm font-medium qr-btn" data-reg-id="${reg.id}">
+                                            Show QR Code
+                                        </button>
+                                    </div>
+                                    <div class="qr-container-${reg.id} hidden bg-gray-50 border border-gray-200 rounded-lg p-4">
+                                        <div class="flex items-center justify-between mb-3">
+                                            <span class="text-sm text-gray-600">Show this QR code at the event entrance</span>
+                                            <div class="flex gap-2">
+                                                <button class="text-green-600 hover:text-green-800 text-xs qr-download-btn" data-reg-id="${reg.id}">📥 Download</button>
+                                                <button class="text-blue-600 hover:text-blue-800 text-xs qr-close-btn" data-reg-id="${reg.id}">✕ Close</button>
+                                            </div>
+                                        </div>
+                                        <div class="qr-image-${reg.id} flex justify-center">
+                                            <div class="animate-pulse bg-gray-200 h-32 w-32 rounded-lg flex items-center justify-center">
+                                                <svg class="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M12 15h4.01M12 21h4.01M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M12 15h4.01M12 21h4.01M8 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M8 12h4.01M8 15h4.01M8 21h4.01" />
+                                                </svg>
+                                            </div>
+                                        </div>
+                                        <p class="text-xs text-gray-500 text-center mt-2">Loading QR code...</p>
+                                    </div>
+                                </div>
+                                ` : ''}
+                            `;
+
+                            container.appendChild(card);
+                        });
+
+                        // Add event listeners for cancel buttons
+                        document.querySelectorAll('.cancel-btn').forEach(btn => {
+                            btn.addEventListener('click', async (e) => {
+                                const eventId = e.target.dataset.eventId;
+                                if (confirm('Are you sure you want to cancel this registration?')) {
+                                    try {
+                                        const cancelResponse = await fetch(`/api/registration/unregister/${eventId}`, {
+                                            method: 'POST',
+                                            credentials: 'include'
+                                        });
+
+                                        const cancelData = await cancelResponse.json();
+
+                                        if (cancelResponse.ok && cancelData.success) {
+                                            alert('Registration cancelled successfully!');
+                                            loadMyRegistrations(); // Reload the list
+                                        } else {
+                                            alert(cancelData.error || 'Failed to cancel registration');
+                                        }
+                                    } catch (error) {
+                                        alert('Failed to cancel registration. Please try again.');
+                                    }
+                                }
+                            });
+                        });
+
+                        // Add event listeners for QR code buttons
+                        document.querySelectorAll('.qr-btn').forEach(btn => {
+                            btn.addEventListener('click', async (e) => {
+                                const regId = e.target.dataset.regId;
+                                const container = document.querySelector(`.qr-container-${regId}`);
+                                const imageContainer = document.querySelector(`.qr-image-${regId}`);
+
+                                if (container.classList.contains('hidden')) {
+                                    // Show QR container and load QR code
+                                    container.classList.remove('hidden');
+
+                                    try {
+                                        const response = await fetch(`/api/attendance/generate-qr/${regId}`, {
+                                            credentials: 'include'
+                                        });
+
+                                        const data = await response.json();
+
+                                        if (response.ok && data.success) {
+                                            imageContainer.innerHTML = `
+                                                <img src="${data.qr_image}" alt="QR Code" class="w-32 h-32 border border-gray-300 rounded-lg" />
+                                            `;
+                                        } else {
+                                            imageContainer.innerHTML = `
+                                                <div class="w-32 h-32 bg-red-50 border border-red-200 rounded-lg flex items-center justify-center">
+                                                    <span class="text-red-600 text-xs text-center">Failed to load QR code</span>
+                                                </div>
+                                            `;
+                                        }
+                                    } catch (error) {
+                                        console.error('QR code loading error:', error);
+                                        imageContainer.innerHTML = `
+                                            <div class="w-32 h-32 bg-red-50 border border-red-200 rounded-lg flex items-center justify-center">
+                                                <span class="text-red-600 text-xs text-center">Network error</span>
+                                            </div>
+                                        `;
+                                    }
+                                } else {
+                                    // Hide QR container
+                                    container.classList.add('hidden');
+                                }
+                            });
+                        });
+
+                        // Add event listeners for QR download buttons
+                        document.querySelectorAll('.qr-download-btn').forEach(btn => {
+                            btn.addEventListener('click', (e) => {
+                                const regId = e.target.dataset.regId;
+                                const img = document.querySelector(`.qr-image-${regId} img`);
+                                if (img) {
+                                    // Create download link
+                                    const link = document.createElement('a');
+                                    link.href = img.src;
+                                    link.download = `event-qr-${regId}.png`;
+                                    document.body.appendChild(link);
+                                    link.click();
+                                    document.body.removeChild(link);
+                                }
+                            });
+                        });
+
+                        // Add event listeners for QR close buttons
+                        document.querySelectorAll('.qr-close-btn').forEach(btn => {
+                            btn.addEventListener('click', (e) => {
+                                const regId = e.target.dataset.regId;
+                                const container = document.querySelector(`.qr-container-${regId}`);
+                                container.classList.add('hidden');
+                            });
+                        });
+
+                    } else {
+                        console.error('Failed to load registrations:', data.error);
+                    }
+                } catch (error) {
+                    console.error('Error loading registrations:', error);
+                }
+            };
+
+            const menuItems = [
+                {
+                    id: 'calendar',
+                    label: 'Event Calendar',
+                    icon: <svg className="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                    </svg>
+                },
+                {
+                    id: 'registrations',
+                    label: 'My Registrations',
+                    icon: <svg className="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                    </svg>
+                },
+                {
+                    id: 'attendance',
+                    label: 'Attendance',
+                    icon: <svg className="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                },
+                {
+                    id: 'feedback',
+                    label: 'My Feedback',
+                    icon: <svg className="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                    </svg>
+                }
+            ];
+
+            const loadMyFeedback = async () => {
+                try {
+                    // Load pending feedback
+                    const pendingResponse = await fetch('/api/feedback/pending', {
+                        credentials: 'include'
+                    });
+
+                    const pendingData = await pendingResponse.json();
+
+                    // Load feedback history
+                    const historyResponse = await fetch('/api/feedback/my-feedback', {
+                        credentials: 'include'
+                    });
+
+                    const historyData = await historyResponse.json();
+
+                    // Update pending feedback section
+                    const pendingContainer = document.getElementById('pendingFeedbackContainer');
+                    const historyContainer = document.getElementById('feedbackHistoryContainer');
+                    const noFeedback = document.getElementById('noFeedback');
+
+                    pendingContainer.innerHTML = '';
+                    historyContainer.innerHTML = '';
+
+                    // Show pending feedback forms
+                    if (pendingData.success && pendingData.pending_events && pendingData.pending_events.length > 0) {
+                        const pendingHeader = document.createElement('div');
+                        pendingHeader.innerHTML = `
+                            <div class="flex items-center gap-2 mb-4">
+                                <div class="w-2 h-2 bg-orange-500 rounded-full"></div>
+                                <h3 class="text-lg font-semibold text-gray-900">Pending Feedback</h3>
+                                <span class="bg-orange-100 text-orange-800 text-xs px-2 py-1 rounded-full">
+                                    ${pendingData.pending_events.length} form${pendingData.pending_events.length > 1 ? 's' : ''} to complete
+                                </span>
+                            </div>
+                        `;
+                        pendingContainer.appendChild(pendingHeader);
+
+                        pendingData.pending_events.forEach(event => {
+                            const feedbackForm = document.createElement('div');
+                            feedbackForm.className = 'bg-orange-50 border border-orange-200 rounded-lg p-6 mb-4';
+                            feedbackForm.innerHTML = `
+                                <div class="flex items-center gap-3 mb-4">
+                                    <div class="w-10 h-10 bg-orange-100 rounded-full flex items-center justify-center">
+                                        <svg class="w-5 h-5 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                                        </svg>
+                                    </div>
+                                    <div>
+                                        <h4 class="font-semibold text-gray-900">${event.name}</h4>
+                                        <p class="text-sm text-gray-600">${new Date(event.start_datetime).toLocaleDateString()} • ${event.venue}</p>
+                                    </div>
+                                </div>
+
+                                <form class="feedback-form-${event.id} space-y-4">
+                                    <!-- Overall Rating - Required -->
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-700 mb-2">
+                                            Overall Experience <span class="text-red-500">*</span>
+                                        </label>
+                                        <div class="flex gap-1">
+                                            ${[1,2,3,4,5].map(star => `
+                                                <button type="button" class="star-btn-${event.id} text-2xl transition text-gray-300 hover:text-yellow-400" data-rating="${star}">
+                                                    ★
+                                                </button>
+                                            `).join('')}
+                                            <span class="ml-2 text-sm text-gray-600 rating-text-${event.id}">Not rated</span>
+                                        </div>
+                                    </div>
+
+                                    <!-- Optional ratings in a grid -->
+                                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                        <div>
+                                            <label class="block text-sm font-medium text-gray-700 mb-2">Venue Quality</label>
+                                            <div class="flex gap-1">
+                                                ${[1,2,3,4,5].map(star => `
+                                                    <button type="button" class="venue-star-btn-${event.id} text-xl transition text-gray-300 hover:text-yellow-400" data-rating="${star}">
+                                                        ★
+                                                    </button>
+                                                `).join('')}
+                                            </div>
+                                        </div>
+                                        <div>
+                                            <label class="block text-sm font-medium text-gray-700 mb-2">Activities & Content</label>
+                                            <div class="flex gap-1">
+                                                ${[1,2,3,4,5].map(star => `
+                                                    <button type="button" class="activities-star-btn-${event.id} text-xl transition text-gray-300 hover:text-yellow-400" data-rating="${star}">
+                                                        ★
+                                                    </button>
+                                                `).join('')}
+                                            </div>
+                                        </div>
+                                        <div>
+                                            <label class="block text-sm font-medium text-gray-700 mb-2">Organization & Management</label>
+                                            <div class="flex gap-1">
+                                                ${[1,2,3,4,5].map(star => `
+                                                    <button type="button" class="organization-star-btn-${event.id} text-xl transition text-gray-300 hover:text-yellow-400" data-rating="${star}">
+                                                        ★
+                                                    </button>
+                                                `).join('')}
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <!-- Comments -->
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-700 mb-2">Additional Comments (Optional)</label>
+                                        <textarea class="comments-${event.id} w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none" rows="3" placeholder="Share your thoughts about the event..." maxlength="500"></textarea>
+                                        <p class="text-xs text-gray-500 mt-1 char-count-${event.id}">0/500 characters</p>
+                                    </div>
+
+                                    <!-- Submit Button -->
+                                    <div class="flex justify-end gap-3 pt-4 border-t border-orange-200">
+                                        <button type="button" class="skip-btn-${event.id} px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition">
+                                            Skip for Now
+                                        </button>
+                                        <button type="submit" class="submit-feedback-btn-${event.id} px-6 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition disabled:opacity-50 disabled:cursor-not-allowed">
+                                            Submit Feedback
+                                        </button>
+                                    </div>
+                                </form>
+                            `;
+                            pendingContainer.appendChild(feedbackForm);
+                        });
+
+                        // Add event listeners for feedback forms
+                        pendingData.pending_events.forEach(event => {
+                            const form = document.querySelector(`.feedback-form-${event.id}`);
+                            const starBtns = document.querySelectorAll(`.star-btn-${event.id}`);
+                            const venueStarBtns = document.querySelectorAll(`.venue-star-btn-${event.id}`);
+                            const activitiesStarBtns = document.querySelectorAll(`.activities-star-btn-${event.id}`);
+                            const organizationStarBtns = document.querySelectorAll(`.organization-star-btn-${event.id}`);
+                            const ratingText = document.querySelector(`.rating-text-${event.id}`);
+                            const commentsTextarea = document.querySelector(`.comments-${event.id}`);
+                            const charCount = document.querySelector(`.char-count-${event.id}`);
+                            const submitBtn = document.querySelector(`.submit-feedback-btn-${event.id}`);
+                            const skipBtn = document.querySelector(`.skip-btn-${event.id}`);
+
+                            let overallRating = 0;
+                            let venueRating = 0;
+                            let activitiesRating = 0;
+                            let organizationRating = 0;
+
+                            // Overall rating stars
+                            starBtns.forEach((btn, index) => {
+                                btn.addEventListener('click', () => {
+                                    overallRating = index + 1;
+                                    starBtns.forEach((b, i) => {
+                                        b.className = `star-btn-${event.id} text-2xl transition ${i <= index ? 'text-yellow-400' : 'text-gray-300'} hover:text-yellow-400`;
+                                    });
+                                    ratingText.textContent = `${overallRating}/5`;
+                                    submitBtn.disabled = false;
+                                });
+                            });
+
+                            // Venue rating stars
+                            venueStarBtns.forEach((btn, index) => {
+                                btn.addEventListener('click', () => {
+                                    venueRating = index + 1;
+                                    venueStarBtns.forEach((b, i) => {
+                                        b.className = `venue-star-btn-${event.id} text-xl transition ${i <= index ? 'text-yellow-400' : 'text-gray-300'} hover:text-yellow-400`;
+                                    });
+                                });
+                            });
+
+                            // Activities rating stars
+                            activitiesStarBtns.forEach((btn, index) => {
+                                btn.addEventListener('click', () => {
+                                    activitiesRating = index + 1;
+                                    activitiesStarBtns.forEach((b, i) => {
+                                        b.className = `activities-star-btn-${event.id} text-xl transition ${i <= index ? 'text-yellow-400' : 'text-gray-300'} hover:text-yellow-400`;
+                                    });
+                                });
+                            });
+
+                            // Organization rating stars
+                            organizationStarBtns.forEach((btn, index) => {
+                                btn.addEventListener('click', () => {
+                                    organizationRating = index + 1;
+                                    organizationStarBtns.forEach((b, i) => {
+                                        b.className = `organization-star-btn-${event.id} text-xl transition ${i <= index ? 'text-yellow-400' : 'text-gray-300'} hover:text-yellow-400`;
+                                    });
+                                });
+                            });
+
+                            // Comments character counter
+                            commentsTextarea.addEventListener('input', (e) => {
+                                charCount.textContent = `${e.target.value.length}/500 characters`;
+                            });
+
+                            // Submit feedback
+                            form.addEventListener('submit', async (e) => {
+                                e.preventDefault();
+
+                                if (overallRating === 0) {
+                                    alert('Please provide an overall rating');
+                                    return;
+                                }
+
+                                submitBtn.disabled = true;
+                                submitBtn.textContent = 'Submitting...';
+
+                                try {
+                                    const feedbackData = {
+                                        overall_rating: overallRating,
+                                        venue_rating: venueRating || null,
+                                        activities_rating: activitiesRating || null,
+                                        organization_rating: organizationRating || null,
+                                        comments: commentsTextarea.value.trim() || null
+                                    };
+
+                                    const response = await fetch(`/api/feedback/submit/${event.id}`, {
+                                        method: 'POST',
+                                        headers: {
+                                            'Content-Type': 'application/json',
+                                        },
+                                        credentials: 'include',
+                                        body: JSON.stringify(feedbackData)
+                                    });
+
+                                    const data = await response.json();
+
+                                    if (response.ok && data.success) {
+                                        alert('Thank you for your feedback!');
+                                        loadMyFeedback(); // Reload the feedback tab
+                                    } else {
+                                        alert(data.error || 'Failed to submit feedback');
+                                        submitBtn.disabled = false;
+                                        submitBtn.textContent = 'Submit Feedback';
+                                    }
+                                } catch (error) {
+                                    console.error('Feedback submission error:', error);
+                                    alert('Failed to submit feedback. Please try again.');
+                                    submitBtn.disabled = false;
+                                    submitBtn.textContent = 'Submit Feedback';
+                                }
+                            });
+
+                            // Skip feedback
+                            skipBtn.addEventListener('click', () => {
+                                if (confirm('Are you sure you want to skip this feedback? You can return to it later.')) {
+                                    const feedbackForm = document.querySelector(`[class*="bg-orange-50"][class*="border-orange-200"]`);
+                                    if (feedbackForm) {
+                                        feedbackForm.remove();
+                                    }
+                                }
+                            });
+                        });
+                    }
+
+                    // Show feedback history
+                    if (historyData.success && historyData.feedback && historyData.feedback.length > 0) {
+                        const historyHeader = document.createElement('div');
+                        historyHeader.innerHTML = `
+                            <div class="flex items-center gap-2 mb-4">
+                                <div class="w-2 h-2 bg-blue-500 rounded-full"></div>
+                                <h3 class="text-lg font-semibold text-gray-900">Feedback History</h3>
+                            </div>
+                        `;
+                        historyContainer.appendChild(historyHeader);
+
+                        historyData.feedback.forEach(feedback => {
+                            const feedbackCard = document.createElement('div');
+                            feedbackCard.className = 'border border-gray-200 rounded-lg p-4 mb-4 hover:shadow-md transition';
+                            feedbackCard.innerHTML = `
+                                <div class="flex justify-between items-start mb-3">
+                                    <div class="flex-1">
+                                        <h4 class="font-semibold text-gray-900 mb-1">${feedback.event_name}</h4>
+                                        <p class="text-sm text-gray-600 mb-2">${new Date(feedback.created_at).toLocaleDateString()}</p>
+                                        <div class="grid grid-cols-2 gap-4 text-sm">
+                                            <div>
+                                                <span class="text-gray-600">Overall:</span>
+                                                <div class="flex mt-1">
+                                                    ${[1,2,3,4,5].map(star => `
+                                                        <span class="text-yellow-400 text-lg">${star <= feedback.overall_rating ? '★' : '☆'}</span>
+                                                    `).join('')}
+                                                    <span class="ml-2 text-gray-500">(${feedback.overall_rating}/5)</span>
+                                                </div>
+                                            </div>
+                                            ${feedback.venue_rating ? `
+                                            <div>
+                                                <span class="text-gray-600">Venue:</span>
+                                                <div class="flex mt-1">
+                                                    ${[1,2,3,4,5].map(star => `
+                                                        <span class="text-yellow-400 text-lg">${star <= feedback.venue_rating ? '★' : '☆'}</span>
+                                                    `).join('')}
+                                                </div>
+                                            </div>` : ''}
+                                        </div>
+                                    </div>
+                                    <div class="flex flex-col items-end gap-2">
+                                        ${feedback.can_edit ? '<span class="text-xs text-green-600 bg-green-100 px-2 py-1 rounded-full">Editable</span>' : '<span class="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded-full">Locked</span>'}
+                                    </div>
+                                </div>
+                                ${feedback.comments ? `
+                                <div class="border-t border-gray-100 pt-3">
+                                    <p class="text-sm text-gray-700 italic">"${feedback.comments}"</p>
+                                </div>` : ''}
+                            `;
+                            historyContainer.appendChild(feedbackCard);
+                        });
+                    }
+
+                    // Show no feedback message if nothing to show
+                    if ((!pendingData.success || !pendingData.pending_events || pendingData.pending_events.length === 0) &&
+                        (!historyData.success || !historyData.feedback || historyData.feedback.length === 0)) {
+                        noFeedback.classList.remove('hidden');
+                    } else {
+                        noFeedback.classList.add('hidden');
+                    }
+
+                } catch (error) {
+                    console.error('Error loading feedback:', error);
+                }
+            };
+
+            const loadMyAttendance = async () => {
+                try {
+                    const response = await fetch('/api/attendance/my-history', {
+                        credentials: 'include'
+                    });
+
+                    const data = await response.json();
+
+                    if (response.ok && data.success) {
+                        const attendanceRecords = data.attendance_history;
+                        const container = document.getElementById('attendanceContainer');
+                        const loading = document.getElementById('attendanceLoading');
+                        const noAttendance = document.getElementById('noAttendance');
+
+                        loading.classList.add('hidden');
+
+                        if (attendanceRecords.length === 0) {
+                            noAttendance.classList.remove('hidden');
+                            return;
+                        }
+
+                        container.classList.remove('hidden');
+                        container.innerHTML = '';
+
+                        attendanceRecords.forEach(record => {
+                            const attendanceCard = document.createElement('div');
+                            attendanceCard.className = 'border border-gray-200 rounded-lg p-6 hover:shadow-md transition';
+                            attendanceCard.innerHTML = `
+                                <div class="flex justify-between items-start mb-4">
+                                    <div class="flex-1">
+                                        <h3 class="font-semibold text-gray-900 mb-1">${record.event_name}</h3>
+                                        <p className="text-sm text-gray-600 mb-2">${new Date(record.event_date).toLocaleDateString()} • ${record.venue}</p>
+                                        <div className="flex items-center gap-4 text-sm">
+                                            <span className="text-gray-500">Check-in Method: ${record.check_in_method}</span>
+                                        </div>
+                                    </div>
+                                    <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-green-100 text-green-800">
+                                        ✅ Attended
+                                    </span>
+                                </div>
+
+                                <div className="border-t border-gray-100 pt-4">
+                                    <div className="text-sm text-gray-500">
+                                        Checked in at ${new Date(record.check_in_time).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}
+                                    </div>
+                                </div>
+                            `;
+
+                            container.appendChild(attendanceCard);
+                        });
+
+                    } else {
+                        console.error('Failed to load attendance:', data.error);
+                    }
+                } catch (error) {
+                    console.error('Error loading attendance:', error);
+                }
+            };
+
+            const handleViewChange = (newView) => {
+                setActiveView(newView);
+                // Load data when switching to tabs
+                if (newView === 'registrations') {
+                    loadMyRegistrations();
+                } else if (newView === 'attendance') {
+                    loadMyAttendance();
+                } else if (newView === 'feedback') {
+                    loadMyFeedback();
+                }
+            };
+
+            const renderContent = () => {
+                switch (activeView) {
+                    case 'calendar':
+                        return (
+                            <div>
+                                <div className="mb-6">
+                                    <p className="text-blue-600 text-sm font-medium mb-1">Student Portal</p>
+                                    <p className="text-gray-500 text-sm mb-2">
+                                        Browse and register for upcoming events
+                                    </p>
+                                    <h1 className="text-3xl font-bold text-gray-900">Event Calendar</h1>
+                                </div>
+
+                                {/* Event Calendar with Month View */}
+                                <div className="bg-white rounded-lg shadow p-6">
+                                    <StudentEventCalendar />
+                                </div>
+                            </div>
+                        );
+
+                    case 'registrations':
+                        return (
+                            <div>
+                                <div className="mb-6">
+                                    <p className="text-blue-600 text-sm font-medium mb-1">Student Portal</p>
+                                    <p className="text-gray-500 text-sm mb-2">
+                                        View and manage your event registrations
+                                    </p>
+                                    <h1 className="text-3xl font-bold text-gray-900">My Registrations</h1>
+                                </div>
+
+                                <div className="bg-white rounded-lg shadow p-6">
+                                    <div className="flex justify-between items-center mb-6">
+                                        <h2 className="text-xl font-semibold text-gray-900">My Event Registrations</h2>
+                                        <button className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition text-sm">
+                                            Browse Events
+                                        </button>
+                                    </div>
+
+                                    {/* Registration Stats */}
+                                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                                        <div className="bg-green-50 border border-green-200 rounded-lg p-4 text-center">
+                                            <div className="text-2xl font-bold text-green-600" id="registeredCount">0</div>
+                                            <div className="text-sm text-green-800">Confirmed Registrations</div>
+                                        </div>
+                                        <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 text-center">
+                                            <div className="text-2xl font-bold text-yellow-600" id="waitlistCount">0</div>
+                                            <div className="text-sm text-yellow-800">Waitlisted</div>
+                                        </div>
+                                        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 text-center">
+                                            <div className="text-2xl font-bold text-blue-600" id="upcomingCount">0</div>
+                                            <div className="text-sm text-blue-800">Upcoming Events</div>
+                                        </div>
+                                    </div>
+
+                                    <div id="registrationsLoading" className="flex justify-center items-center py-8">
+                                        <div className="flex items-center gap-2 text-gray-600">
+                                            <svg className="animate-spin h-5 w-5" fill="none" viewBox="0 0 24 24">
+                                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                            </svg>
+                                            Loading registrations...
+                                        </div>
+                                    </div>
+
+                                    <div id="registrationsContainer" className="hidden space-y-4">
+                                        {/* Registrations will be loaded here */}
+                                    </div>
+
+                                    <div id="noRegistrations" className="hidden text-center py-8">
+                                        <div className="text-gray-400 mb-4">
+                                            <svg className="w-16 h-16 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                                            </svg>
+                                        </div>
+                                        <h3 className="text-lg font-medium text-gray-900 mb-2">No Event Registrations</h3>
+                                        <p className="text-gray-600 mb-4">You haven't registered for any events yet.</p>
+                                        <button className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition">
+                                            Browse Available Events
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        );
+
+                    case 'attendance':
+                        return (
+                            <div>
+                                <div className="mb-6">
+                                    <p className="text-blue-600 text-sm font-medium mb-1">Student Portal</p>
+                                    <p className="text-gray-500 text-sm mb-2">
+                                        Track your attendance across events
+                                    </p>
+                                    <h1 className="text-3xl font-bold text-gray-900">Attendance History</h1>
+                                </div>
+
+                                <div className="bg-white rounded-lg shadow p-6">
+                                    <div className="flex justify-between items-center mb-6">
+                                        <h2 className="text-xl font-semibold text-gray-900">My Attendance Records</h2>
+                                        <div className="text-sm text-gray-600">
+                                            Real-time attendance tracking via QR codes
+                                        </div>
+                                    </div>
+
+                                    <div id="attendanceLoading" className="flex justify-center items-center py-8">
+                                        <div className="flex items-center gap-2 text-gray-600">
+                                            <svg className="animate-spin h-5 w-5" fill="none" viewBox="0 0 24 24">
+                                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                            </svg>
+                                            Loading attendance history...
+                                        </div>
+                                    </div>
+
+                                    <div id="attendanceContainer" className="hidden space-y-4">
+                                        {/* Attendance records will be loaded here */}
+                                    </div>
+
+                                    <div id="noAttendance" className="hidden text-center py-8">
+                                        <div className="text-gray-400 mb-4">
+                                            <svg className="w-16 h-16 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                            </svg>
+                                        </div>
+                                        <h3 className="text-lg font-medium text-gray-900 mb-2">No Attendance Records</h3>
+                                        <p className="text-gray-600 mb-4">You haven't checked in to any events yet.</p>
+                                        <p className="text-sm text-gray-500">Use your QR codes at event entrances to record attendance.</p>
+                                    </div>
+
+                                    <div className="mt-6 p-4 bg-green-50 border border-green-200 rounded-lg">
+                                        <p className="text-green-800 text-sm">
+                                            <strong>✅ QR Check-in Active:</strong> Your attendance is now tracked in real-time using QR codes at events.
+                                        </p>
+                                    </div>
+                                </div>
+                            </div>
+                        );
+
+                    case 'feedback':
+                        return (
+                            <div>
+                                <div className="mb-6">
+                                    <p className="text-blue-600 text-sm font-medium mb-1">Student Portal</p>
+                                    <p className="text-gray-500 text-sm mb-2">
+                                        View your feedback history for completed events
+                                    </p>
+                                    <h1 className="text-3xl font-bold text-gray-900">My Feedback</h1>
+                                </div>
+
+                                <div className="bg-white rounded-lg shadow p-6">
+                                    <div className="mb-6">
+                                        <h2 className="text-xl font-semibold text-gray-900 mb-2">Feedback History</h2>
+                                        <p className="text-sm text-gray-600">Feedback forms are automatically shown after attending completed events.</p>
+                                    </div>
+
+                                    {/* Pending Feedback Section */}
+                                    <div id="pendingFeedbackContainer" className="mb-6">
+                                        {/* Pending feedback forms will be loaded here */}
+                                    </div>
+
+                                    {/* Feedback History */}
+                                    <div id="feedbackHistoryContainer">
+                                        {/* Feedback history will be loaded here */}
+                                    </div>
+
+                                    <div id="noFeedback" className="hidden text-center py-8">
+                                        <div className="text-gray-400 mb-4">
+                                            <svg className="w-16 h-16 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                                            </svg>
+                                        </div>
+                                        <h3 className="text-lg font-medium text-gray-900 mb-2">No Feedback History</h3>
+                                        <p className="text-gray-600 mb-4">You haven't submitted feedback for any completed events yet.</p>
+                                        <p className="text-sm text-gray-500">Feedback forms will appear automatically after attending events.</p>
+                                    </div>
+                                </div>
+                            </div>
+                        );
+
+                    default:
+                        return <div>Select a menu item</div>;
+                }
+            };
+
+            return (
+                <div className="flex h-screen bg-gray-50">
+                    <Sidebar
+                        user={user}
+                        menuItems={menuItems}
+                        activeView={activeView}
+                        onViewChange={handleViewChange}
+                        onLogout={handleLogout}
+                    />
+
+                    <div className="flex-1 flex flex-col overflow-hidden">
+                        <header className="bg-white border-b border-gray-200 px-8 py-4 shadow-sm">
+                            <div className="flex items-center justify-between">
+                                <div className="flex items-center gap-4">
+                                    <img src="/static/bcp-olp-logo-mini2.png" alt="School Logo" className="h-8 w-auto" />
+                                    <div>
+                                        <p className="text-blue-600 text-sm font-medium">School Event Management System</p>
+                                        <p className="text-gray-500 text-xs">Student Portal</p>
+                                    </div>
+                                </div>
+                                <div className="flex items-center gap-4">
+                                    <span className="text-sm text-gray-600">{user?.full_name}</span>
+                                    <button
+                                        onClick={handleLogout}
+                                        className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition text-sm"
+                                    >
+                                        Logout
+                                    </button>
+                                </div>
+                            </div>
+                        </header>
+
+                        <main className="flex-1 overflow-y-auto bg-gray-50 p-8">
+                            {renderContent()}
+                        </main>
+                    </div>
+                </div>
+            );
+        }
+
+        // Authentication check
+        checkAuth();
+
+        // Render
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<StudentDashboard />);
+    </script>
+</body>
+</html>

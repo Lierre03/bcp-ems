@@ -718,3 +718,58 @@ def get_status_config():
         'transitions': STATUS_TRANSITIONS,
         'statusInfo': STATUS_INFO
     }), 200
+
+
+@events_bp.route('/approved', methods=['GET'])
+@require_role(['Super Admin', 'Admin', 'Staff', 'Requestor', 'Participant'])
+def get_approved_events():
+    """
+    Get approved events for calendar display
+    GET /api/events/approved?month=2025-12
+    """
+    try:
+        month_param = request.args.get('month')
+        if not month_param:
+            return jsonify({'error': 'Month parameter required (format: YYYY-MM)'}), 400
+
+        db = get_db()
+
+        # Parse month parameter and get date range
+        year, month = map(int, month_param.split('-'))
+        start_date = f"{year:04d}-{month:02d}-01"
+        if month == 12:
+            end_date = f"{year+1:04d}-01-01"
+        else:
+            end_date = f"{year:04d}-{month+1:02d}-01"
+
+        query = """
+            SELECT e.id, e.name, e.event_type, e.description,
+                   e.start_datetime, e.end_datetime,
+                   e.venue, e.expected_attendees, e.max_attendees,
+                   COALESCE(b.total_budget, 0) as budget,
+                   COALESCE(e.organizer, CONCAT(u.first_name, ' ', u.last_name)) as organizer
+            FROM events e
+            JOIN users u ON e.requestor_id = u.id
+            LEFT JOIN budgets b ON e.id = b.event_id
+            WHERE e.status = 'Approved'
+              AND e.deleted_at IS NULL
+              AND e.start_datetime >= %s
+              AND e.start_datetime < %s
+            ORDER BY e.start_datetime
+        """
+
+        events = db.execute_query(query, (start_date, end_date))
+
+        # Convert Decimal types to float for JSON serialization
+        for event in events:
+            if event.get('budget') is not None:
+                event['budget'] = float(event['budget'])
+
+        return jsonify({
+            'success': True,
+            'events': events
+        }), 200
+
+    except Exception as e:
+        logger.error(f"Get approved events error: {e}")
+        return jsonify({'error': 'Failed to fetch approved events'}), 500

@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Student Dashboard - School Event Management System</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+
+        * {
+            font-family: 'Inter', sans-serif;
+        }
+
+        .gradient-bg {
+            background: linear-gradient(135deg, #1e3a8a 0%, #2563eb 50%, #3b82f6 100%);
+        }
+    </style>
+</head>
+<body class="bg-gray-50 min-h-screen">
+    <div class="min-h-screen">
+        <header class="bg-white shadow-sm">
+            <div class="max-w-7xl mx-auto px-4 py-4 flex justify-between items-center">
+                <div class="flex items-center gap-4">
+                    <img src="/static/bcp-olp-logo-mini2.png" alt="School Logo" class="h-10 w-auto">
+                    <h1 class="text-2xl font-bold text-gray-900">Student Dashboard</h1>
+                </div>
+                <div class="flex items-center gap-4">
+                    <span class="text-sm text-gray-600" id="userName"></span>
+                    <button onclick="logout()" class="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition">Logout</button>
+                </div>
+            </div>
+        </header>
+
+        <main class="max-w-7xl mx-auto px-4 py-8">
+            <!-- Welcome Section -->
+            <div class="bg-white rounded-lg shadow p-6 mb-6">
+                <div class="flex items-center gap-4 mb-4">
+                    <div class="bg-blue-100 p-3 rounded-full">
+                        <svg class="w-8 h-8 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path>
+                        </svg>
+                    </div>
+                    <div>
+                        <h2 class="text-2xl font-bold text-gray-900">Welcome back, <span id="studentName"></span>!</h2>
+                        <p class="text-gray-600">Manage your event participation and requests</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Quick Actions Grid -->
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
+                <!-- View Events -->
+                <div class="bg-white rounded-lg shadow p-6 hover:shadow-lg transition">
+                    <div class="flex items-center gap-4">
+                        <div class="bg-green-100 p-3 rounded-full">
+                            <svg class="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
+                            </svg>
+                        </div>
+                        <div>
+                            <h3 class="font-semibold text-gray-900">Browse Events</h3>
+                            <p class="text-sm text-gray-600">View upcoming events</p>
+                        </div>
+                    </div>
+                    <button class="mt-4 w-full bg-green-600 text-white py-2 px-4 rounded-lg hover:bg-green-700 transition">
+                        View Events
+                    </button>
+                </div>
+
+                <!-- My Registrations -->
+                <div class="bg-white rounded-lg shadow p-6 hover:shadow-lg transition">
+                    <div class="flex items-center gap-4">
+                        <div class="bg-blue-100 p-3 rounded-full">
+                            <svg class="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                            </svg>
+                        </div>
+                        <div>
+                            <h3 class="font-semibold text-gray-900">My Registrations</h3>
+                            <p class="text-sm text-gray-600">Events I'm registered for</p>
+                        </div>
+                    </div>
+                    <button class="mt-4 w-full bg-blue-600 text-white py-2 px-4 rounded-lg hover:bg-blue-700 transition">
+                        View Registrations
+                    </button>
+                </div>
+
+                <!-- Request Event -->
+                <div class="bg-white rounded-lg shadow p-6 hover:shadow-lg transition">
+                    <div class="flex items-center gap-4">
+                        <div class="bg-purple-100 p-3 rounded-full">
+                            <svg class="w-6 h-6 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
+                            </svg>
+                        </div>
+                        <div>
+                            <h3 class="font-semibold text-gray-900">Request Event</h3>
+                            <p class="text-sm text-gray-600">Submit new event request</p>
+                        </div>
+                    </div>
+                    <button class="mt-4 w-full bg-purple-600 text-white py-2 px-4 rounded-lg hover:bg-purple-700 transition">
+                        Create Request
+                    </button>
+                </div>
+            </div>
+
+            <!-- Upcoming Events Section -->
+            <div class="bg-white rounded-lg shadow p-6">
+                <h3 class="text-xl font-bold text-gray-900 mb-4">Upcoming Events</h3>
+                <div class="space-y-4">
+                    <div class="border border-gray-200 rounded-lg p-4">
+                        <div class="flex justify-between items-start">
+                            <div>
+                                <h4 class="font-semibold text-gray-900">Foundation Day Celebration</h4>
+                                <p class="text-sm text-gray-600">December 16, 2025 • Auditorium</p>
+                                <p class="text-sm text-gray-500 mt-1">Cultural event celebrating the school's foundation</p>
+                            </div>
+                            <span class="bg-green-100 text-green-800 px-2 py-1 rounded-full text-xs font-medium">Registered</span>
+                        </div>
+                    </div>
+
+                    <div class="border border-gray-200 rounded-lg p-4">
+                        <div class="flex justify-between items-start">
+                            <div>
+                                <h4 class="font-semibold text-gray-900">Christmas Party</h4>
+                                <p class="text-sm text-gray-600">December 25, 2025 • Gymnasium</p>
+                                <p class="text-sm text-gray-500 mt-1">Annual Christmas celebration with games and prizes</p>
+                            </div>
+                            <button class="bg-blue-600 text-white px-3 py-1 rounded-lg text-sm hover:bg-blue-700 transition">
+                                Register
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Info Box -->
+                <div class="mt-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                    <p class="text-blue-800 text-sm">
+                        <strong>Info:</strong> This is a preview of the student dashboard. Full functionality including event browsing,
+                        registration management, and request submission will be implemented in the next phase.
+                    </p>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script>
+        async function checkAuth() {
+            try {
+                const response = await fetch('/api/auth/session', { credentials: 'include' });
+                const data = await response.json();
+                if (!data.logged_in || data.user.role_name !== 'Participant') {
+                    window.location.href = '/';
+                    return;
+                }
+                document.getElementById('userName').textContent = data.user.full_name;
+                document.getElementById('studentName').textContent = data.user.full_name.split(' ')[0];
+            } catch (error) {
+                window.location.href = '/';
+            }
+        }
+
+        async function logout() {
+            await fetch('/api/auth/logout', { method: 'POST', credentials: 'include' });
+            window.location.href = '/';
+        }
+
+        // Check authentication on page load
+        checkAuth();
+    </script>
+</body>
+</html>
