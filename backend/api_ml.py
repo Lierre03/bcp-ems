@@ -1,10 +1,36 @@
 """
-ML API - Simplified Event AI for Rebuild
-Provides mock AI predictions for event planning
+ML API - Event AI with Scikit-learn Classification
+Provides real ML predictions for event planning
 """
+import os
+import joblib
 from flask import Blueprint, request, jsonify
 
 ml_bp = Blueprint('ml', __name__, url_prefix='/api/ml')
+
+# Load ML models
+MODEL_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'models')
+CLASSIFIER_PATH = os.path.join(MODEL_DIR, 'event_classifier.pkl')
+VECTORIZER_PATH = os.path.join(MODEL_DIR, 'event_vectorizer.pkl')
+
+classifier = None
+vectorizer = None
+
+def load_models():
+    """Load ML models if available"""
+    global classifier, vectorizer
+    try:
+        if os.path.exists(CLASSIFIER_PATH) and os.path.exists(VECTORIZER_PATH):
+            classifier = joblib.load(CLASSIFIER_PATH)
+            vectorizer = joblib.load(VECTORIZER_PATH)
+            print("✅ ML models loaded successfully")
+        else:
+            print("⚠️  ML models not found, using fallback logic")
+    except Exception as e:
+        print(f"❌ Error loading ML models: {e}")
+
+# Load models on import
+load_models()
 
 # Mock event templates
 EVENT_TEMPLATES = {
@@ -133,4 +159,82 @@ def predict_resources():
         return jsonify({
             'success': False,
             'error': f'AI prediction failed: {str(e)}'
+        }), 500
+
+@ml_bp.route('/classify-event-type', methods=['POST'])
+def classify_event_type():
+    """Real-time event type classification using ML (with keyword fallback)"""
+    try:
+        data = request.json
+        text = data.get('text', '').strip()
+
+        if not text:
+            return jsonify({
+                'success': False,
+                'error': 'Text is required for classification'
+            }), 400
+
+        # Use ML model if available
+        if classifier and vectorizer:
+            try:
+                # Transform text
+                text_vec = vectorizer.transform([text])
+
+                # Get prediction and probabilities
+                prediction = classifier.predict(text_vec)[0]
+                probabilities = classifier.predict_proba(text_vec)[0]
+
+                # Get confidence (highest probability)
+                confidence = float(max(probabilities) * 100)
+
+                return jsonify({
+                    'success': True,
+                    'eventType': prediction,
+                    'confidence': round(confidence, 1),
+                    'method': 'Scikit-learn ML'
+                }), 200
+
+            except Exception as e:
+                print(f"ML classification error: {e}")
+
+        # Fallback: Simple keyword-based classification
+        text_lower = text.lower()
+
+        # Define keywords for each type
+        keywords = {
+            'Academic': ['science', 'research', 'academic', 'presentation', 'seminar', 'conference', 'workshop', 'education', 'learning', 'study', 'math', 'physics', 'chemistry', 'biology', 'debate', 'quiz', 'competition', 'olympiad', 'fair', 'exhibition', 'symposium'],
+            'Sports': ['basketball', 'football', 'soccer', 'volleyball', 'swimming', 'track', 'field', 'tournament', 'championship', 'game', 'match', 'athletics', 'sports', 'competition', 'finals', 'league', 'cup', 'medal', 'trophy'],
+            'Cultural': ['dance', 'music', 'art', 'cultural', 'festival', 'concert', 'performance', 'theater', 'drama', 'film', 'movie', 'exhibition', 'fashion', 'show', 'talent', 'band', 'orchestra', 'choir', 'gallery', 'photography'],
+            'Workshop': ['workshop', 'training', 'seminar', 'course', 'class', 'tutorial', 'bootcamp', 'skill', 'development', 'learning', 'practice', 'hands-on', 'interactive']
+        }
+
+        # Count keyword matches
+        scores = {}
+        for event_type, type_keywords in keywords.items():
+            score = sum(1 for keyword in type_keywords if keyword in text_lower)
+            scores[event_type] = score
+
+        # Find best match
+        best_type = max(scores, key=scores.get)
+        best_score = scores[best_type]
+
+        # Calculate confidence based on score
+        if best_score > 0:
+            confidence = min(85, 50 + (best_score * 15))  # Max 85% for keyword matching
+        else:
+            # Default to Academic if no keywords match
+            best_type = 'Academic'
+            confidence = 30
+
+        return jsonify({
+            'success': True,
+            'eventType': best_type,
+            'confidence': round(confidence, 1),
+            'method': 'Keyword Matching'
+        }), 200
+
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': f'Classification failed: {str(e)}'
         }), 500

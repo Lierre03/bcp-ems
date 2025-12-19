@@ -64,7 +64,14 @@ window.SmartBudgetBreakdown = function SmartBudgetBreakdown({ budgetData, onUpda
         amount: Math.round((total * budgetData.breakdown[cat].percentage) / 100)
       };
     });
-    const updatedData = {...budgetData, totalBudget: total, breakdown: updatedBreakdown};
+    // Update percentages array to match the breakdown
+    const newPercentages = budgetData.categories.map(cat => updatedBreakdown[cat].percentage);
+    const updatedData = {
+      ...budgetData,
+      totalBudget: total,
+      breakdown: updatedBreakdown,
+      percentages: newPercentages
+    };
     onUpdate(updatedData);
     if (onBudgetUpdate) onBudgetUpdate(updatedData);
   };
@@ -72,13 +79,32 @@ window.SmartBudgetBreakdown = function SmartBudgetBreakdown({ budgetData, onUpda
   const handleAmountChange = (category, newAmount) => {
     const amount = parseInt(newAmount) || 0;
     const updatedBreakdown = {...budgetData.breakdown};
-    const newPercentage = Math.round((amount / totalBudget) * 100);
+
+    // Update the amount for this category
     updatedBreakdown[category] = {
       ...updatedBreakdown[category],
-      amount: amount,
-      percentage: newPercentage
+      amount: amount
     };
-    const updatedData = {...budgetData, breakdown: updatedBreakdown};
+
+    // Calculate new total budget as sum of all amounts
+    const newTotalBudget = Object.values(updatedBreakdown).reduce((sum, item) => sum + (item.amount || 0), 0);
+
+    // Recalculate percentages for all categories based on new total
+    Object.keys(updatedBreakdown).forEach(cat => {
+      updatedBreakdown[cat].percentage = Math.round((updatedBreakdown[cat].amount / newTotalBudget) * 100);
+    });
+
+    // Update percentages array
+    const newPercentages = budgetData.categories.map(cat => updatedBreakdown[cat].percentage);
+
+    const updatedData = {
+      ...budgetData,
+      totalBudget: newTotalBudget,
+      breakdown: updatedBreakdown,
+      percentages: newPercentages
+    };
+
+    setTotalBudget(newTotalBudget);
     onUpdate(updatedData);
     if (onBudgetUpdate) onBudgetUpdate(updatedData);
   };
