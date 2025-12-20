@@ -1,14 +1,22 @@
 """
-ML API - Event AI with Scikit-learn Classification
-Provides real ML predictions for event planning
+ML API - Trainable AI for Event Planning using Scikit Learn
+Provides ML-based predictions for event budget and resources
 """
-import os
-import joblib
 from flask import Blueprint, request, jsonify
+import os
+import pickle
+import joblib
+from sklearn.linear_model import LinearRegression
+from sklearn.preprocessing import OneHotEncoder
+import numpy as np
 
 ml_bp = Blueprint('ml', __name__, url_prefix='/api/ml')
 
-# Load ML models
+# Budget prediction model paths
+MODEL_PATH = 'budget_model.pkl'
+ENCODER_PATH = 'event_encoder.pkl'
+
+# Event classification model paths
 MODEL_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'models')
 CLASSIFIER_PATH = os.path.join(MODEL_DIR, 'event_classifier.pkl')
 VECTORIZER_PATH = os.path.join(MODEL_DIR, 'event_vectorizer.pkl')
@@ -16,21 +24,80 @@ VECTORIZER_PATH = os.path.join(MODEL_DIR, 'event_vectorizer.pkl')
 classifier = None
 vectorizer = None
 
-def load_models():
-    """Load ML models if available"""
+def load_classification_models():
+    """Load ML classification models if available"""
     global classifier, vectorizer
     try:
         if os.path.exists(CLASSIFIER_PATH) and os.path.exists(VECTORIZER_PATH):
             classifier = joblib.load(CLASSIFIER_PATH)
             vectorizer = joblib.load(VECTORIZER_PATH)
-            print("✅ ML models loaded successfully")
+            print("✅ ML classification models loaded successfully")
         else:
-            print("⚠️  ML models not found, using fallback logic")
+            print("⚠️  ML classification models not found, using fallback logic")
     except Exception as e:
-        print(f"❌ Error loading ML models: {e}")
+        print(f"❌ Error loading ML classification models: {e}")
 
-# Load models on import
-load_models()
+# Load classification models on import
+load_classification_models()
+
+def create_training_data():
+    """Generate synthetic training data from event templates"""
+    data = []
+    event_types = []
+    attendees_list = []
+    budgets = []
+
+    for event_type, template in EVENT_TEMPLATES.items():
+        for attendees in range(50, 501, 50):  # 50 to 500 attendees
+            # Add realistic budget variation
+            base = template['budgetBase']
+            variation = base * (0.9 + 0.2 * np.random.random())  # ±10% variation
+            scaled_budget = variation * max(1.0, attendees / 200)
+            event_types.append(event_type)
+            attendees_list.append(attendees)
+            budgets.append(int(scaled_budget))
+
+    return event_types, attendees_list, budgets
+
+def train_budget_model():
+    """Train and save ML model for budget prediction"""
+    event_types, attendees_list, budgets = create_training_data()
+
+    # Prepare features
+    encoder = OneHotEncoder(sparse_output=False)
+    encoded_types = encoder.fit_transform(np.array(event_types).reshape(-1, 1))
+    X = np.column_stack([np.array(attendees_list), encoded_types])
+    y = np.array(budgets)
+
+    # Train model
+    model = LinearRegression()
+    model.fit(X, y)
+
+    # Save model and encoder
+    with open(MODEL_PATH, 'wb') as f:
+        pickle.dump(model, f)
+    with open(ENCODER_PATH, 'wb') as f:
+        pickle.dump(encoder, f)
+
+    return model, encoder
+
+def load_budget_model():
+    """Load trained model and encoder"""
+    try:
+        with open(MODEL_PATH, 'rb') as f:
+            model = pickle.load(f)
+        with open(ENCODER_PATH, 'rb') as f:
+            encoder = pickle.load(f)
+        return model, encoder
+    except FileNotFoundError:
+        return train_budget_model()
+
+def predict_budget(attendees, event_type):
+    """Predict budget using trained ML model"""
+    model, encoder = load_budget_model()
+    encoded_type = encoder.transform([[event_type]])
+    X = np.column_stack([np.array([attendees]), encoded_type])
+    return int(model.predict(X)[0])
 
 # Mock event templates
 EVENT_TEMPLATES = {
@@ -108,42 +175,40 @@ EVENT_TEMPLATES = {
 
 @ml_bp.route('/predict-resources', methods=['POST'])
 def predict_resources():
-    """Simplified AI prediction using templates"""
+    """ML-based prediction for event planning"""
     try:
         data = request.json
         event_name = data.get('eventName', '').strip()
         event_type = data.get('eventType', 'Academic')
         attendees = int(data.get('attendees', 100))
-        
+
         # Validate event name
         if not event_name:
             return jsonify({
                 'success': False,
                 'error': 'Event name is required'
             }), 400
-        
+
         # Get template for event type
         template = EVENT_TEMPLATES.get(event_type, EVENT_TEMPLATES['Academic'])
-        
-        # Calculate budget based on attendees
-        base_budget = template['budgetBase']
-        attendee_factor = max(1.0, attendees / 200)  # Scale budget with attendance
-        estimated_budget = int(base_budget * attendee_factor)
-        
+
+        # Predict budget using trained ML model
+        estimated_budget = predict_budget(attendees, event_type)
+
         # Generate description
         descriptions = {
             'Academic': f"{event_name} is an academic event designed to showcase knowledge and innovation. Expected to host {attendees} participants with presentations, workshops, and networking opportunities.",
             'Sports': f"{event_name} brings together {attendees} athletes for competitive sporting activities. Features multiple matches, skill demonstrations, and a championship tournament.",
             'Cultural': f"{event_name} celebrates diverse cultural traditions with {attendees} expected attendees. Includes performances, exhibitions, traditional food, and interactive activities."
         }
-        
+
         # Return AI predictions
         return jsonify({
             'success': True,
             'eventType': event_type,
             'eventName': event_name,
             'confidence': 92.5,
-            'predictionMethod': 'Template-Based AI',
+            'predictionMethod': 'Scikit Learn Linear Regression',
             'estimatedBudget': estimated_budget,
             'budgetBreakdown': template['budgetBreakdown'],
             'resources': template['resources'],
@@ -154,7 +219,7 @@ def predict_resources():
             'catering': template.get('catering', []),
             'additionalResources': template.get('additionalResources', [])
         }), 200
-        
+
     except Exception as e:
         return jsonify({
             'success': False,
@@ -237,4 +302,19 @@ def classify_event_type():
         return jsonify({
             'success': False,
             'error': f'Classification failed: {str(e)}'
+        }), 500
+
+@ml_bp.route('/retrain-model', methods=['POST'])
+def retrain_model():
+    """Retrain the ML model with new training data"""
+    try:
+        train_budget_model()
+        return jsonify({
+            'success': True,
+            'message': 'Model retrained successfully with updated training data'
+        }), 200
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': f'Model retraining failed: {str(e)}'
         }), 500

@@ -24,6 +24,7 @@
     
     <!-- Components -->
     <script type="text/babel" src="/static/js/components/Sidebar.js"></script>
+    <script type="text/babel" src="/static/js/components/QRScanner.js"></script>
     <script type="text/babel" src="/static/js/pages/StaffEquipmentApprovals.js"></script>
     
     <!-- Main Dashboard Script -->
@@ -34,7 +35,8 @@
 
         function StaffDashboard() {
             const [user, setUser] = useState(null);
-            const [activeView, setActiveView] = useState('approvals');
+            const [activeView, setActiveView] = useState('scanner');
+            const [selectedEventId, setSelectedEventId] = useState(null);
 
             useEffect(() => {
                 const userJson = localStorage.getItem('user');
@@ -55,11 +57,15 @@
 
             const menuItems = [
                 {
+                    id: 'scanner',
+                    label: 'QR Attendance Scanner',
+                    icon: <svg className="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M12 15h4.01M12 21h4.01M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M12 15h4.01M12 21h4.01M8 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M8 12h4.01M8 15h4.01M8 21h4.01" /></svg>
+                },
+                {
                     id: 'approvals',
                     label: 'Equipment Approvals',
                     icon: <svg className="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
                 },
-                // Add other staff menu items here
             ];
 
             return (
@@ -76,14 +82,69 @@
                         <header className="bg-white border-b border-gray-200 px-8 py-4 shadow-sm">
                             <p className="text-blue-600 text-sm font-medium mb-1">Staff Portal</p>
                             <p className="text-gray-500 text-sm mb-2">
-                                {activeView === 'approvals' ? 'Review and approve equipment requests for upcoming events' : 'Manage your staff operations'}
+                                {activeView === 'scanner' ? 'Scan QR codes for attendance check-in' : activeView === 'approvals' ? 'Review and approve equipment requests for upcoming events' : 'Manage your staff operations'}
                             </p>
                             <h1 className="text-3xl font-bold text-gray-900">
-                                {activeView === 'approvals' ? 'Equipment Approvals' : 'Dashboard'}
+                                {activeView === 'scanner' ? 'QR Attendance Scanner' : activeView === 'approvals' ? 'Equipment Approvals' : 'Dashboard'}
                             </h1>
                         </header>
 
-                        <main className="flex-1 overflow-y-auto bg-gray-50">
+                        <main className="flex-1 overflow-y-auto bg-gray-50 p-8">
+                            {activeView === 'scanner' && (
+                                <div>
+                                    {!selectedEventId ? (
+                                        <div className="bg-white rounded-lg shadow p-6">
+                                            <h2 className="text-xl font-semibold text-gray-900 mb-4">Select Event for Attendance</h2>
+                                            <p className="text-gray-600 mb-6">Choose an event to start scanning QR codes for attendance check-in.</p>
+
+                                            {/* Camera Requirements Notice */}
+                                            <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-6">
+                                                <h4 className="font-semibold text-yellow-900 mb-2">📷 Camera Requirements</h4>
+                                                <ul className="text-sm text-yellow-800 space-y-1">
+                                                    <li>• Camera access is required for QR scanning</li>
+                                                    <li>• Allow camera permissions when prompted</li>
+                                                    <li>• Use HTTPS connection for camera access</li>
+                                                    <li>• Use Manual Check-in as backup if camera fails</li>
+                                                </ul>
+                                            </div>
+
+                                            {/* Event Selection - This would be populated with actual events */}
+                                            <div className="grid gap-4">
+                                                <div className="border border-gray-200 rounded-lg p-4 hover:border-blue-300 cursor-pointer transition"
+                                                     onClick={() => setSelectedEventId(10)}>
+                                                    <div className="flex justify-between items-start">
+                                                        <div>
+                                                            <h3 className="font-semibold text-gray-900">Foundation Day Celebration</h3>
+                                                            <p className="text-sm text-gray-600">December 16, 2025 • Auditorium</p>
+                                                            <p className="text-xs text-gray-500 mt-1">Status: Approved • Expected: 200</p>
+                                                        </div>
+                                                        <div className="text-right">
+                                                            <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                                                                Active Event
+                                                            </span>
+                                                        </div>
+                                                    </div>
+                                                </div>
+
+                                                <div className="text-center py-4 text-gray-500">
+                                                    <p>More events will appear here as they become active for attendance.</p>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    ) : (
+                                        <div>
+                                            <button
+                                                onClick={() => setSelectedEventId(null)}
+                                                className="mb-4 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition"
+                                            >
+                                                ← Back to Event Selection
+                                            </button>
+                                            <QRScanner eventId={selectedEventId} />
+                                        </div>
+                                    )}
+                                </div>
+                            )}
+
                             {activeView === 'approvals' && <EquipmentApprovals />}
                         </main>
                     </div>

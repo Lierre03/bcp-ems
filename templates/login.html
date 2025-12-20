@@ -112,7 +112,7 @@
                         <p><strong>Admin:</strong> principal</p>
                         <p><strong>Staff:</strong> facilities_staff</p>
                         <p><strong>Faculty:</strong> faculty_cs</p>
-                        <p><strong>Student:</strong> student_ssg</p>
+                        <p><strong>Student:</strong> johndoe</p>
                     </div>
                 </div>
             </div>
@@ -226,6 +226,8 @@
                     const role = data.user.role_name;
                     if (role === 'Staff') {
                         window.location.href = '/staff';
+                    } else if (role === 'Participant') {
+                        window.location.href = '/student';
                     } else {
                         window.location.href = '/admin';
                     }
@@ -268,6 +270,8 @@
                     const role = user.role_name;
                     if (role === 'Staff') {
                         window.location.href = '/staff';
+                    } else if (role === 'Participant') {
+                        window.location.href = '/student';
                     } else {
                         window.location.href = '/admin';
                     }
