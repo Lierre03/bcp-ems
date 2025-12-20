@@ -7,7 +7,7 @@ window.EventFormModal = function EventFormModal({
   equipmentCategories, venueOptions,
   handleAutoFill, handleSaveEvent, setShowModal, toggleEquipment,
   toggleActivity, toggleCatering, toggleAdditionalResource,
-  handleBudgetUpdate, handleEquipmentUpdate, setAiSuggestions, setBudgetData
+  handleBudgetUpdate, handleEquipmentUpdate, setAiSuggestions, setBudgetData, setTimelineData
 }) {
   // We use ReactDOM.createPortal to render the modal at the document body level.
   // This ensures the backdrop covers the entire screen regardless of parent CSS (z-index, overflow, relative positioning).
@@ -53,7 +53,7 @@ window.EventFormModal = function EventFormModal({
       >
         
         {/* CREATE EVENT MODAL - Fixed Height to match AI Panel */}
-        <div className="bg-white rounded-lg overflow-hidden shadow-2xl" style={{width: '600px', flexShrink: 1, height: '743px', maxHeight: '90vh', display: 'flex', flexDirection: 'column'}}>
+        <div className="bg-white rounded-lg overflow-hidden shadow-2xl" style={{width: '750px', flexShrink: 1, height: '743px', maxHeight: '90vh', display: 'flex', flexDirection: 'column'}}>
           {/* Header */}
           <div className="bg-gradient-to-r from-blue-700 to-blue-600 px-6 py-4 flex-shrink-0">
             <h2 className="text-lg font-bold text-white">{editingId ? 'Edit Event' : 'Create New Event'}</h2>
@@ -98,7 +98,10 @@ window.EventFormModal = function EventFormModal({
                   />
                   {formData.name && formData.name.length > 2 && (
                     <div className="text-xs text-slate-500 mt-1 flex items-center gap-1">
-                      <span>🤖 AI Classification Active</span>
+                      <svg className="w-3 h-3 inline mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12a9 9 0 11-18 0 9 9 0 0118 0zM12 3v1m6.364 1.636l-.707.707M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                      AI Classification Active
                     </div>
                   )}
                 </div>
@@ -127,11 +130,11 @@ window.EventFormModal = function EventFormModal({
                 <div className="grid grid-cols-2 gap-3">
                   <div>
                     <label className="block text-xs font-bold text-slate-700 mb-1">Start Date *</label>
-                    <input type="date" value={formData.date} onChange={(e) => setFormData({...formData, date: e.target.value})} className="w-full px-3 py-2 border border-slate-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+                    <input type="date" value={formData.date} min={new Date().toISOString().split('T')[0]} onChange={(e) => setFormData({...formData, date: e.target.value})} className="w-full px-3 py-2 border border-slate-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
                   </div>
                   <div>
                     <label className="block text-xs font-bold text-slate-700 mb-1">End Date</label>
-                    <input type="date" value={formData.endDate} onChange={(e) => setFormData({...formData, endDate: e.target.value})} className="w-full px-3 py-2 border border-slate-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+                    <input type="date" value={formData.endDate} min={formData.date || new Date().toISOString().split('T')[0]} onChange={(e) => setFormData({...formData, endDate: e.target.value})} className="w-full px-3 py-2 border border-slate-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
                   </div>
                 </div>
 
@@ -151,50 +154,77 @@ window.EventFormModal = function EventFormModal({
                 <div className="mt-4 pt-3 border-t border-slate-200">
                   <h3 className="text-xs font-bold text-gray-900 mb-2">Equipment</h3>
                   {(() => {
-                    const categoriesToShow = resourceData && resourceData.checklist && Object.keys(resourceData.checklist).length > 0 
-                      ? resourceData.checklist 
-                      : equipmentCategories;
-                    const firstCategory = Object.keys(categoriesToShow)[0];
-                    const currentTab = activeEquipmentTab && Object.keys(categoriesToShow).includes(activeEquipmentTab) 
-                      ? activeEquipmentTab 
+                    const aiResourceNames = resourceData && resourceData.checklist && resourceData.checklist.Resources
+                      ? resourceData.checklist.Resources.map(item => typeof item === 'string' ? item : (item.name || item))
+                      : [];
+
+                    const firstCategory = Object.keys(equipmentCategories)[0];
+                    const currentTab = activeEquipmentTab && Object.keys(equipmentCategories).includes(activeEquipmentTab)
+                      ? activeEquipmentTab
                       : firstCategory;
 
                     return (
                       <>
                         <div className="flex gap-1 mb-2 border-b border-gray-300 overflow-x-auto pb-1">
-                          {Object.keys(categoriesToShow).map((category) => (
-                            <button 
-                              key={category}
-                              onClick={() => setActiveEquipmentTab(category)} 
-                              className={`equipment-tab px-3 py-1.5 text-xs font-medium whitespace-nowrap transition ${currentTab === category ? 'border-b-2 border-blue-600 text-blue-600' : 'text-gray-600 hover:text-gray-900'}`}
-                            >
-                              {category}
-                            </button>
-                          ))}
+                          {Object.keys(equipmentCategories).map((category) => {
+                            const categoryItems = equipmentCategories[category].map(item =>
+                              typeof item === 'string' ? item : item.name
+                            );
+                            const selectedCount = categoryItems.filter(itemName =>
+                              formData.equipment.includes(itemName)
+                            ).length;
+
+                            return (
+                              <button
+                                key={category}
+                                onClick={() => setActiveEquipmentTab(category)}
+                                className={`equipment-tab px-3 py-1.5 text-xs font-medium whitespace-nowrap transition ${
+                                  currentTab === category ? 'border-b-2 border-blue-600 text-blue-600' : 'text-gray-600 hover:text-gray-900'
+                                }`}
+                              >
+                                {category}
+                                {selectedCount > 0 && (
+                                  <span className="ml-1 text-[10px] bg-blue-100 text-blue-700 px-1 py-0.5 rounded-full">
+                                    {selectedCount}
+                                  </span>
+                                )}
+                              </button>
+                            );
+                          })}
                         </div>
 
                         <div className="tab-content bg-blue-50 border border-blue-200 rounded p-3">
                           <div className="flex flex-wrap gap-2">
-                            {(() => {
-                              const items = categoriesToShow[currentTab];
-                              if (Array.isArray(items)) {
-                                return items.map(item => {
-                                  const itemName = typeof item === 'string' ? item : item.name;
-                                  const isChecked = formData.equipment.includes(itemName);
-                                  return (
-                                    <button 
-                                      key={itemName} 
-                                      onClick={() => toggleEquipment(itemName)} 
-                                      className={`px-3 py-1.5 rounded text-xs font-medium transition ${isChecked ? 'bg-blue-500 text-white border border-blue-600 hover:bg-blue-600' : 'bg-white border border-gray-300 text-gray-700 hover:bg-gray-50'}`}
-                                    >
-                                      {isChecked ? '✓ ' : ''}{itemName}
-                                    </button>
-                                  );
-                                });
-                              }
-                              return null;
-                            })()}
+                            {equipmentCategories[currentTab].map(item => {
+                              const itemName = typeof item === 'string' ? item : item.name;
+                              const isChecked = formData.equipment.includes(itemName);
+                              const isAISuggested = aiResourceNames.includes(itemName);
+                              return (
+                                <button
+                                  key={itemName}
+                                  onClick={() => toggleEquipment(itemName)}
+                                  className={`px-3 py-1.5 rounded text-xs border font-medium transition ${
+                                    isChecked
+                                      ? 'bg-blue-500 text-white border-blue-600 hover:bg-blue-600'
+                                      : isAISuggested
+                                      ? 'bg-green-100 text-green-800 border-green-300 hover:bg-green-200'
+                                      : 'bg-white border border-gray-300 text-gray-700 hover:bg-gray-50'
+                                  }`}
+                                  title={isAISuggested ? 'AI Suggested' : ''}
+                                >
+                                  {isChecked ? '✓ ' : isAISuggested ? '🤖 ' : ''}{itemName}
+                                </button>
+                              );
+                            })}
                           </div>
+                          {aiResourceNames.length > 0 && (
+                            <div className="mt-2 text-xs text-green-700 flex items-center gap-1">
+                              <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                              </svg>
+                              AI suggested equipment highlighted in green
+                            </div>
+                          )}
                         </div>
                       </>
                     );
@@ -292,16 +322,7 @@ window.EventFormModal = function EventFormModal({
                 </div>
               )}
 
-              {/* Activities */}
-              {formData.activities.length > 0 && (
-                <div className="bg-white rounded-lg p-3 border border-slate-200">
-                  <div className="flex items-center gap-2 mb-2">
-                    <div className="w-5 h-5 bg-violet-100 rounded flex items-center justify-center"><svg className="w-3 h-3 text-violet-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M14.828 14.828a4 4 0 01-5.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg></div>
-                    <p className="text-xs font-bold text-slate-700 uppercase">Activities</p>
-                  </div>
-                  <div className="flex flex-wrap gap-1.5">{formData.activities.map(a => {const isChecked = checkedActivities.includes(a); return <button key={a} onClick={() => toggleActivity(a)} className={`px-2 py-1 rounded text-xs border font-medium transition ${isChecked ? 'bg-violet-50 text-violet-700 border-violet-200 hover:bg-violet-100' : 'bg-slate-50 text-slate-400 border-slate-300 hover:bg-slate-100'}`}>{isChecked ? '✓ ' : ''}{a}</button>;})}</div>
-                </div>
-              )}
+
 
               {/* Catering */}
               {formData.catering.length > 0 && (
@@ -329,7 +350,13 @@ window.EventFormModal = function EventFormModal({
               <div className="border-t border-slate-200 pt-3 mt-3">
                 {budgetData && <SmartBudgetBreakdown budgetData={budgetData} onUpdate={setBudgetData} onBudgetUpdate={handleBudgetUpdate} />}
                 {resourceData && <ResourceRequirementsChecklist resourceData={resourceData} formData={formData} onEquipmentUpdate={handleEquipmentUpdate} />}
-                {timelineData && <EventTimelineGenerator timelineData={timelineData} />}
+                {timelineData && <EventTimelineGenerator timelineData={timelineData} onTimelineUpdate={(updatedTimeline) => {
+                  // Convert timeline back to activities format
+                  const activities = updatedTimeline.timeline.map(phase =>
+                    `${phase.startTime} - ${phase.endTime}: ${phase.phase}`
+                  );
+                  setFormData(prev => ({ ...prev, activities }));
+                }} />}
               </div>
             </div>
           </div>

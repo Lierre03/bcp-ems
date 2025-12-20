@@ -27,9 +27,9 @@ window.AdminEventsManager = function AdminEventsManager() {
   });
 
   const [equipmentCategories, setEquipmentCategories] = useState({
-    'Audio & Visual': ['Projector', 'Sound System', 'Microphone', 'Screen'],
+    'Audio & Visual': ['Projector', 'Speaker', 'Microphone', 'Screen'],
     'Furniture & Setup': ['Tables', 'Chairs', 'Stage', 'Podium'],
-    'Sports & Venue': ['Goal Posts', 'Scoreboard', 'Lighting', 'Camera']
+    'Sports & Venue': ['Scoreboard', 'Lighting', 'Camera', 'First Aid Kit']
   });
   const [venueOptions, setVenueOptions] = useState(['Auditorium', 'Gymnasium', 'Main Hall', 'Cafeteria', 'Lab', 'Courtyard', 'Library']);
 
@@ -91,13 +91,29 @@ window.AdminEventsManager = function AdminEventsManager() {
       if (res.ok) {
         const data = await res.json();
         if (data.success && data.equipment) {
-          // Group by category
-          const grouped = data.equipment.reduce((acc, item) => {
-            if (!acc[item.category]) acc[item.category] = [];
-            acc[item.category].push(item.name);
-            return acc;
-          }, {});
+          // Group by category, excluding AV and Furniture categories
+          const grouped = data.equipment
+            .filter(item => item.category !== 'AV' && item.category !== 'Furniture')
+            .reduce((acc, item) => {
+              if (!acc[item.category]) acc[item.category] = [];
+              acc[item.category].push(item.name);
+              return acc;
+            }, {});
           setEquipmentCategories(grouped);
+
+          // Check if all default equipment exist in database
+          const defaultEquipment = [
+            'Projector', 'Speaker', 'Microphone', 'Screen',
+            'Tables', 'Chairs', 'Stage', 'Podium',
+            'Scoreboard', 'Lighting', 'Camera', 'First Aid Kit'
+          ];
+          const existingNames = data.equipment.map(item => item.name);
+          const missingEquipment = defaultEquipment.filter(name => !existingNames.includes(name));
+
+          if (missingEquipment.length > 0) {
+            console.warn('Missing equipment in database:', missingEquipment);
+            console.warn('Please add these equipment to the database so they can be saved with events.');
+          }
         }
       }
     } catch (err) {
@@ -143,23 +159,59 @@ window.AdminEventsManager = function AdminEventsManager() {
   const handleEditEvent = (event) => {
     setEditingId(event.id);
     setFormData({
-      name: event.name || '', 
-      type: event.type || 'Academic', 
-      date: event.date || '', 
+      name: event.name || '',
+      type: event.type || 'Academic',
+      date: event.date || '',
       endDate: event.endDate || event.date || '',
-      startTime: event.startTime || '09:00', 
-      endTime: event.endTime || '17:00', 
+      startTime: event.startTime || '09:00',
+      endTime: event.endTime || '17:00',
       venue: event.venue || '',
-      equipment: event.equipment || [], 
-      attendees: event.attendees || '', 
+      equipment: event.equipment || [],
+      attendees: event.attendees || '',
       budget: event.budget || '',
-      organizer: event.organizer || '', 
-      status: event.status || 'Planning', 
+      organizer: event.organizer || '',
+      status: event.status || 'Planning',
       description: event.description || '',
-      activities: event.activities || [], 
-      catering: event.catering || [], 
+      activities: event.activities || [],
+      catering: event.catering || [],
       additionalResources: event.additionalResources || []
     });
+
+    // Generate timeline data from activities if they exist
+    if (event.activities && event.activities.length > 0) {
+      const timeline = event.activities.map((activity, index) => {
+        // Parse activity format: "09:00 - 10:00: Phase Name"
+        const timeMatch = activity.match(/^(\d{2}:\d{2})\s*-\s*(\d{2}:\d{2}):\s*(.+)$/);
+        if (timeMatch) {
+          const [, startTime, endTime, phase] = timeMatch;
+          const start = new Date(`2000-01-01T${startTime}`);
+          const end = new Date(`2000-01-01T${endTime}`);
+          const duration = Math.round((end - start) / (1000 * 60)); // minutes
+
+          return {
+            phase: phase.trim(),
+            startTime,
+            endTime,
+            duration,
+            description: `${phase.trim()} phase`
+          };
+        } else {
+          // Fallback for activities without time format
+          return {
+            phase: activity,
+            startTime: '09:00',
+            endTime: '10:00',
+            duration: 60,
+            description: activity
+          };
+        }
+      });
+
+      setTimelineData({ timeline });
+    } else {
+      setTimelineData(null);
+    }
+
     setAiSuggestions(null);
     setShowModal(true);
   };
@@ -300,7 +352,10 @@ window.AdminEventsManager = function AdminEventsManager() {
         };
 
         if (aiData.resources && aiData.resources.length > 0) {
-          updatedFormData = { ...updatedFormData, equipment: aiData.resources };
+          // Add AI-suggested equipment to existing selections, avoiding duplicates
+          const existingEquipment = updatedFormData.equipment || [];
+          const combinedEquipment = [...new Set([...existingEquipment, ...aiData.resources])];
+          updatedFormData = { ...updatedFormData, equipment: combinedEquipment };
         }
 
         if (aiData.eventType && aiData.eventType !== formData.type) {

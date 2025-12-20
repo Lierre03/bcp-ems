@@ -612,12 +612,17 @@ window.ApprovalActions = function ApprovalActions({ event, onSuccess }) {
                         <div className="p-3 bg-white flex-1 overflow-y-auto min-h-[100px]">
                           {fullEventData.equipment && fullEventData.equipment.length > 0 ? (
                             <div className="flex flex-wrap gap-1.5">
-                              {fullEventData.equipment.map((item, idx) => (
-                                <span key={idx} className="px-2 py-1 bg-orange-50 text-orange-700 border border-orange-200 rounded text-xs font-medium flex items-center gap-1">
-                                  {item.equipment_name}
-                                  <span className="bg-orange-200 text-orange-800 text-[10px] px-1 rounded-full">x{item.quantity}</span>
-                                </span>
-                              ))}
+                              {fullEventData.equipment.map((item, idx) => {
+                                // Handle both string format (from event creation) and object format
+                                const itemName = typeof item === 'string' ? item : (item.equipment_name || item.name || item);
+                                const quantity = typeof item === 'string' ? 1 : (item.quantity || 1);
+                                return (
+                                  <span key={idx} className="px-2 py-1 bg-orange-50 text-orange-700 border border-orange-200 rounded text-xs font-medium flex items-center gap-1">
+                                    {itemName}
+                                    {quantity > 1 && <span className="bg-orange-200 text-orange-800 text-[10px] px-1 rounded-full">x{quantity}</span>}
+                                  </span>
+                                );
+                              })}
                             </div>
                           ) : <p className="text-xs text-gray-400 italic">No equipment requested.</p>}
                         </div>
