@@ -79,7 +79,7 @@ window.AdminDashboard = function AdminDashboard() {
 
         <main className="flex-1 overflow-y-auto p-4">
           {activeView === 'events' && <AdminEventsManager />}
-          {activeView === 'ai-training' && <SmartAITrainer />}
+          {activeView === 'ai-training' && <AITrainingDashboard />}
           {activeView === 'resources' && <ResourceManagement userRole={user ? user.role_name : 'Admin'} />}
           {activeView === 'users' && <UserManagement />}
         </main>
