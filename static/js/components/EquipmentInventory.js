@@ -8,12 +8,27 @@ window.EquipmentInventory = function EquipmentInventory() {
     const [newEquipment, setNewEquipment] = React.useState({
         name: '',
         category: '',
+        customCategory: '',
         total_quantity: 0
     });
+    const [categories, setCategories] = React.useState([]);
 
     React.useEffect(() => {
         fetchEquipment();
+        fetchCategories();
     }, []);
+
+    const fetchCategories = async () => {
+        try {
+            const response = await fetch('/api/venues/equipment/categories');
+            const data = await response.json();
+            if (data.success) {
+                setCategories(data.categories);
+            }
+        } catch (err) {
+            console.error('Error fetching categories:', err);
+        }
+    };
 
     const fetchEquipment = async () => {
         try {
@@ -35,20 +50,33 @@ window.EquipmentInventory = function EquipmentInventory() {
 
     const handleAddSubmit = async (e) => {
         e.preventDefault();
+
+        // Determine the category to send
+        const categoryToSend = newEquipment.category === 'Other' ? newEquipment.customCategory : newEquipment.category;
+
+        // Validate custom category if "Other" is selected
+        if (newEquipment.category === 'Other' && !newEquipment.customCategory.trim()) {
+            alert("Please specify a custom category.");
+            return;
+        }
+
         try {
             const response = await fetch('/api/venues/equipment', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
                 },
-                body: JSON.stringify(newEquipment)
+                body: JSON.stringify({
+                    ...newEquipment,
+                    category: categoryToSend
+                })
             });
             
             const data = await response.json();
             
             if (data.success) {
                 setShowModal(false);
-                setNewEquipment({ name: '', category: '', total_quantity: 0 });
+                setNewEquipment({ name: '', category: '', customCategory: '', total_quantity: 0 });
                 // Refresh list
                 fetchEquipment();
             } else {
@@ -345,22 +373,22 @@ window.EquipmentInventory = function EquipmentInventory() {
                             <div className="grid grid-cols-2 gap-4">
                                 <div>
                                     <label className="block text-xs font-medium text-slate-500 mb-1">Category <span className="text-red-500">*</span></label>
-                                    <select 
+                                    <select
                                         className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-900 focus:border-blue-900 text-sm"
                                         value={newEquipment.category}
                                         onChange={(e) => setNewEquipment({...newEquipment, category: e.target.value})}
                                     >
                                         <option value="">Select...</option>
-                                        <option value="AV Equipment">AV Equipment</option>
-                                        <option value="Furniture">Furniture</option>
-                                        <option value="IT Equipment">IT Equipment</option>
-                                        <option value="Sports Gear">Sports Gear</option>
+                                        {categories.map(category => (
+                                            <option key={category} value={category}>{category}</option>
+                                        ))}
+                                        <option value="Other">Other (Specify)</option>
                                     </select>
                                 </div>
                                 <div>
                                     <label className="block text-xs font-medium text-slate-500 mb-1">Total Units <span className="text-red-500">*</span></label>
-                                    <input 
-                                        type="number" 
+                                    <input
+                                        type="number"
                                         min="1"
                                         className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-900 focus:border-blue-900 text-sm"
                                         value={newEquipment.total_quantity}
@@ -368,6 +396,20 @@ window.EquipmentInventory = function EquipmentInventory() {
                                     />
                                 </div>
                             </div>
+
+                            {newEquipment.category === 'Other' && (
+                                <div>
+                                    <label className="block text-xs font-medium text-slate-500 mb-1">Custom Category <span className="text-red-500">*</span></label>
+                                    <input
+                                        type="text"
+                                        required
+                                        className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-900 focus:border-blue-900 text-sm"
+                                        placeholder="e.g., Lab Equipment, Kitchen Supplies..."
+                                        value={newEquipment.customCategory}
+                                        onChange={(e) => setNewEquipment({...newEquipment, customCategory: e.target.value})}
+                                    />
+                                </div>
+                            )}
 
                             <div className="bg-blue-50 border border-blue-100 rounded-lg p-3 flex gap-3 items-start">
                                 <svg className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>

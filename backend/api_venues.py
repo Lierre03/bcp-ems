@@ -92,6 +92,18 @@ def get_equipment():
             'traceback': traceback_str
         }), 500
 
+@venues_bp.route('/equipment/categories', methods=['GET'])
+def get_equipment_categories():
+    """Get all unique equipment categories from database"""
+    try:
+        db = get_db()
+        categories = db.execute_query("SELECT DISTINCT category FROM equipment ORDER BY category")
+        category_list = [row['category'] for row in categories]
+        return jsonify({'success': True, 'categories': category_list})
+    except Exception as e:
+        logger.error(f"Error fetching categories: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
 @venues_bp.route('/equipment', methods=['POST'])
 @require_role(['Super Admin', 'Admin', 'Staff'])
 def add_equipment():
@@ -101,16 +113,16 @@ def add_equipment():
         name = data.get('name')
         category = data.get('category')
         total_quantity = data.get('total_quantity')
-        
+
         if not all([name, category, total_quantity]):
             return jsonify({'success': False, 'error': 'Missing required fields'}), 400
-            
+
         db = get_db()
         query = "INSERT INTO equipment (name, category, total_quantity) VALUES (%s, %s, %s)"
         equipment_id = db.execute_insert(query, (name, category, total_quantity))
-        
+
         return jsonify({
-            'success': True, 
+            'success': True,
             'message': 'Equipment added successfully',
             'equipment': {
                 'id': equipment_id,

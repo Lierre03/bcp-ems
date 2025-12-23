@@ -18,12 +18,16 @@ window.SmartAITrainer = function SmartAITrainer() {
     description: '', timeline: [], budgetCategories: [], additionalResources: []
   });
 
+  // Equipment quantities state
+  const [equipmentQuantities, setEquipmentQuantities] = useState({});
+
   const [newResourceItem, setNewResourceItem] = useState(''); // State for new resource input
 
   const [trainingHistory, setTrainingHistory] = useState([]);
   const [predictionResult, setPredictionResult] = useState(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const [stats, setStats] = useState({ trained: 0, accuracy: 0 });
+  const [selectedHistoryItem, setSelectedHistoryItem] = useState(null);
 
   const venueOptions = ['Auditorium', 'Gymnasium', 'Main Hall', 'Cafeteria', 'Lab', 'Courtyard', 'Library'];
 
@@ -32,6 +36,58 @@ window.SmartAITrainer = function SmartAITrainer() {
     loadTrainingHistory();
     loadEquipmentOptions();
   }, []);
+
+  // Initialize Flatpickr time pickers for timeline
+  useEffect(() => {
+    if (activeFormTab === 'timeline' && formData.timeline.length > 0 && typeof window !== 'undefined' && window.flatpickr) {
+      // Small delay to ensure DOM is ready and Flatpickr is loaded
+      setTimeout(() => {
+        formData.timeline.forEach((phase, index) => {
+          // Initialize start time picker
+          const startPicker = document.getElementById(`start-time-${index}`);
+          if (startPicker && !startPicker._flatpickr) {
+            window.flatpickr(startPicker, {
+              enableTime: true,
+              noCalendar: true,
+              dateFormat: "H:i",
+              time_24hr: false,
+              defaultDate: phase.startTime,
+              onChange: (selectedDates, dateStr) => {
+                updateTimelinePhase(index, 'startTime', dateStr);
+              }
+            });
+          }
+
+          // Initialize end time picker
+          const endPicker = document.getElementById(`end-time-${index}`);
+          if (endPicker && !endPicker._flatpickr) {
+            window.flatpickr(endPicker, {
+              enableTime: true,
+              noCalendar: true,
+              dateFormat: "H:i",
+              time_24hr: false,
+              defaultDate: phase.endTime,
+              onChange: (selectedDates, dateStr) => {
+                updateTimelinePhase(index, 'endTime', dateStr);
+              }
+            });
+          }
+        });
+      }, 1000); // Increased delay to ensure Flatpickr is fully loaded
+    }
+  }, [activeFormTab, formData.timeline]);
+
+
+
+  // Auto-calculate total budget from categories
+  useEffect(() => {
+    const totalFromCategories = formData.budgetCategories.reduce((total, cat) => total + (cat.amount || 0), 0);
+    if (totalFromCategories > 0 && totalFromCategories !== parseFloat(formData.budget || 0)) {
+      setFormData(prev => ({ ...prev, budget: totalFromCategories.toString() }));
+    }
+  }, [formData.budgetCategories]);
+
+
 
   const loadEquipmentOptions = async () => {
     try {
@@ -47,11 +103,46 @@ window.SmartAITrainer = function SmartAITrainer() {
 
   // --- Helper Functions ---
   const toggleEquipment = (equip) => {
+    setFormData(prev => {
+      const isSelected = prev.equipment.some(item => item.name === equip);
+      let newEquipment;
+      if (isSelected) {
+        // Remove equipment
+        newEquipment = prev.equipment.filter(item => item.name !== equip);
+        // Also remove from quantities
+        const newQuantities = {...equipmentQuantities};
+        delete newQuantities[equip];
+        setEquipmentQuantities(newQuantities);
+      } else {
+        // Add equipment with default quantity of 1
+        newEquipment = [...prev.equipment, { name: equip, quantity: 1 }];
+        setEquipmentQuantities(prev => ({ ...prev, [equip]: 1 }));
+      }
+      return { ...prev, equipment: newEquipment };
+    });
+  };
+
+  const updateEquipmentQuantity = (equip, quantity) => {
+    // Allow empty strings during typing, store as string temporarily
+    if (quantity === '') {
+      setEquipmentQuantities(prev => ({ ...prev, [equip]: '' }));
+      setFormData(prev => ({
+        ...prev,
+        equipment: prev.equipment.map(item =>
+          item.name === equip ? { ...item, quantity: 1 } : item
+        )
+      }));
+      return;
+    }
+
+    const numValue = parseInt(quantity);
+    const validQty = isNaN(numValue) ? 1 : Math.max(1, numValue);
+    setEquipmentQuantities(prev => ({ ...prev, [equip]: validQty }));
     setFormData(prev => ({
       ...prev,
-      equipment: prev.equipment.includes(equip)
-        ? prev.equipment.filter(e => e !== equip)
-        : [...prev.equipment, equip]
+      equipment: prev.equipment.map(item =>
+        item.name === equip ? { ...item, quantity: validQty } : item
+      )
     }));
   };
 
@@ -71,10 +162,16 @@ window.SmartAITrainer = function SmartAITrainer() {
   };
 
   const addTimelinePhase = () => {
-    setFormData(prev => ({
-      ...prev,
-      timeline: [...prev.timeline, { startTime: '09:00', endTime: '10:00', phase: '' }]
-    }));
+    setFormData(prev => {
+      const lastPhase = prev.timeline[prev.timeline.length - 1];
+      const startTime = lastPhase ? lastPhase.endTime : '09:00';
+      const endTime = lastPhase ? lastPhase.endTime : '10:00'; // For first phase, use default; for others, start where previous ended
+
+      return {
+        ...prev,
+        timeline: [...prev.timeline, { startTime, endTime, phase: '' }]
+      };
+    });
   };
 
   const updateTimelinePhase = (index, field, value) => {
@@ -141,7 +238,7 @@ window.SmartAITrainer = function SmartAITrainer() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           eventType: formData.type,
-          expectedAttendees: parseInt(formData.attendees),
+          attendees: parseInt(formData.attendees),
           duration: 4
         })
       });
@@ -251,14 +348,14 @@ window.SmartAITrainer = function SmartAITrainer() {
                 { id: 'equipment', label: 'Equipment', icon: 'wrench' },
                 { id: 'timeline', label: 'Timeline', icon: 'clock' },
                 { id: 'budget', label: 'Budget', icon: 'currency-dollar' },
-                { id: 'logistics', label: 'Logistics', icon: 'map-pin' },
-                { id: 'resources', label: 'Add. Resources', icon: 'archive' } 
+                { id: 'resources', label: 'Add. Resources', icon: 'archive' },
+                { id: 'history', label: 'Training History', icon: 'history' }
               ].map((tab) => (
                 <button
                   key={tab.id}
                   onClick={() => setActiveFormTab(tab.id)}
                   className={`flex-1 flex items-center justify-center gap-2 px-4 py-4 text-sm font-medium transition-all relative ${
-                    activeFormTab === tab.id ? 'text-indigo-600 bg-indigo-50/50' : 'text-slate-500 hover:text-slate-700 hover:bg-slate-50'
+                    activeFormTab === tab.id ? 'text-blue-600 bg-blue-50/50' : 'text-slate-500 hover:text-slate-700 hover:bg-slate-50'
                   }`}
                 >
                   <span className="whitespace-nowrap">{tab.label}</span>
@@ -281,9 +378,23 @@ window.SmartAITrainer = function SmartAITrainer() {
                       <option>Academic</option><option>Sports</option><option>Cultural</option><option>Workshop</option><option>Seminar</option>
                     </select>
                 </div>
+                <div>
+                    <label className="block text-sm font-semibold text-slate-700 mb-2">Venue</label>
+                    <select value={formData.venue} onChange={(e) => setFormData({...formData, venue: e.target.value})} className="w-full px-4 py-2.5 border border-slate-300 rounded-lg text-sm bg-white">
+                        {venueOptions.map(v => <option key={v}>{v}</option>)}
+                    </select>
+                </div>
                 <div className="col-span-1 md:col-span-2">
                     <label className="block text-sm font-semibold text-slate-700 mb-2">Description</label>
                     <textarea value={formData.description} onChange={(e) => setFormData({...formData, description: e.target.value})} className="w-full px-4 py-3 border border-slate-300 rounded-lg text-sm" rows="3" />
+                </div>
+                <div>
+                    <label className="block text-sm font-semibold text-slate-700 mb-2">Organizer</label>
+                    <input type="text" value={formData.organizer} onChange={(e) => setFormData({...formData, organizer: e.target.value})} className="w-full px-4 py-2.5 border border-slate-300 rounded-lg text-sm" />
+                </div>
+                <div>
+                    <label className="block text-sm font-semibold text-slate-700 mb-2">Attendees *</label>
+                    <input type="number" value={formData.attendees} onChange={(e) => setFormData({...formData, attendees: e.target.value})} className="w-full px-4 py-2.5 border border-slate-300 rounded-lg text-sm" />
                 </div>
               </div>
             )}
@@ -293,20 +404,86 @@ window.SmartAITrainer = function SmartAITrainer() {
                  {/* Dynamic Equipment Category Tabs */}
                  <div className="flex flex-wrap gap-2 pb-4 border-b border-slate-100">
                     {Object.keys(equipmentCategories).map(cat => (
-                        <button key={cat} onClick={() => setActiveEquipmentTab(cat)} className={`px-4 py-2 rounded-full text-sm font-medium ${activeEquipmentTab === cat ? 'bg-indigo-600 text-white' : 'bg-white border text-slate-600'}`}>{cat}</button>
+                        <button key={cat} onClick={() => setActiveEquipmentTab(cat)} className={`px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 shadow-sm ${activeEquipmentTab === cat ? 'bg-blue-900 text-white hover:bg-blue-800' : 'bg-blue-50 text-blue-900 border border-blue-200 hover:bg-blue-100'}`}>{cat}</button>
                     ))}
                  </div>
-                 {/* Equipment Grid */}
-                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                    {(equipmentCategories[activeEquipmentTab] || []).map(item => (
-                        <button key={item} onClick={() => toggleEquipment(item)} className={`p-4 rounded-xl text-sm border text-left transition-all ${formData.equipment.includes(item) ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-white text-slate-600 border-slate-200 hover:border-indigo-300'}`}>
-                            <div className="flex justify-between items-center">
-                                {item}
-                                {formData.equipment.includes(item) && <span>✓</span>}
+
+                 {/* Equipment Grid with Inline Quantity Controls */}
+                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {(equipmentCategories[activeEquipmentTab] || []).map(item => {
+                      const isSelected = formData.equipment.some(e => e.name === item);
+                      const currentQuantity = formData.equipment.find(e => e.name === item)?.quantity || 1;
+
+                      return (
+                        <div
+                          key={item}
+                          onClick={() => toggleEquipment(item)}
+                          className={`relative p-4 rounded-xl border transition-all cursor-pointer ${isSelected ? 'bg-blue-800 text-white border-blue-800 shadow-lg hover:bg-blue-900' : 'bg-white text-slate-600 border-slate-200 hover:border-blue-300 hover:shadow-md hover:bg-blue-50/50'}`}
+                        >
+                          <div className="flex justify-between items-start mb-3">
+                            <span className="font-medium text-sm leading-tight pr-2">{item}</span>
+                            {!isSelected && (
+                              <div className="flex-shrink-0 w-8 h-8 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center text-sm font-bold">
+                                +
+                              </div>
+                            )}
+                          </div>
+
+                          {isSelected && (
+                            <div className="flex items-center justify-between gap-2">
+                              <div className="flex items-center gap-2 flex-1">
+                                <label className="text-xs opacity-90">Qty:</label>
+                                <input
+                                  type="number"
+                                  min="1"
+                                  max="999"
+                                  defaultValue={currentQuantity}
+                                  onBlur={(e) => {
+                                    const value = parseInt(e.target.value);
+                                    if (!isNaN(value) && value >= 1) {
+                                      updateEquipmentQuantity(item, e.target.value);
+                                    } else {
+                                      e.target.value = currentQuantity.toString();
+                                    }
+                                  }}
+                                  onClick={(e) => e.stopPropagation()}
+                                  className="w-16 px-2 py-1 border border-white/30 rounded text-sm bg-white/10 text-white placeholder-white/50 focus:ring-1 focus:ring-white/50 focus:border-white/50 text-center font-medium"
+                                  placeholder="1"
+                                />
+                              </div>
+                              <button
+                                onClick={(e) => { e.stopPropagation(); toggleEquipment(item); }}
+                                className="flex-shrink-0 w-6 h-6 bg-white/20 hover:bg-white/30 text-white rounded-full flex items-center justify-center text-xs font-bold transition-colors"
+                                title="Remove equipment"
+                              >
+                                ×
+                              </button>
                             </div>
-                        </button>
-                    ))}
+                          )}
+                        </div>
+                      );
+                    })}
                  </div>
+
+                 {/* Summary of Selected Equipment */}
+                 {formData.equipment.length > 0 && (
+                   <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 mt-4">
+                     <div className="flex items-center justify-between mb-2">
+                       <h4 className="text-sm font-semibold text-slate-800">Selected Equipment Summary</h4>
+                       <span className="text-xs text-slate-500 bg-white px-2 py-1 rounded-full border">
+                         {formData.equipment.length} item{formData.equipment.length !== 1 ? 's' : ''}
+                       </span>
+                     </div>
+                     <div className="text-xs text-slate-600 space-y-1">
+                       {formData.equipment.map((equip, index) => (
+                         <div key={index} className="flex justify-between">
+                           <span>{equip.name}</span>
+                           <span className="font-medium">×{equip.quantity}</span>
+                         </div>
+                       ))}
+                     </div>
+                   </div>
+                 )}
               </div>
             )}
             
@@ -350,18 +527,24 @@ window.SmartAITrainer = function SmartAITrainer() {
                         <div key={index} className="grid grid-cols-12 gap-4 px-6 py-4 items-center hover:bg-slate-50 transition-colors group">
                           <div className="col-span-3">
                             <input
-                              type="time"
+                              id={`start-time-${index}`}
+                              type="text"
                               value={phase.startTime}
                               onChange={(e) => updateTimelinePhase(index, 'startTime', e.target.value)}
-                              className="w-full px-3 py-2 border border-slate-200 rounded bg-white text-sm focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500"
+                              className="flatpickr-input w-full px-3 py-2 border border-slate-200 rounded bg-white text-sm cursor-pointer"
+                              placeholder="Start time"
+                              readOnly
                             />
                           </div>
                           <div className="col-span-3">
                             <input
-                              type="time"
+                              id={`end-time-${index}`}
+                              type="text"
                               value={phase.endTime}
                               onChange={(e) => updateTimelinePhase(index, 'endTime', e.target.value)}
-                              className="w-full px-3 py-2 border border-slate-200 rounded bg-white text-sm focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500"
+                              className="flatpickr-input w-full px-3 py-2 border border-slate-200 rounded bg-white text-sm cursor-pointer"
+                              placeholder="End time"
+                              readOnly
                             />
                           </div>
                           <div className="col-span-5">
@@ -493,28 +676,7 @@ window.SmartAITrainer = function SmartAITrainer() {
               </div>
             )}
 
-            {activeFormTab === 'logistics' && (
-                <div className="max-w-4xl mx-auto grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div>
-                        <label className="block text-sm font-semibold text-slate-700 mb-2">Venue</label>
-                        <select value={formData.venue} onChange={(e) => setFormData({...formData, venue: e.target.value})} className="w-full border border-slate-300 p-3 rounded-lg bg-white text-sm">
-                            {venueOptions.map(v => <option key={v}>{v}</option>)}
-                        </select>
-                    </div>
-                    <div>
-                        <label className="block text-sm font-semibold text-slate-700 mb-2">Organizer</label>
-                        <input type="text" value={formData.organizer} onChange={(e) => setFormData({...formData, organizer: e.target.value})} className="w-full border border-slate-300 p-3 rounded-lg text-sm" />
-                    </div>
-                    <div>
-                        <label className="block text-sm font-semibold text-slate-700 mb-2">Attendees</label>
-                        <input type="number" value={formData.attendees} onChange={(e) => setFormData({...formData, attendees: e.target.value})} className="w-full border border-slate-300 p-3 rounded-lg text-sm" />
-                    </div>
-                    <div>
-                        <label className="block text-sm font-semibold text-slate-700 mb-2">Total Budget (₱)</label>
-                        <input type="number" value={formData.budget} onChange={(e) => setFormData({...formData, budget: e.target.value})} className="w-full border border-slate-300 p-3 rounded-lg text-sm" />
-                    </div>
-                </div>
-            )}
+
 
             {/* Additional Resources Tab Content - Adjusted Spacing */}
             {activeFormTab === 'resources' && (
@@ -523,12 +685,12 @@ window.SmartAITrainer = function SmartAITrainer() {
                     <h4 className="text-sm font-bold text-teal-800 mb-2">Additional Resources</h4>
                     <p className="text-xs text-slate-500 mb-3">Add non-equipment items like decorations, certificates, ice, etc.</p>
                     <div className="flex gap-2 mb-4">
-                        <input 
-                            type="text" 
-                            value={newResourceItem} 
+                        <input
+                            type="text"
+                            value={newResourceItem}
                             onChange={(e) => setNewResourceItem(e.target.value)}
                             onKeyPress={(e) => e.key === 'Enter' && addResource()}
-                            className="flex-1 px-4 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-teal-500 focus:border-teal-500" 
+                            className="flex-1 px-4 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
                             placeholder="e.g. Certificates, Medals"
                         />
                         <button onClick={addResource} className="px-4 py-2 bg-teal-600 text-white rounded-lg text-sm font-medium hover:bg-teal-700 shadow-sm">Add</button>
@@ -547,6 +709,290 @@ window.SmartAITrainer = function SmartAITrainer() {
                         )}
                     </div>
                 </div>
+              </div>
+            )}
+
+            {/* Training History Tab Content */}
+            {activeFormTab === 'history' && (
+              <div className="max-w-6xl mx-auto space-y-6">
+                <div className="flex justify-between items-end mb-4">
+                  <div>
+                    <h3 className="text-lg font-bold text-slate-800">Training History</h3>
+                    <p className="text-slate-500 text-sm">Verify your database uploads and track AI learning progress.</p>
+                  </div>
+                  <div className="flex items-center gap-4">
+                    <div className="text-right">
+                      <div className="text-sm text-slate-600">Total Training Samples</div>
+                      <div className="text-lg font-bold text-blue-600">{stats.trained}</div>
+                    </div>
+                    <button
+                      onClick={() => loadTrainingHistory()}
+                      className="px-4 py-2 bg-slate-100 text-slate-700 border border-slate-200 rounded-lg text-sm font-medium hover:bg-slate-200 transition-colors flex items-center gap-2"
+                    >
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                      </svg>
+                      Refresh
+                    </button>
+                  </div>
+                </div>
+
+                {trainingHistory.length === 0 ? (
+                  <div className="bg-slate-50 border-2 border-dashed border-slate-200 rounded-xl p-12 text-center flex flex-col items-center justify-center">
+                    <div className="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center mb-4">
+                      <svg className="w-8 h-8 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.746 0 3.332.477 4.5 1.253v13C19.832 18.477 18.246 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+                      </svg>
+                    </div>
+                    <p className="text-slate-900 font-medium text-lg">No training data yet</p>
+                    <p className="text-slate-500 text-sm mt-1">Complete and submit event forms to see your training history here</p>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    <div className="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-sm">
+                      <div className="overflow-x-auto">
+                        <table className="w-full">
+                          <thead className="bg-slate-50 border-b border-slate-200">
+                            <tr>
+                              <th className="px-6 py-4 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">Event Name</th>
+                              <th className="px-6 py-4 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">Type</th>
+                              <th className="px-6 py-4 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">Budget</th>
+                              <th className="px-6 py-4 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">Date Added</th>
+                              <th className="px-6 py-4 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">Actions</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-slate-100">
+                            {trainingHistory.map((item, index) => (
+                              <tr key={index} className="hover:bg-slate-50 transition-colors">
+                                <td className="px-6 py-4">
+                                  <div className="text-sm font-medium text-slate-900">{item.eventName}</div>
+                                </td>
+                                <td className="px-6 py-4">
+                                  <span className="inline-flex px-2 py-1 text-xs font-medium bg-blue-100 text-blue-800 rounded-full">
+                                    {item.eventType}
+                                  </span>
+                                </td>
+                                <td className="px-6 py-4">
+                                  <span className="text-sm font-mono text-slate-900">₱{item.budget?.toLocaleString()}</span>
+                                </td>
+                                <td className="px-6 py-4">
+                                  <span className="text-sm text-slate-500">
+                                    {item.created_at ? new Date(item.created_at).toLocaleDateString() : 'N/A'}
+                                  </span>
+                                </td>
+                                <td className="px-6 py-4">
+                                  <button
+                                    onClick={() => {
+                                      console.log('Selected item:', item);
+                                      setSelectedHistoryItem(item);
+                                    }}
+                                    className="px-3 py-1 bg-blue-50 text-blue-700 border border-blue-200 rounded-lg text-xs font-medium hover:bg-blue-100 transition-colors"
+                                  >
+                                    View Details
+                                  </button>
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+
+                      <div className="bg-slate-50 px-6 py-4 border-t border-slate-200">
+                        <div className="flex items-center justify-between text-sm text-slate-600">
+                          <span>Showing {trainingHistory.length} training sample{trainingHistory.length !== 1 ? 's' : ''}</span>
+                          <span>Click "View Details" for full information</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Detailed Modal */}
+                    {selectedHistoryItem && (
+                      <div className="fixed inset-0 bg-black bg-opacity-50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+                        <div className="bg-white rounded-2xl max-w-5xl w-full max-h-[95vh] overflow-hidden shadow-2xl transform transition-all">
+                          {/* Header */}
+                          <div className="bg-gradient-to-r from-blue-600 to-indigo-600 px-8 py-6 text-white">
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center gap-4">
+                                <div className="w-12 h-12 bg-white bg-opacity-20 rounded-xl flex items-center justify-center">
+                                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                                  </svg>
+                                </div>
+                                <div>
+                                  <h2 className="text-2xl font-bold">{selectedHistoryItem.eventName}</h2>
+                                  <p className="text-blue-100 mt-1">Training Data Verification</p>
+                                </div>
+                              </div>
+                              <button
+                                onClick={() => setSelectedHistoryItem(null)}
+                                className="text-white hover:bg-white hover:bg-opacity-20 rounded-lg p-2 transition-colors"
+                              >
+                                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+                                </svg>
+                              </button>
+                            </div>
+                          </div>
+
+                          {/* Content */}
+                          <div className="overflow-y-auto max-h-[calc(95vh-160px)]">
+                            {/* Quick Stats */}
+                            <div className="bg-slate-50 px-8 py-6 border-b border-slate-200">
+                              <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
+                                <div className="text-center">
+                                  <div className="text-2xl font-bold text-slate-900">{selectedHistoryItem.attendees}</div>
+                                  <div className="text-sm text-slate-600">Attendees</div>
+                                </div>
+                                <div className="text-center">
+                                  <div className="text-2xl font-bold text-green-600">₱{selectedHistoryItem.budget?.toLocaleString()}</div>
+                                  <div className="text-sm text-slate-600">Budget</div>
+                                </div>
+                                <div className="text-center">
+                                  <div className="text-2xl font-bold text-blue-600">{selectedHistoryItem.equipment?.length || 0}</div>
+                                  <div className="text-sm text-slate-600">Equipment</div>
+                                </div>
+                                <div className="text-center">
+                                  <span className="inline-flex px-3 py-1 text-sm font-medium bg-blue-100 text-blue-800 rounded-full">
+                                    {selectedHistoryItem.eventType}
+                                  </span>
+                                  <div className="text-sm text-slate-600 mt-1">Event Type</div>
+                                </div>
+                              </div>
+                            </div>
+
+                            {/* Detailed Information */}
+                            <div className="px-8 py-8">
+                              <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                                {/* Left Column */}
+                                <div className="space-y-6">
+                                  {/* Basic Information */}
+                                  <div className="bg-white border border-slate-200 rounded-xl p-6">
+                                    <h3 className="text-lg font-semibold text-slate-800 mb-4 flex items-center gap-2">
+                                      <svg className="w-5 h-5 text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                      </svg>
+                                      Basic Information
+                                    </h3>
+                                    <div className="space-y-4">
+                                      <div className="grid grid-cols-2 gap-4">
+                                        <div>
+                                          <label className="block text-sm font-medium text-slate-600 mb-1">Venue</label>
+                                          <p className="text-slate-900 font-medium">{selectedHistoryItem.venue}</p>
+                                        </div>
+                                        <div>
+                                          <label className="block text-sm font-medium text-slate-600 mb-1">Organizer</label>
+                                          <p className="text-slate-900 font-medium">{selectedHistoryItem.organizer || 'N/A'}</p>
+                                        </div>
+                                      </div>
+                                      <div>
+                                        <label className="block text-sm font-medium text-slate-600 mb-1">Description</label>
+                                        <p className="text-slate-700 bg-slate-50 rounded-lg p-3">{selectedHistoryItem.description || 'No description provided'}</p>
+                                      </div>
+                                    </div>
+                                  </div>
+
+                                  {/* Budget Breakdown */}
+                                  <div className="bg-white border border-slate-200 rounded-xl p-6">
+                                    <h3 className="text-lg font-semibold text-slate-800 mb-4 flex items-center gap-2">
+                                      <svg className="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                      </svg>
+                                      Budget Breakdown
+                                    </h3>
+                                    {selectedHistoryItem.budget_breakdown && Object.keys(selectedHistoryItem.budget_breakdown).length > 0 ? (
+                                      <div className="space-y-3">
+                                        {selectedHistoryItem.budget_breakdown.map((item, index) => (
+                                          <div key={index} className="flex justify-between items-center py-2 border-b border-slate-100 last:border-0">
+                                            <span className="text-slate-700">{item.name}</span>
+                                            <span className="font-mono font-semibold text-green-600">₱{item.amount?.toLocaleString()}</span>
+                                          </div>
+                                        ))}
+                                      </div>
+                                    ) : (
+                                      <p className="text-slate-500 italic">No budget breakdown recorded</p>
+                                    )}
+                                  </div>
+                                </div>
+
+                                {/* Right Column */}
+                                <div className="space-y-6">
+                                  {/* Equipment List */}
+                                  <div className="bg-white border border-slate-200 rounded-xl p-6">
+                                    <h3 className="text-lg font-semibold text-slate-800 mb-4 flex items-center gap-2">
+                                      <svg className="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+                                      </svg>
+                                      Equipment ({selectedHistoryItem.equipment?.length || 0} items)
+                                    </h3>
+                                    {selectedHistoryItem.equipment?.length > 0 ? (
+                                      <div className="grid grid-cols-1 gap-2">
+                                        {selectedHistoryItem.equipment.map((eq, idx) => (
+                                          <div key={idx} className="flex justify-between items-center bg-slate-50 rounded-lg p-3">
+                                            <span className="text-slate-700">{eq.name}</span>
+                                            <span className="bg-blue-100 text-blue-800 px-2 py-1 rounded-full text-xs font-medium">
+                                              Qty: {eq.quantity}
+                                            </span>
+                                          </div>
+                                        ))}
+                                      </div>
+                                    ) : (
+                                      <p className="text-slate-500 italic">No equipment recorded</p>
+                                    )}
+                                  </div>
+
+                                  {/* Additional Resources */}
+                                  <div className="bg-white border border-slate-200 rounded-xl p-6">
+                                    <h3 className="text-lg font-semibold text-slate-800 mb-4 flex items-center gap-2">
+                                      <svg className="w-5 h-5 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.746 0 3.332.477 4.5 1.253v13C19.832 18.477 18.246 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+                                      </svg>
+                                      Additional Resources
+                                    </h3>
+                                    {selectedHistoryItem.additionalResources?.length > 0 ? (
+                                      <div className="flex flex-wrap gap-2">
+                                        {selectedHistoryItem.additionalResources.map((res, idx) => (
+                                          <span key={idx} className="bg-purple-100 text-purple-800 px-3 py-2 rounded-lg text-sm font-medium">
+                                            {res}
+                                          </span>
+                                        ))}
+                                      </div>
+                                    ) : (
+                                      <p className="text-slate-500 italic">No additional resources</p>
+                                    )}
+                                  </div>
+
+                                  {/* Timestamp */}
+                                  <div className="bg-slate-50 border border-slate-200 rounded-xl p-6">
+                                    <h3 className="text-lg font-semibold text-slate-800 mb-4 flex items-center gap-2">
+                                      <svg className="w-5 h-5 text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                      </svg>
+                                      Submission Details
+                                    </h3>
+                                    <div className="space-y-2">
+                                      <div className="flex justify-between">
+                                        <span className="text-slate-600">Date Submitted:</span>
+                                        <span className="font-medium text-slate-900">
+                                          {selectedHistoryItem.created_at ? new Date(selectedHistoryItem.created_at).toLocaleDateString() : 'N/A'}
+                                        </span>
+                                      </div>
+                                      <div className="flex justify-between">
+                                        <span className="text-slate-600">Time Submitted:</span>
+                                        <span className="font-medium text-slate-900">
+                                          {selectedHistoryItem.created_at ? new Date(selectedHistoryItem.created_at).toLocaleTimeString() : 'N/A'}
+                                        </span>
+                                      </div>
+                                    </div>
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
             )}
 

@@ -306,9 +306,57 @@ const AddDataModal = ({ onClose, onDataAdded }) => {
               <InputField name="budget" label="Total Actual Budget" type="number" value={formData.budget} onChange={handleInputChange} required />
             </div>
 
-            {/* --- Resources (as textareas for simplicity) --- */}
-            <p className="text-sm text-gray-600 pt-2">Enter resource items separated by commas (e.g., Projector, Speakers, Tables).</p>
-            <InputField name="equipment" label="Equipment Used" type="textarea" value={formData.equipment.join(', ')} onChange={(e) => handleMultiSelectChange('equipment', e.target.value.split(',').map(s => s.trim()))} />
+            {/* --- Equipment with Quantities --- */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Equipment Used</label>
+              {formData.equipment.map((item, index) => (
+                <div key={index} className="flex gap-2 mb-2">
+                  <input
+                    type="text"
+                    placeholder="Equipment name"
+                    value={item.name}
+                    onChange={(e) => {
+                      const newEquipment = [...formData.equipment];
+                      newEquipment[index].name = e.target.value;
+                      handleMultiSelectChange('equipment', newEquipment);
+                    }}
+                    className="flex-1 px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                  />
+                  <input
+                    type="number"
+                    placeholder="Qty"
+                    min="1"
+                    value={item.quantity}
+                    onChange={(e) => {
+                      const newEquipment = [...formData.equipment];
+                      newEquipment[index].quantity = parseInt(e.target.value) || 1;
+                      handleMultiSelectChange('equipment', newEquipment);
+                    }}
+                    className="w-20 px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const newEquipment = formData.equipment.filter((_, i) => i !== index);
+                      handleMultiSelectChange('equipment', newEquipment);
+                    }}
+                    className="px-3 py-2 bg-red-500 text-white rounded-md hover:bg-red-600 text-sm"
+                  >
+                    ✕
+                  </button>
+                </div>
+              ))}
+              <button
+                type="button"
+                onClick={() => {
+                  const newEquipment = [...formData.equipment, { name: '', quantity: 1 }];
+                  handleMultiSelectChange('equipment', newEquipment);
+                }}
+                className="px-4 py-2 bg-green-500 text-white rounded-md hover:bg-green-600 text-sm"
+              >
+                + Add Equipment
+              </button>
+            </div>
             <InputField name="activities" label="Activities" type="textarea" value={formData.activities.join(', ')} onChange={(e) => handleMultiSelectChange('activities', e.target.value.split(',').map(s => s.trim()))} />
             <InputField name="catering" label="Catering" type="textarea" value={formData.catering.join(', ')} onChange={(e) => handleMultiSelectChange('catering', e.target.value.split(',').map(s => s.trim()))} />
             <InputField name="additionalResources" label="Additional Resources" type="textarea" value={formData.additionalResources.join(', ')} onChange={(e) => handleMultiSelectChange('additionalResources', e.target.value.split(',').map(s => s.trim()))} />

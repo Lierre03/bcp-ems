@@ -46,7 +46,7 @@ def load_training_data():
 
     # UPDATED QUERY: REMOVED CATERING
     cursor.execute("""
-        SELECT event_name, event_type, expected_attendees, total_budget,
+        SELECT event_name, event_type, attendees, total_budget,
                equipment, activities, additional_resources,
                budget_breakdown, venue, organizer, description
         FROM ai_training_data
@@ -66,7 +66,7 @@ def load_training_data():
     
     # Scale attendees
     scaler = StandardScaler()
-    df['attendees_scaled'] = scaler.fit_transform(df[['expected_attendees']])
+    df['attendees_scaled'] = scaler.fit_transform(df[['attendees']])
 
     # Parse JSON arrays into Python lists (Removed catering)
     for col in ['equipment', 'activities', 'additional_resources', 'budget_breakdown']:
@@ -85,8 +85,8 @@ def add_training_data():
         # UPDATED INSERT STATEMENT: REMOVED CATERING
         cursor.execute("""
             INSERT INTO ai_training_data
-            (event_name, event_type, description, venue, organizer, 
-             expected_attendees, total_budget, budget_breakdown,
+            (event_name, event_type, description, venue, organizer,
+             attendees, total_budget, budget_breakdown,
              equipment, activities, additional_resources, is_validated)
             VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, 1)
         """, (
@@ -118,12 +118,33 @@ def get_training_history():
         conn = get_db()
         cursor = conn.cursor(dictionary=True)
         cursor.execute("""
-            SELECT id, event_name, event_type, total_budget, created_at 
-            FROM ai_training_data 
-            ORDER BY created_at DESC LIMIT 10
+            SELECT * FROM ai_training_data
+            WHERE is_validated = 1
+            ORDER BY created_at DESC
         """)
         data = cursor.fetchall()
         conn.close()
+
+        # Parse JSON fields for frontend
+        for item in data:
+            try:
+                # Parse equipment (stored as JSON array)
+                if item.get('equipment') and isinstance(item['equipment'], str):
+                    item['equipment'] = json.loads(item['equipment'])
+
+                # Parse additional_resources (stored as JSON array)
+                if item.get('additional_resources') and isinstance(item['additional_resources'], str):
+                    item['additional_resources'] = json.loads(item['additional_resources'])
+
+                # Parse budget_breakdown (stored as JSON array)
+                if item.get('budget_breakdown') and isinstance(item['budget_breakdown'], str):
+                    item['budget_breakdown'] = json.loads(item['budget_breakdown'])
+
+            except json.JSONDecodeError as e:
+                print(f"JSON parsing error for item {item.get('id', 'unknown')}: {e}")
+                # Keep original values if parsing fails
+                pass
+
         return jsonify({'success': True, 'data': data})
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)})
@@ -143,22 +164,41 @@ def training_stats():
 @ml_bp.route('/equipment-options', methods=['GET'])
 def get_equipment_options():
     try:
-        categories = {
-            'Audio & Visual': ['Projector', 'Speaker', 'Microphone', 'Screen'],
-            'Furniture & Setup': ['Tables', 'Chairs', 'Stage', 'Podium'],
-            'Sports & Venue': ['Scoreboard', 'Lighting', 'Camera', 'First Aid Kit']
-        }
-
+        # Get dynamic categories from equipment table
         conn = get_db()
         cursor = conn.cursor(dictionary=True)
+
+        # Get all unique categories
+        cursor.execute("SELECT DISTINCT category FROM equipment ORDER BY category")
+        category_rows = cursor.fetchall()
+
+        # Get all equipment items grouped by category
+        cursor.execute("SELECT category, GROUP_CONCAT(DISTINCT name ORDER BY name) as items FROM equipment GROUP BY category ORDER BY category")
+        equipment_rows = cursor.fetchall()
+
+        # Build categories dictionary from database
+        categories = {}
+        for row in equipment_rows:
+            try:
+                items = row['items'].split(',') if row['items'] else []
+                categories[row['category']] = sorted(items)
+            except:
+                categories[row['category']] = []
+
+        # Add any categories that don't have equipment yet
+        for cat_row in category_rows:
+            if cat_row['category'] not in categories:
+                categories[cat_row['category']] = []
+
+        # Also include learned items from training data for completeness
         cursor.execute("SELECT equipment FROM ai_training_data")
-        rows = cursor.fetchall()
+        training_rows = cursor.fetchall()
         conn.close()
 
         learned_items = set()
         existing_items = set(sum(categories.values(), []))
 
-        for row in rows:
+        for row in training_rows:
             if row['equipment']:
                 try:
                     items = json.loads(row['equipment'])
@@ -167,7 +207,7 @@ def get_equipment_options():
                             learned_items.add(item)
                 except:
                     pass
-        
+
         if learned_items:
             categories['Learned Items'] = sorted(list(learned_items))
 
@@ -188,7 +228,7 @@ def train_models():
             return jsonify({'success': False, 'message': 'Not enough data to train (need at least 5 samples)'})
 
         # --- 1. Train Budget Model (Linear Regression) ---
-        X_budget = df[['event_type_encoded', 'expected_attendees']]
+        X_budget = df[['event_type_encoded', 'attendees']]
         y_budget = df['total_budget']
         
         budget_model = LinearRegression()
@@ -265,7 +305,7 @@ def predict_resources():
     try:
         data = request.json
         event_type = data.get('eventType', 'Academic')
-        attendees = int(data.get('expectedAttendees', 100))
+        attendees = int(data.get('attendees', 100))
         duration = float(data.get('duration', 4))
 
         predictions = {
