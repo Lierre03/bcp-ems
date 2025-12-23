@@ -1,51 +1,51 @@
-// SmartAITrainer - Complete AI Training System with Full Event Data
-// EXACTLY mirrors EventFormModal.js structure for comprehensive AI learning
+// SmartAITrainer - Complete Database-Driven Version (Restored Original UI)
 const { useState, useEffect } = React;
 
 window.SmartAITrainer = function SmartAITrainer() {
-  const [mode, setMode] = useState('train');
   const [activeEquipmentTab, setActiveEquipmentTab] = useState('Audio & Visual');
   const [activeFormTab, setActiveFormTab] = useState('basic');
-  const [checkedActivities, setCheckedActivities] = useState([]);
-  const [checkedCatering, setCheckedCatering] = useState([]);
-  const [checkedResources, setCheckedResources] = useState([]);
-  const [budgetData, setBudgetData] = useState(null);
-  const [timelineData, setTimelineData] = useState(null);
-
-  // Simplified form structure focused on training essentials (no dates needed for AI learning)
+  
+  // Dynamic Equipment Categories (Fetched from API)
+  const [equipmentCategories, setEquipmentCategories] = useState({
+    'Audio & Visual': ['Projector', 'Speaker', 'Microphone', 'Screen'],
+    'Furniture & Setup': ['Tables', 'Chairs', 'Stage', 'Podium'],
+    'Sports & Venue': ['Scoreboard', 'Lighting', 'Camera', 'First Aid Kit']
+  });
+  
+  // FORM DATA STATE
   const [formData, setFormData] = useState({
     name: '', type: 'Academic', venue: 'Auditorium', equipment: [], attendees: '', budget: '', organizer: '',
-    description: '', timeline: [], catering: [], budgetCategories: []
+    description: '', timeline: [], budgetCategories: [], additionalResources: []
   });
+
+  const [newResourceItem, setNewResourceItem] = useState(''); // State for new resource input
 
   const [trainingHistory, setTrainingHistory] = useState([]);
   const [predictionResult, setPredictionResult] = useState(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const [stats, setStats] = useState({ trained: 0, accuracy: 0 });
 
-  // EXACT same equipment categories as EventFormModal.js
-  const equipmentCategories = {
-    'Audio & Visual': ['Projector', 'Speaker', 'Microphone', 'Screen'],
-    'Furniture & Setup': ['Tables', 'Chairs', 'Stage', 'Podium'],
-    'Sports & Venue': ['Scoreboard', 'Lighting', 'Camera', 'First Aid Kit']
-  };
-
-  // Activity options - same as real event activities
-  const activityOptions = [
-    'Presentations', 'Judging', 'Awards Ceremony', 'Networking',
-    'Registration', 'Setup', 'Teardown', 'Photo Session', 'Q&A'
-  ];
-
-  // Additional resources - real resource needs
-  const resourceOptions = [
-    'Certificates', 'Trophies', 'Medals', 'Ribbons', 'Name Tags',
-    'Signage', 'Banners', 'Tablecloths', 'Centerpieces'
-  ];
-
-  // Venue options - same as EventFormModal.js
   const venueOptions = ['Auditorium', 'Gymnasium', 'Main Hall', 'Cafeteria', 'Lab', 'Courtyard', 'Library'];
 
-  // Helper functions - same as EventFormModal.js
+  useEffect(() => {
+    loadStats();
+    loadTrainingHistory();
+    loadEquipmentOptions();
+  }, []);
+
+  const loadEquipmentOptions = async () => {
+    try {
+        const response = await fetch('/api/ml/equipment-options');
+        const data = await response.json();
+        if (data.success && data.categories) {
+            setEquipmentCategories(data.categories);
+        }
+    } catch (error) {
+        console.error('Failed to load equipment options:', error);
+    }
+  };
+
+  // --- Helper Functions ---
   const toggleEquipment = (equip) => {
     setFormData(prev => ({
       ...prev,
@@ -55,85 +55,55 @@ window.SmartAITrainer = function SmartAITrainer() {
     }));
   };
 
-  const toggleActivity = (item) => {
-    const newActivities = checkedActivities.includes(item)
-      ? checkedActivities.filter(a => a !== item)
-      : [...checkedActivities, item];
-    setCheckedActivities(newActivities);
-    setFormData(prev => ({ ...prev, activities: newActivities }));
+  // Additional Resource Helpers
+  const addResource = () => {
+    if (newResourceItem.trim()) {
+      setFormData(prev => ({
+        ...prev,
+        additionalResources: [...prev.additionalResources, newResourceItem.trim()]
+      }));
+      setNewResourceItem('');
+    }
+  };
+  
+  const removeResource = (index) => {
+    setFormData(prev => ({ ...prev, additionalResources: prev.additionalResources.filter((_, i) => i !== index) }));
   };
 
-  const toggleCatering = (item) => {
-    const newCatering = checkedCatering.includes(item)
-      ? checkedCatering.filter(c => c !== item)
-      : [...checkedCatering, item];
-    setCheckedCatering(newCatering);
-    setFormData(prev => ({ ...prev, catering: newCatering }));
-  };
-
-  const toggleAdditionalResource = (item) => {
-    const newResources = checkedResources.includes(item)
-      ? checkedResources.filter(r => r !== item)
-      : [...checkedResources, item];
-    setCheckedResources(newResources);
-    setFormData(prev => ({ ...prev, additionalResources: newResources }));
-  };
-
-  // Timeline management functions
   const addTimelinePhase = () => {
-    const newPhase = {
-      startTime: '09:00',
-      endTime: '10:00',
-      phase: ''
-    };
     setFormData(prev => ({
       ...prev,
-      timeline: [...prev.timeline, newPhase]
+      timeline: [...prev.timeline, { startTime: '09:00', endTime: '10:00', phase: '' }]
     }));
   };
 
   const updateTimelinePhase = (index, field, value) => {
-    const updatedTimeline = [...formData.timeline];
-    updatedTimeline[index][field] = value;
-    setFormData(prev => ({ ...prev, timeline: updatedTimeline }));
+    const updated = [...formData.timeline];
+    updated[index][field] = value;
+    setFormData(prev => ({ ...prev, timeline: updated }));
   };
 
   const removeTimelinePhase = (index) => {
-    const updatedTimeline = formData.timeline.filter((_, i) => i !== index);
-    setFormData(prev => ({ ...prev, timeline: updatedTimeline }));
+    setFormData(prev => ({ ...prev, timeline: prev.timeline.filter((_, i) => i !== index) }));
   };
 
-  // Budget category management functions
   const addBudgetCategory = () => {
-    const newCategory = {
-      name: '',
-      amount: 0
-    };
     setFormData(prev => ({
       ...prev,
-      budgetCategories: [...prev.budgetCategories, newCategory]
+      budgetCategories: [...prev.budgetCategories, { name: '', amount: 0 }]
     }));
   };
 
   const updateBudgetCategory = (index, field, value) => {
-    const updatedCategories = [...formData.budgetCategories];
-    if (field === 'amount') {
-      updatedCategories[index][field] = parseFloat(value) || 0;
-    } else {
-      updatedCategories[index][field] = value;
-    }
-    setFormData(prev => ({ ...prev, budgetCategories: updatedCategories }));
+    const updated = [...formData.budgetCategories];
+    if (field === 'amount') updated[index][field] = parseFloat(value) || 0;
+    else updated[index][field] = value;
+    setFormData(prev => ({ ...prev, budgetCategories: updated }));
   };
 
   const removeBudgetCategory = (index) => {
-    const updatedCategories = formData.budgetCategories.filter((_, i) => i !== index);
-    setFormData(prev => ({ ...prev, budgetCategories: updatedCategories }));
+    setFormData(prev => ({ ...prev, budgetCategories: prev.budgetCategories.filter((_, i) => i !== index) }));
   };
-
-  useEffect(() => {
-    loadStats();
-    loadTrainingHistory();
-  }, []);
 
   const loadStats = async () => {
     try {
@@ -145,9 +115,7 @@ window.SmartAITrainer = function SmartAITrainer() {
           accuracy: data.total_samples > 5 ? Math.min(90 + (data.total_samples - 5), 98) : 70
         });
       }
-    } catch (error) {
-      console.error('Stats loading failed:', error);
-    }
+    } catch (error) { console.error('Stats failed', error); }
   };
 
   const loadTrainingHistory = async () => {
@@ -155,11 +123,9 @@ window.SmartAITrainer = function SmartAITrainer() {
       const response = await fetch('/api/ml/training-data');
       const data = await response.json();
       if (data.success) {
-        setTrainingHistory(data.data.slice(0, 5)); // Show last 5
+        setTrainingHistory(data.data || []);
       }
-    } catch (error) {
-      console.error('History loading failed:', error);
-    }
+    } catch (error) { console.error('History failed', error); }
   };
 
   const testPrediction = async () => {
@@ -176,7 +142,7 @@ window.SmartAITrainer = function SmartAITrainer() {
         body: JSON.stringify({
           eventType: formData.type,
           expectedAttendees: parseInt(formData.attendees),
-          duration: 4 // Default duration
+          duration: 4
         })
       });
 
@@ -184,6 +150,7 @@ window.SmartAITrainer = function SmartAITrainer() {
 
       if (data.success) {
         setPredictionResult(data);
+        if (!formData.budget) setFormData(prev => ({...prev, budget: data.estimatedBudget}));
       } else {
         alert('Prediction failed: ' + (data.error || 'Unknown error'));
       }
@@ -195,15 +162,13 @@ window.SmartAITrainer = function SmartAITrainer() {
   };
 
   const addToTraining = async () => {
-    if (!predictionResult) {
-      alert('Generate a prediction first!');
-      return;
+    if (!formData.name || !formData.budget) {
+        alert("Please ensure Event Name and Budget are filled out.");
+        return;
     }
 
-    // Ask user to confirm the prediction was good
-    const wasAccurate = confirm(`Was this prediction accurate for "${formData.name}"?\n\nBudget: ₱${predictionResult.estimatedBudget}\nEquipment: ${predictionResult.resources.join(', ')}\n\nClick OK if this was a good prediction to add to training data.`);
-
-    if (!wasAccurate) return;
+    const confirmMsg = `Save this event data to the training set?\n\nEvent: ${formData.name}\nBudget: ₱${formData.budget}\n\nThe AI will learn from YOUR inputs, not its own guess.`;
+    if (!confirm(confirmMsg)) return;
 
     setIsProcessing(true);
     try {
@@ -212,30 +177,44 @@ window.SmartAITrainer = function SmartAITrainer() {
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
         body: JSON.stringify({
+          // Basic Info
           eventName: formData.name,
           eventType: formData.type,
+          description: formData.description,
+          
+          // Logistics
+          venue: formData.venue,
+          organizer: formData.organizer,
           attendees: parseInt(formData.attendees),
-          budget: predictionResult.estimatedBudget,
-          equipment: predictionResult.resources,
-          activities: formData.timeline.map(t => `${t.startTime} - ${t.endTime}: ${t.phase}`), // Convert timeline to activities format
-          catering: predictionResult.catering || [],
-          additionalResources: []
+          
+          // Budget (Learning from user input)
+          budget: parseFloat(formData.budget),
+          budgetBreakdown: formData.budgetCategories, 
+          
+          // Resources
+          equipment: formData.equipment,
+          activities: formData.timeline.map(t => `${t.startTime} - ${t.endTime}: ${t.phase}`),
+          
+          // Additional Resources (No catering)
+          additionalResources: formData.additionalResources || []
         })
       });
 
       const data = await response.json();
 
       if (data.success) {
-        alert('✅ Added to training data! AI will learn from this.');
+        alert('✅ Added to training data! The AI model will improve upon retraining.');
         loadStats();
         loadTrainingHistory();
-
-        // Reset form
+        loadEquipmentOptions(); 
+        
+        // Reset Form
         setFormData({
-          name: '', type: 'Academic', venue: 'Auditorium', equipment: [], attendees: '', budget: '', organizer: '',
-          description: '', timeline: [], catering: []
+            name: '', type: 'Academic', venue: 'Auditorium', equipment: [], attendees: '', budget: '', organizer: '',
+            description: '', timeline: [], budgetCategories: [], additionalResources: []
         });
         setPredictionResult(null);
+        setActiveFormTab('basic');
       } else {
         alert('Error: ' + data.error);
       }
@@ -249,29 +228,20 @@ window.SmartAITrainer = function SmartAITrainer() {
   const retrainModels = async () => {
     setIsProcessing(true);
     try {
-      const response = await fetch('/api/ml/train-models', {
-        method: 'POST',
-        credentials: 'include'
-      });
-
+      const response = await fetch('/api/ml/train-models', { method: 'POST', credentials: 'include' });
       const data = await response.json();
-
       if (data.success) {
-        alert('🎉 AI models retrained! Predictions will be even better now.');
+        alert('🎉 AI models retrained successfully!');
         loadStats();
       } else {
         alert('Training failed: ' + data.message);
       }
-    } catch (error) {
-      alert('Training error: ' + error.message);
-    } finally {
-      setIsProcessing(false);
-    }
+    } catch (error) { alert('Training error: ' + error.message); } 
+    finally { setIsProcessing(false); }
   };
 
   return (
-    <div className="flex flex-col gap-6">
-        {/* Professional Tabbed Form */}
+    <div className="flex flex-col gap-4">
         <div className="bg-white rounded-xl shadow-lg border border-slate-200 overflow-hidden">
           {/* Tab Navigation */}
           <div className="bg-white border-b border-slate-200">
@@ -281,186 +251,65 @@ window.SmartAITrainer = function SmartAITrainer() {
                 { id: 'equipment', label: 'Equipment', icon: 'wrench' },
                 { id: 'timeline', label: 'Timeline', icon: 'clock' },
                 { id: 'budget', label: 'Budget', icon: 'currency-dollar' },
-                { id: 'logistics', label: 'Logistics', icon: 'map-pin' }
+                { id: 'logistics', label: 'Logistics', icon: 'map-pin' },
+                { id: 'resources', label: 'Add. Resources', icon: 'archive' } 
               ].map((tab) => (
                 <button
                   key={tab.id}
                   onClick={() => setActiveFormTab(tab.id)}
                   className={`flex-1 flex items-center justify-center gap-2 px-4 py-4 text-sm font-medium transition-all relative ${
-                    activeFormTab === tab.id
-                      ? 'text-indigo-600 bg-indigo-50/50'
-                      : 'text-slate-500 hover:text-slate-700 hover:bg-slate-50'
+                    activeFormTab === tab.id ? 'text-indigo-600 bg-indigo-50/50' : 'text-slate-500 hover:text-slate-700 hover:bg-slate-50'
                   }`}
                 >
-                  {tab.icon === 'document' && (
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                    </svg>
-                  )}
-                  {tab.icon === 'wrench' && (
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                    </svg>
-                  )}
-                  {tab.icon === 'clock' && (
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <circle cx={12} cy={12} r={10} />
-                      <polyline points="12,6 12,12 16,14" />
-                    </svg>
-                  )}
-                  {tab.icon === 'currency-dollar' && (
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 1v22m0-22l-4 4m4-4l4 4m-4-4v22" />
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6" />
-                    </svg>
-                  )}
-                  {tab.icon === 'map-pin' && (
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
-                    </svg>
-                  )}
                   <span className="whitespace-nowrap">{tab.label}</span>
-                  {activeFormTab === tab.id && (
-                    <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-indigo-600"></span>
-                  )}
+                  {activeFormTab === tab.id && <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-indigo-600"></span>}
                 </button>
               ))}
             </div>
           </div>
 
-          {/* Tab Content */}
-          <div className="p-8 min-h-[400px]">
-            {/* Basic Info Tab - Compact */}
+          <div className="p-4 md:p-6 min-h-[300px]">
             {activeFormTab === 'basic' && (
-              <div className="max-w-4xl mx-auto">
-                <div className="mb-6">
-                  <h3 className="text-lg font-bold text-slate-800">Basic Event Information</h3>
-                  <p className="text-slate-500 text-sm">Enter the fundamental details about your event to help the AI understand the context.</p>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div className="col-span-1 md:col-span-2">
+              <div className="max-w-4xl mx-auto grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="col-span-1 md:col-span-2">
                     <label className="block text-sm font-semibold text-slate-700 mb-2">Event Name *</label>
-                    <input
-                      type="text"
-                      value={formData.name}
-                      onChange={(e) => setFormData({...formData, name: e.target.value})}
-                      className="w-full px-4 py-2.5 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-shadow"
-                      placeholder="e.g. Annual Science Fair 2024"
-                    />
-                  </div>
-                  <div>
+                    <input type="text" value={formData.name} onChange={(e) => setFormData({...formData, name: e.target.value})} className="w-full px-4 py-2.5 border border-slate-300 rounded-lg text-sm" placeholder="e.g. Annual Science Fair 2024" />
+                </div>
+                <div>
                     <label className="block text-sm font-semibold text-slate-700 mb-2">Event Type *</label>
-                    <select
-                      value={formData.type}
-                      onChange={(e) => setFormData({...formData, type: e.target.value})}
-                      className="w-full px-4 py-2.5 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 bg-white cursor-pointer"
-                    >
-                      <option value="">Select event type...</option>
-                      <option>Academic</option>
-                      <option>Sports</option>
-                      <option>Cultural</option>
-                      <option>Workshop</option>
-                      <option>Seminar</option>
+                    <select value={formData.type} onChange={(e) => setFormData({...formData, type: e.target.value})} className="w-full px-4 py-2.5 border border-slate-300 rounded-lg text-sm bg-white">
+                      <option>Academic</option><option>Sports</option><option>Cultural</option><option>Workshop</option><option>Seminar</option>
                     </select>
-                  </div>
-                  <div>
-                     <label className="block text-sm font-semibold text-slate-700 mb-2">Primary Goal</label>
-                     <input 
-                        type="text"
-                        placeholder="e.g. Fundraising, Education"
-                        className="w-full px-4 py-2.5 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-                     />
-                  </div>
-                  <div className="col-span-1 md:col-span-2">
-                    <label className="block text-sm font-semibold text-slate-700 mb-2">Event Description</label>
-                    <textarea
-                      value={formData.description}
-                      onChange={(e) => setFormData({...formData, description: e.target.value})}
-                      placeholder="Provide a detailed description of the event, themes, and special requirements..."
-                      className="w-full px-4 py-3 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 resize-none"
-                      rows="4"
-                    />
-                  </div>
+                </div>
+                <div className="col-span-1 md:col-span-2">
+                    <label className="block text-sm font-semibold text-slate-700 mb-2">Description</label>
+                    <textarea value={formData.description} onChange={(e) => setFormData({...formData, description: e.target.value})} className="w-full px-4 py-3 border border-slate-300 rounded-lg text-sm" rows="3" />
                 </div>
               </div>
             )}
 
-            {/* Equipment Tab */}
             {activeFormTab === 'equipment' && (
-              <div className="space-y-6 max-w-5xl mx-auto">
-                <div className="flex items-center justify-between mb-2">
-                  <div>
-                    <h3 className="text-lg font-bold text-slate-800">Equipment Selection</h3>
-                    <p className="text-slate-500 text-sm">Log equipment used to improve resource prediction.</p>
-                  </div>
-                  <div className="text-xs text-slate-400 bg-slate-50 px-3 py-1 rounded-full border border-slate-100">
-                    {formData.equipment.length} items selected
-                  </div>
-                </div>
-
-                {/* Equipment Category Tabs */}
-                <div className="flex flex-wrap gap-2 pb-4 border-b border-slate-100">
-                  {Object.keys(equipmentCategories).map((category) => {
-                    const categoryItems = equipmentCategories[category];
-                    const selectedCount = categoryItems.filter(item => formData.equipment.includes(item)).length;
-                    return (
-                      <button
-                        key={category}
-                        onClick={() => setActiveEquipmentTab(category)}
-                        className={`px-4 py-2 rounded-full text-sm font-medium transition-all flex items-center gap-2 ${
-                          activeEquipmentTab === category
-                            ? 'bg-indigo-600 text-white shadow-md shadow-indigo-200'
-                            : 'bg-white text-slate-600 hover:bg-slate-50 border border-slate-200'
-                        }`}
-                      >
-                        {category}
-                        {selectedCount > 0 && (
-                          <span className={`w-5 h-5 flex items-center justify-center rounded-full text-[10px] ${
-                            activeEquipmentTab === category ? 'bg-white/20 text-white' : 'bg-indigo-100 text-indigo-700'
-                          }`}>
-                            {selectedCount}
-                          </span>
-                        )}
-                      </button>
-                    );
-                  })}
-                </div>
-
-                {/* Equipment Grid */}
-                <div className="bg-slate-50/50 rounded-xl p-6 border border-slate-100">
-                  <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-                    {equipmentCategories[activeEquipmentTab].map(item => {
-                      const isChecked = formData.equipment.includes(item);
-                      return (
-                        <button
-                          key={item}
-                          onClick={() => toggleEquipment(item)}
-                          className={`group relative p-4 rounded-xl text-sm border text-left transition-all duration-200 ${
-                            isChecked
-                              ? 'bg-indigo-600 text-white border-indigo-600 shadow-lg shadow-indigo-200 ring-2 ring-indigo-600 ring-offset-2'
-                              : 'bg-white border-slate-200 text-slate-600 hover:border-indigo-300 hover:shadow-md'
-                          }`}
-                        >
-                          <div className="flex items-center justify-between">
-                            <span className="font-medium">{item}</span>
-                            {isChecked ? (
-                              <svg className="w-5 h-5 text-indigo-200" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" /></svg>
-                            ) : (
-                              <svg className="w-5 h-5 text-slate-300 group-hover:text-indigo-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4" /></svg>
-                            )}
-                          </div>
+              <div className="max-w-5xl mx-auto space-y-6">
+                 {/* Dynamic Equipment Category Tabs */}
+                 <div className="flex flex-wrap gap-2 pb-4 border-b border-slate-100">
+                    {Object.keys(equipmentCategories).map(cat => (
+                        <button key={cat} onClick={() => setActiveEquipmentTab(cat)} className={`px-4 py-2 rounded-full text-sm font-medium ${activeEquipmentTab === cat ? 'bg-indigo-600 text-white' : 'bg-white border text-slate-600'}`}>{cat}</button>
+                    ))}
+                 </div>
+                 {/* Equipment Grid */}
+                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    {(equipmentCategories[activeEquipmentTab] || []).map(item => (
+                        <button key={item} onClick={() => toggleEquipment(item)} className={`p-4 rounded-xl text-sm border text-left transition-all ${formData.equipment.includes(item) ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-white text-slate-600 border-slate-200 hover:border-indigo-300'}`}>
+                            <div className="flex justify-between items-center">
+                                {item}
+                                {formData.equipment.includes(item) && <span>✓</span>}
+                            </div>
                         </button>
-                      );
-                    })}
-                  </div>
-                </div>
+                    ))}
+                 </div>
               </div>
             )}
-
-            {/* Timeline Tab */}
+            
             {activeFormTab === 'timeline' && (
               <div className="space-y-6 max-w-4xl mx-auto">
                 <div className="flex justify-between items-end mb-4">
@@ -541,7 +390,6 @@ window.SmartAITrainer = function SmartAITrainer() {
               </div>
             )}
 
-            {/* Budget Tab */}
             {activeFormTab === 'budget' && (
               <div className="space-y-6 max-w-4xl mx-auto">
                 <div className="flex justify-between items-end mb-4">
@@ -645,183 +493,79 @@ window.SmartAITrainer = function SmartAITrainer() {
               </div>
             )}
 
-            {/* Logistics Tab */}
             {activeFormTab === 'logistics' && (
-              <div className="space-y-6 max-w-4xl mx-auto">
-                <div className="text-center mb-6">
-                  <h3 className="text-lg font-bold text-slate-800">Event Logistics</h3>
-                  <p className="text-slate-500 text-sm">Key metrics for attendee and venue analysis</p>
+                <div className="max-w-4xl mx-auto grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div>
+                        <label className="block text-sm font-semibold text-slate-700 mb-2">Venue</label>
+                        <select value={formData.venue} onChange={(e) => setFormData({...formData, venue: e.target.value})} className="w-full border border-slate-300 p-3 rounded-lg bg-white text-sm">
+                            {venueOptions.map(v => <option key={v}>{v}</option>)}
+                        </select>
+                    </div>
+                    <div>
+                        <label className="block text-sm font-semibold text-slate-700 mb-2">Organizer</label>
+                        <input type="text" value={formData.organizer} onChange={(e) => setFormData({...formData, organizer: e.target.value})} className="w-full border border-slate-300 p-3 rounded-lg text-sm" />
+                    </div>
+                    <div>
+                        <label className="block text-sm font-semibold text-slate-700 mb-2">Attendees</label>
+                        <input type="number" value={formData.attendees} onChange={(e) => setFormData({...formData, attendees: e.target.value})} className="w-full border border-slate-300 p-3 rounded-lg text-sm" />
+                    </div>
+                    <div>
+                        <label className="block text-sm font-semibold text-slate-700 mb-2">Total Budget (₱)</label>
+                        <input type="number" value={formData.budget} onChange={(e) => setFormData({...formData, budget: e.target.value})} className="w-full border border-slate-300 p-3 rounded-lg text-sm" />
+                    </div>
                 </div>
+            )}
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                  {/* Venue & Organizer */}
-                  <div className="space-y-6 bg-slate-50 p-6 rounded-xl border border-slate-100">
-                    <h4 className="text-sm font-bold text-slate-400 uppercase tracking-wider mb-2">Location & Host</h4>
-                    <div>
-                      <label className="block text-sm font-semibold text-slate-700 mb-2">Event Venue</label>
-                      <select
-                        value={formData.venue}
-                        onChange={(e) => setFormData({...formData, venue: e.target.value})}
-                        className="w-full px-4 py-3 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 bg-white"
-                      >
-                        {venueOptions.map(v => <option key={v} value={v}>{v}</option>)}
-                      </select>
-                    </div>
-                    <div>
-                      <label className="block text-sm font-semibold text-slate-700 mb-2">Event Organizer</label>
-                      <input
-                        type="text"
-                        value={formData.organizer}
-                        onChange={(e) => setFormData({...formData, organizer: e.target.value})}
-                        placeholder="Name of event organizer"
-                        className="w-full px-4 py-3 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-                      />
-                    </div>
-                  </div>
-
-                  {/* Attendees & Budget */}
-                  <div className="space-y-6 bg-indigo-50/30 p-6 rounded-xl border border-indigo-100">
-                     <h4 className="text-sm font-bold text-indigo-400 uppercase tracking-wider mb-2">Scale & Finance</h4>
-                    <div>
-                      <label className="block text-sm font-semibold text-slate-700 mb-2">Expected Attendees *</label>
-                      <div className="relative">
-                        <input
-                          type="number"
-                          value={formData.attendees}
-                          onChange={(e) => setFormData({...formData, attendees: e.target.value})}
-                          placeholder="0"
-                          className="w-full px-4 py-3 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 pl-10"
+            {/* Additional Resources Tab Content - Adjusted Spacing */}
+            {activeFormTab === 'resources' && (
+              <div className="max-w-4xl mx-auto space-y-4">
+                <div className="bg-teal-50/50 p-4 rounded-xl border border-teal-100" style={{minHeight: '200px'}}>
+                    <h4 className="text-sm font-bold text-teal-800 mb-2">Additional Resources</h4>
+                    <p className="text-xs text-slate-500 mb-3">Add non-equipment items like decorations, certificates, ice, etc.</p>
+                    <div className="flex gap-2 mb-4">
+                        <input 
+                            type="text" 
+                            value={newResourceItem} 
+                            onChange={(e) => setNewResourceItem(e.target.value)}
+                            onKeyPress={(e) => e.key === 'Enter' && addResource()}
+                            className="flex-1 px-4 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-teal-500 focus:border-teal-500" 
+                            placeholder="e.g. Certificates, Medals"
                         />
-                        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                          <svg className="h-5 w-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" /></svg>
-                        </div>
-                      </div>
+                        <button onClick={addResource} className="px-4 py-2 bg-teal-600 text-white rounded-lg text-sm font-medium hover:bg-teal-700 shadow-sm">Add</button>
                     </div>
-                    <div>
-                      <label className="block text-sm font-semibold text-slate-700 mb-2">Actual Budget (₱) *</label>
-                      <div className="relative">
-                        <span className="absolute left-4 top-3 text-slate-500 font-medium">₱</span>
-                        <input
-                          type="number"
-                          value={formData.budget}
-                          onChange={(e) => setFormData({...formData, budget: e.target.value})}
-                          placeholder="Total actual budget spent"
-                          className="w-full pl-8 pr-4 py-3 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-                        />
-                      </div>
+                    <div className="flex flex-wrap gap-2">
+                        {formData.additionalResources.map((item, idx) => (
+                            <span key={idx} className="bg-white border border-teal-200 text-teal-700 px-3 py-1 rounded-full text-sm flex items-center gap-2 shadow-sm animate-in fade-in zoom-in duration-200">
+                                {item}
+                                <button onClick={() => removeResource(idx)} className="text-teal-400 hover:text-red-500 font-bold ml-1">×</button>
+                            </span>
+                        ))}
+                        {formData.additionalResources.length === 0 && (
+                            <div className="w-full text-center py-8">
+                                <span className="text-slate-400 text-sm italic">No extra items added yet</span>
+                            </div>
+                        )}
                     </div>
-                  </div>
                 </div>
               </div>
             )}
+
           </div>
 
-          {/* Action Buttons - Professional & Aligned */}
-          <div className="bg-slate-50 border-t border-slate-200 px-8 py-5 flex flex-col md:flex-row items-center justify-between gap-4">
-            <div className="text-sm text-slate-500">
-              {predictionResult ? (
-                <span className="flex items-center text-emerald-600 font-medium">
-                  <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" /></svg>
-                  Prediction generated successfully
-                </span>
-              ) : (
-                <span>Complete the forms above to generate AI prediction</span>
-              )}
-            </div>
-            
-            <div className="flex gap-3 w-full md:w-auto">
-              <button
-                onClick={testPrediction}
-                disabled={isProcessing || !formData.name || !formData.attendees}
-                className="flex-1 md:flex-none px-6 py-2.5 bg-indigo-600 text-white rounded-lg text-sm font-semibold hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-sm flex items-center justify-center gap-2"
-              >
-                {isProcessing ? (
-                   <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
-                ) : (
-                   <span>🤖</span>
-                )}
-                Generate AI Prediction
+          <div className="bg-slate-50 border-t border-slate-200 px-4 py-4 md:px-6 flex flex-col md:flex-row justify-end gap-3">
+              <button onClick={testPrediction} disabled={isProcessing} className="px-6 py-2.5 bg-indigo-600 text-white rounded-lg text-sm font-semibold hover:bg-indigo-700 shadow-sm transition-all">
+                 {isProcessing ? 'Thinking...' : 'Generate Prediction'}
               </button>
-
               {predictionResult && (
-                <button
-                  onClick={addToTraining}
-                  disabled={isProcessing}
-                  className="flex-1 md:flex-none px-6 py-2.5 bg-emerald-600 text-white rounded-lg text-sm font-semibold hover:bg-emerald-700 disabled:opacity-50 transition-all shadow-sm flex items-center justify-center gap-2"
-                >
-                  <span>✅</span>
-                  Confirm & Train
-                </button>
+                  <button onClick={addToTraining} disabled={isProcessing} className="px-6 py-2.5 bg-emerald-600 text-white rounded-lg text-sm font-semibold hover:bg-emerald-700 shadow-sm transition-all flex items-center gap-2">
+                     <span>✅</span> Confirm & Train
+                  </button>
               )}
-
-              <button
-                onClick={retrainModels}
-                disabled={isProcessing || stats.trained < 3}
-                className="flex-1 md:flex-none px-6 py-2.5 bg-white text-slate-700 border border-slate-300 rounded-lg text-sm font-semibold hover:bg-slate-50 disabled:opacity-50 transition-all shadow-sm flex items-center justify-center gap-2"
-              >
-                <span>🔄</span>
-                Retrain Model
+              <button onClick={retrainModels} disabled={isProcessing} className="px-6 py-2.5 bg-white text-slate-700 border border-slate-300 rounded-lg text-sm font-semibold hover:bg-slate-50 shadow-sm transition-all">
+                  Retrain Model
               </button>
-            </div>
           </div>
         </div>
-
-        {/* AI Results Section - Modern Card */}
-        {predictionResult && (
-          <div className="mt-2 bg-gradient-to-br from-white to-slate-50 border border-slate-200 rounded-xl p-6 shadow-lg animate-in fade-in slide-in-from-bottom-4 duration-500">
-            <div className="flex items-center justify-between mb-6">
-               <h3 className="text-xl font-bold text-slate-800 flex items-center gap-3">
-                 <div className="p-2 bg-emerald-100 rounded-lg">
-                    <svg className="w-6 h-6 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-                 </div>
-                 AI Prediction Analysis
-               </h3>
-               <span className="text-xs font-mono text-slate-400">ID: {Math.random().toString(36).substr(2, 9).toUpperCase()}</span>
-            </div>
-            
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              {/* Budget Card */}
-              <div className="bg-white p-5 rounded-xl border border-slate-100 shadow-sm relative overflow-hidden">
-                <div className="absolute top-0 right-0 w-16 h-16 bg-emerald-50 rounded-bl-full -mr-2 -mt-2 z-0"></div>
-                <div className="relative z-10">
-                  <p className="text-slate-500 text-xs font-bold uppercase tracking-wider mb-2">Estimated Budget</p>
-                  <div className="text-3xl font-bold text-emerald-600 tracking-tight">
-                    ₱{predictionResult.estimatedBudget?.toLocaleString()}
-                  </div>
-                  <div className="mt-2 text-xs text-slate-400">Based on {formData.attendees} attendees</div>
-                </div>
-              </div>
-
-              {/* Equipment Card */}
-              <div className="bg-white p-5 rounded-xl border border-slate-100 shadow-sm md:col-span-2">
-                <p className="text-slate-500 text-xs font-bold uppercase tracking-wider mb-3">Recommended Resources</p>
-                <div className="flex flex-wrap gap-2">
-                  {predictionResult.resources?.length > 0 ? predictionResult.resources.map(item => (
-                    <span key={item} className="bg-indigo-50 text-indigo-700 border border-indigo-100 px-3 py-1.5 rounded-lg text-sm font-medium flex items-center gap-1.5">
-                       <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" /></svg>
-                       {item}
-                    </span>
-                  )) : (
-                     <span className="text-slate-400 text-sm italic">No specific equipment recommended</span>
-                  )}
-                </div>
-                {predictionResult.catering && predictionResult.catering.length > 0 && (
-                   <div className="mt-4 pt-4 border-t border-slate-50">
-                     <p className="text-slate-500 text-xs font-bold uppercase tracking-wider mb-2">Suggested Catering</p>
-                     <div className="flex flex-wrap gap-2">
-                        {predictionResult.catering.map(item => (
-                           <span key={item} className="bg-orange-50 text-orange-700 border border-orange-100 px-3 py-1.5 rounded-lg text-sm font-medium">
-                              {item}
-                           </span>
-                        ))}
-                     </div>
-                   </div>
-                )}
-              </div>
-            </div>
-          </div>
-        )}
-
     </div>
   );
 };

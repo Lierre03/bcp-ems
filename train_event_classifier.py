@@ -12,7 +12,8 @@ from sklearn.linear_model import LogisticRegression
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import accuracy_score, classification_report
 import mysql.connector
-from config import DB_CONFIG
+from config import Config
+DB_CONFIG = Config.DB_CONFIG
 
 def get_training_data():
     """Fetch training data from database"""
@@ -30,35 +31,61 @@ def get_training_data():
         """)
 
         events = cursor.fetchall()
-
-        # If no events, use sample data
-        if not events:
-            sample_data = [
-                ("Science Fair 2025", "Academic competition showcasing student research projects", "Academic"),
-                ("Basketball Tournament", "Inter-class basketball championship with teams", "Sports"),
-                ("Cultural Dance Festival", "Traditional and modern dance performances", "Cultural"),
-                ("Programming Workshop", "Hands-on coding session for beginners", "Workshop"),
-                ("Art Exhibition", "Student artwork display and gallery opening", "Cultural"),
-                ("Debate Competition", "Academic debate tournament between classes", "Academic"),
-                ("Football Championship", "School football finals with cheering crowds", "Sports"),
-                ("Music Concert", "Student band performances and talent show", "Cultural"),
-                ("STEM Fair", "Science, Technology, Engineering, Math projects", "Academic"),
-                ("Yoga Workshop", "Wellness and mindfulness session", "Workshop"),
-                ("Drama Play", "Theater performance by drama club", "Cultural"),
-                ("Swimming Gala", "School swimming competition and awards", "Sports"),
-                ("Research Symposium", "Academic presentations and paper discussions", "Academic"),
-                ("Cooking Workshop", "Culinary arts and food preparation class", "Workshop"),
-                ("Film Festival", "Student-made short films screening", "Cultural"),
-                ("Volleyball Tournament", "School volleyball league finals", "Sports"),
-                ("Math Olympiad", "Mathematics competition and problem solving", "Academic"),
-                ("Photography Workshop", "Digital photography and editing techniques", "Workshop"),
-                ("Fashion Show", "Student-designed clothing showcase", "Cultural"),
-                ("Track and Field Meet", "Athletics competition with multiple events", "Sports"),
-            ]
-            events = [{"name": name, "description": desc, "event_type": typ} for name, desc, typ in sample_data]
-
         cursor.close()
         conn.close()
+
+        # Always use balanced sample data for consistent training
+        # (database events may be biased or incomplete)
+        sample_data = [
+                # Academic Events
+                ("Science Fair 2025", "Academic competition showcasing student research projects", "Academic"),
+                ("Debate Competition", "Academic debate tournament between classes", "Academic"),
+                ("STEM Fair", "Science, Technology, Engineering, Math projects", "Academic"),
+                ("Research Symposium", "Academic presentations and paper discussions", "Academic"),
+                ("Math Olympiad", "Mathematics competition and problem solving", "Academic"),
+                ("Academic Conference", "Educational conference for students and faculty", "Academic"),
+                ("Quiz Competition", "Knowledge-based quiz competition", "Academic"),
+                ("Essay Contest", "Writing competition for academic excellence", "Academic"),
+                ("Science Olympiad", "Science-based academic competition", "Academic"),
+                ("Academic Awards Ceremony", "Recognition of academic achievements", "Academic"),
+
+                # Sports Events
+                ("Basketball Tournament", "Inter-class basketball championship with teams", "Sports"),
+                ("Football Championship", "School football finals with cheering crowds", "Sports"),
+                ("Swimming Gala", "School swimming competition and awards", "Sports"),
+                ("Volleyball Tournament", "School volleyball league finals", "Sports"),
+                ("Track and Field Meet", "Athletics competition with multiple events", "Sports"),
+                ("Soccer Championship", "School soccer tournament and finals", "Sports"),
+                ("Tennis Tournament", "Tennis competition between school teams", "Sports"),
+                ("Badminton Championship", "Badminton tournament with multiple rounds", "Sports"),
+                ("Basketball League", "Regular basketball league matches", "Sports"),
+                ("Sports Day", "Annual sports day with various athletic events", "Sports"),
+
+                # Cultural Events
+                ("Cultural Dance Festival", "Traditional and modern dance performances", "Cultural"),
+                ("Art Exhibition", "Student artwork display and gallery opening", "Cultural"),
+                ("Music Concert", "Student band performances and talent show", "Cultural"),
+                ("Drama Play", "Theater performance by drama club", "Cultural"),
+                ("Film Festival", "Student-made short films screening", "Cultural"),
+                ("Fashion Show", "Student-designed clothing showcase", "Cultural"),
+                ("Cultural Night", "Evening of cultural performances and shows", "Cultural"),
+                ("Talent Show", "Student talent showcase with singing and dancing", "Cultural"),
+                ("Art Competition", "Competitive art display and judging", "Cultural"),
+                ("Music Festival", "Musical performances and concerts", "Cultural"),
+
+                # Workshop Events
+                ("Programming Workshop", "Hands-on coding session for beginners", "Workshop"),
+                ("Yoga Workshop", "Wellness and mindfulness session", "Workshop"),
+                ("Cooking Workshop", "Culinary arts and food preparation class", "Workshop"),
+                ("Photography Workshop", "Digital photography and editing techniques", "Workshop"),
+                ("Writing Workshop", "Creative writing and storytelling workshop", "Workshop"),
+                ("Leadership Workshop", "Team building and leadership development", "Workshop"),
+                ("Art Workshop", "Hands-on art creation and techniques", "Workshop"),
+                ("Music Workshop", "Instrument learning and music theory", "Workshop"),
+                ("Dance Workshop", "Dance instruction and choreography", "Workshop"),
+                ("STEM Workshop", "Science and technology hands-on activities", "Workshop"),
+        ]
+        events = [{"name": name, "description": desc, "event_type": typ} for name, desc, typ in sample_data]
 
         return events
 

@@ -1,16 +1,20 @@
 """
 ML API - Accurate AI Training System for Event Planning
-Compact scikit-learn implementation for intelligent event suggestions
+Matches the updated 'ai_training_data' table structure
+Full Implementation + Dynamic Resource Fetching
+REMOVED CATERING
 """
 from flask import Blueprint, request, jsonify
 import os
 import joblib
 import pandas as pd
 import numpy as np
-from sklearn.linear_model import LinearRegression
+from sklearn.linear_model import LinearRegression, LogisticRegression
 from sklearn.multioutput import MultiOutputClassifier
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.preprocessing import StandardScaler, MultiLabelBinarizer
+from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.pipeline import make_pipeline
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import r2_score, accuracy_score
 import mysql.connector
@@ -22,6 +26,14 @@ ml_bp = Blueprint('ml', __name__, url_prefix='/api/ml')
 MODEL_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'models')
 os.makedirs(MODEL_DIR, exist_ok=True)
 
+# Define paths for models
+EVENT_VECTORIZER_PATH = os.path.join(MODEL_DIR, 'event_vectorizer.pkl')
+EVENT_CLASSIFIER_PATH = os.path.join(MODEL_DIR, 'event_classifier.pkl')
+BUDGET_MODEL_PATH = os.path.join(MODEL_DIR, 'budget_predictor.pkl')
+EQUIPMENT_MODEL_PATH = os.path.join(MODEL_DIR, 'equipment_predictor.pkl')
+BREAKDOWN_PROFILE_PATH = os.path.join(MODEL_DIR, 'budget_profiles.pkl')
+METADATA_PATH = os.path.join(MODEL_DIR, 'model_metadata.pkl')
+
 def get_db():
     return mysql.connector.connect(
         host='localhost', user='root', password='', database='school_event_management'
@@ -32,9 +44,11 @@ def load_training_data():
     conn = get_db()
     cursor = conn.cursor(dictionary=True)
 
+    # UPDATED QUERY: REMOVED CATERING
     cursor.execute("""
-        SELECT event_type, expected_attendees, total_budget,
-               equipment, activities, catering, additional_resources
+        SELECT event_name, event_type, expected_attendees, total_budget,
+               equipment, activities, additional_resources,
+               budget_breakdown, venue, organizer, description
         FROM ai_training_data
         WHERE is_validated = 1 AND total_budget > 0
     """)
@@ -49,136 +63,205 @@ def load_training_data():
 
     # Extract features
     df['event_type_encoded'] = pd.Categorical(df['event_type']).codes
-    df['attendees_scaled'] = StandardScaler().fit_transform(df[['expected_attendees']])
+    
+    # Scale attendees
+    scaler = StandardScaler()
+    df['attendees_scaled'] = scaler.fit_transform(df[['expected_attendees']])
 
-    # Parse JSON arrays for multi-label targets
-    df['equipment_list'] = df['equipment'].apply(lambda x: json.loads(x) if x else [])
-    df['activities_list'] = df['activities'].apply(lambda x: json.loads(x) if x else [])
-    df['catering_list'] = df['catering'].apply(lambda x: json.loads(x) if x else [])
-    df['resources_list'] = df['additional_resources'].apply(lambda x: json.loads(x) if x else [])
+    # Parse JSON arrays into Python lists (Removed catering)
+    for col in ['equipment', 'activities', 'additional_resources', 'budget_breakdown']:
+        df[f'{col}_list'] = df[col].apply(lambda x: json.loads(x) if x else [])
 
     return df
 
-def train_compact_models():
-    """Train accurate ML models with minimal code"""
-    df = load_training_data()
-    if df.empty or len(df) < 5:
-        return False
+@ml_bp.route('/add-training-data', methods=['POST'])
+def add_training_data():
+    """Add new training example to MySQL"""
+    try:
+        data = request.json
+        conn = get_db()
+        cursor = conn.cursor()
 
-    # 1. BUDGET PREDICTOR - Linear Regression (most accurate for continuous values)
-    X_budget = df[['event_type_encoded', 'expected_attendees']].values
-    y_budget = df['total_budget'].values
+        # UPDATED INSERT STATEMENT: REMOVED CATERING
+        cursor.execute("""
+            INSERT INTO ai_training_data
+            (event_name, event_type, description, venue, organizer, 
+             expected_attendees, total_budget, budget_breakdown,
+             equipment, activities, additional_resources, is_validated)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, 1)
+        """, (
+            data.get('eventName', ''),
+            data.get('eventType', 'Academic'),
+            data.get('description', ''),
+            data.get('venue', ''),
+            data.get('organizer', ''),
+            data.get('attendees', 0),
+            data.get('budget', 0),
+            json.dumps(data.get('budgetBreakdown', [])),
+            json.dumps(data.get('equipment', [])),
+            json.dumps(data.get('activities', [])),
+            json.dumps(data.get('additionalResources', []))
+        ))
 
-    budget_model = LinearRegression()
-    X_train, X_test, y_train, y_test = train_test_split(X_budget, y_budget, test_size=0.2, random_state=42)
-    budget_model.fit(X_train, y_train)
+        conn.commit()
+        conn.close()
 
-    budget_score = r2_score(y_test, budget_model.predict(X_test))
-    print(f"Budget Model R²: {budget_score:.3f}")
+        return jsonify({'success': True, 'message': 'Training data added successfully'})
 
-    # 2. EQUIPMENT CLASSIFIER - Multi-label classification
-    all_equipment = set()
-    for eq_list in df['equipment_list']:
-        all_equipment.update(eq_list)
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)})
 
-    equipment_labels = sorted(list(all_equipment))
-    mlb = MultiLabelBinarizer(classes=equipment_labels)
-    y_equipment = mlb.fit_transform(df['equipment_list'])
+@ml_bp.route('/training-data', methods=['GET'])
+def get_training_history():
+    """Fetch recent training data for display"""
+    try:
+        conn = get_db()
+        cursor = conn.cursor(dictionary=True)
+        cursor.execute("""
+            SELECT id, event_name, event_type, total_budget, created_at 
+            FROM ai_training_data 
+            ORDER BY created_at DESC LIMIT 10
+        """)
+        data = cursor.fetchall()
+        conn.close()
+        return jsonify({'success': True, 'data': data})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)})
 
-    equipment_model = MultiOutputClassifier(RandomForestClassifier(n_estimators=50, random_state=42))
-    equipment_model.fit(X_budget, y_equipment)
+@ml_bp.route('/training-stats', methods=['GET'])
+def training_stats():
+    try:
+        conn = get_db()
+        cursor = conn.cursor(dictionary=True)
+        cursor.execute("SELECT COUNT(*) as total FROM ai_training_data WHERE is_validated = 1")
+        total = cursor.fetchone()['total']
+        conn.close()
+        return jsonify({'success': True, 'total_samples': total})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)})
 
-    # Test accuracy
-    y_pred = equipment_model.predict(X_test)
-    equipment_accuracy = accuracy_score(y_equipment[:len(X_test)], y_pred)
-    print(f"Equipment Model Accuracy: {equipment_accuracy:.3f}")
+@ml_bp.route('/equipment-options', methods=['GET'])
+def get_equipment_options():
+    try:
+        categories = {
+            'Audio & Visual': ['Projector', 'Speaker', 'Microphone', 'Screen'],
+            'Furniture & Setup': ['Tables', 'Chairs', 'Stage', 'Podium'],
+            'Sports & Venue': ['Scoreboard', 'Lighting', 'Camera', 'First Aid Kit']
+        }
 
-    # Save models
-    joblib.dump(budget_model, os.path.join(MODEL_DIR, 'budget_predictor.pkl'))
-    joblib.dump((equipment_model, mlb), os.path.join(MODEL_DIR, 'equipment_predictor.pkl'))
+        conn = get_db()
+        cursor = conn.cursor(dictionary=True)
+        cursor.execute("SELECT equipment FROM ai_training_data")
+        rows = cursor.fetchall()
+        conn.close()
 
-    # Save training metadata
-    metadata = {
-        'trained_at': datetime.now().isoformat(),
-        'samples': len(df),
-        'budget_score': float(budget_score),
-        'equipment_accuracy': float(equipment_accuracy),
-        'equipment_labels': equipment_labels
-    }
-    joblib.dump(metadata, os.path.join(MODEL_DIR, 'model_metadata.pkl'))
+        learned_items = set()
+        existing_items = set(sum(categories.values(), []))
 
-    return True
+        for row in rows:
+            if row['equipment']:
+                try:
+                    items = json.loads(row['equipment'])
+                    for item in items:
+                        if item not in existing_items:
+                            learned_items.add(item)
+                except:
+                    pass
+        
+        if learned_items:
+            categories['Learned Items'] = sorted(list(learned_items))
 
-def generate_smart_timeline(event_type, duration_hours, attendees):
-    """Generate realistic timeline based on patterns and ML"""
-    base_phases = {
-        'Academic': [
-            {'phase': 'Setup', 'duration': 60, 'percentage': 0.15},
-            {'phase': 'Registration', 'duration': 30, 'percentage': 0.08},
-            {'phase': 'Main Event', 'duration': duration_hours * 60 * 0.7, 'percentage': 0.7},
-            {'phase': 'Break', 'duration': 15, 'percentage': 0.04},
-            {'phase': 'Closing', 'duration': 15, 'percentage': 0.03}
-        ],
-        'Sports': [
-            {'phase': 'Setup', 'duration': 60, 'percentage': 0.12},
-            {'phase': 'Warm-up', 'duration': 30, 'percentage': 0.06},
-            {'phase': 'Competition', 'duration': duration_hours * 60 * 0.8, 'percentage': 0.8},
-            {'phase': 'Awards', 'duration': 20, 'percentage': 0.02}
-        ],
-        'Cultural': [
-            {'phase': 'Setup', 'duration': 90, 'percentage': 0.18},
-            {'phase': 'Registration', 'duration': 30, 'percentage': 0.06},
-            {'phase': 'Performance', 'duration': duration_hours * 60 * 0.75, 'percentage': 0.75},
-            {'phase': 'Closing', 'duration': 15, 'percentage': 0.01}
-        ]
-    }
+        return jsonify({'success': True, 'categories': categories})
 
-    phases = base_phases.get(event_type, base_phases['Academic'])
-    total_duration = duration_hours * 60
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)})
 
-    # Adjust durations based on scale
-    scale_factor = min(1 + (attendees - 50) / 200, 2.0)  # Scale up to 2x for large events
+@ml_bp.route('/train-models', methods=['POST'])
+def train_models():
+    """
+    Retrains ALL AI models (Budget, Equipment, Classifier) using MySQL data.
+    """
+    try:
+        df = load_training_data()
+        
+        if len(df) < 5:
+            return jsonify({'success': False, 'message': 'Not enough data to train (need at least 5 samples)'})
 
-    timeline = []
-    current_time = 0
+        # --- 1. Train Budget Model (Linear Regression) ---
+        X_budget = df[['event_type_encoded', 'expected_attendees']]
+        y_budget = df['total_budget']
+        
+        budget_model = LinearRegression()
+        budget_model.fit(X_budget, y_budget)
+        joblib.dump(budget_model, BUDGET_MODEL_PATH)
+        budget_score = budget_model.score(X_budget, y_budget)
 
-    for phase in phases:
-        duration = int(phase['duration'] * scale_factor)
-        start_time = current_time
-        end_time = start_time + duration
+        # --- 2. Train Equipment Model (Random Forest) ---
+        mlb = MultiLabelBinarizer()
+        y_equipment = mlb.fit_transform(df['equipment_list'])
+        
+        equipment_model = MultiOutputClassifier(RandomForestClassifier(n_estimators=100, random_state=42))
+        equipment_model.fit(X_budget, y_equipment)
+        joblib.dump((equipment_model, mlb), EQUIPMENT_MODEL_PATH)
+        equipment_accuracy = equipment_model.score(X_budget, y_equipment)
 
-        timeline.append({
-            'phase': phase['phase'],
-            'startTime': f"{start_time//60:02d}:{start_time%60:02d}",
-            'endTime': f"{end_time//60:02d}:{end_time%60:02d}",
-            'duration': duration
+        # --- 3. Train Event Classifier (TF-IDF + Logistic Regression) ---
+        if 'event_name' in df.columns:
+            vectorizer = TfidfVectorizer(max_features=1000, stop_words='english')
+            classifier = LogisticRegression(random_state=42, max_iter=1000)
+            
+            X_text = vectorizer.fit_transform(df['event_name'])
+            y_type = df['event_type']
+            
+            classifier.fit(X_text, y_type)
+            
+            joblib.dump(vectorizer, EVENT_VECTORIZER_PATH)
+            joblib.dump(classifier, EVENT_CLASSIFIER_PATH)
+
+        # --- 4. Learn Budget Breakdown Profiles ---
+        budget_profiles = {}
+        for event_type in df['event_type'].unique():
+            type_df = df[df['event_type'] == event_type]
+            profile = {}
+            total_events = len(type_df)
+            
+            for breakdown_list in type_df['budget_breakdown_list']:
+                event_total = sum(item.get('amount', 0) for item in breakdown_list)
+                if event_total > 0:
+                    for item in breakdown_list:
+                        name = item.get('name', 'Misc')
+                        amount = item.get('amount', 0)
+                        name_key = name.strip().title() 
+                        if name_key not in profile: profile[name_key] = 0
+                        profile[name_key] += (amount / event_total) / total_events
+            
+            budget_profiles[event_type] = {k: round(v, 2) for k, v in profile.items() if v > 0.05}
+            
+        joblib.dump(budget_profiles, BREAKDOWN_PROFILE_PATH)
+
+        metadata = {
+            'trained_at': datetime.now().isoformat(),
+            'samples': len(df),
+            'budget_score': budget_score,
+            'equipment_accuracy': equipment_accuracy,
+            'equipment_labels': list(mlb.classes_)
+        }
+        joblib.dump(metadata, METADATA_PATH)
+
+        return jsonify({
+            'success': True, 
+            'message': f'Models trained on {len(df)} samples',
+            'metrics': {
+                'budget_r2': round(budget_score, 4),
+                'equipment_acc': round(equipment_accuracy, 4)
+            }
         })
 
-        current_time = end_time
-
-    return timeline
-
-def generate_budget_breakdown(total_budget, event_type):
-    """Generate realistic budget allocation based on event type patterns"""
-    allocations = {
-        'Academic': {'venue': 35, 'equipment': 30, 'materials': 20, 'catering': 10, 'misc': 5},
-        'Sports': {'venue': 30, 'equipment': 35, 'medical': 15, 'catering': 15, 'misc': 5},
-        'Cultural': {'venue': 25, 'equipment': 20, 'decor': 25, 'catering': 20, 'misc': 10}
-    }
-
-    breakdown = allocations.get(event_type, allocations['Academic'])
-
-    return {
-        category: {
-            'percentage': percentage,
-            'amount': int(total_budget * percentage / 100)
-        }
-        for category, percentage in breakdown.items()
-    }
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)})
 
 @ml_bp.route('/predict-resources', methods=['POST'])
 def predict_resources():
-    """Accurate ML-powered resource predictions"""
     try:
         data = request.json
         event_type = data.get('eventType', 'Academic')
@@ -194,120 +277,86 @@ def predict_resources():
             'confidence': 0.85
         }
 
-        # Load trained models if available
-        budget_model_path = os.path.join(MODEL_DIR, 'budget_predictor.pkl')
-        equipment_model_path = os.path.join(MODEL_DIR, 'equipment_predictor.pkl')
+        type_mapping = {'Academic': 0, 'Sports': 1, 'Cultural': 2, 'Workshop': 3, 'Seminar': 4}
+        event_type_encoded = type_mapping.get(event_type, 0)
 
-        # BUDGET PREDICTION
-        if os.path.exists(budget_model_path):
-            budget_model = joblib.load(budget_model_path)
-            event_type_encoded = {'Academic': 0, 'Sports': 1, 'Cultural': 2}.get(event_type, 0)
+        # --- BUDGET PREDICTION ---
+        if os.path.exists(BUDGET_MODEL_PATH):
+            budget_model = joblib.load(BUDGET_MODEL_PATH)
             predicted_budget = budget_model.predict([[event_type_encoded, attendees]])[0]
-            predictions['estimatedBudget'] = max(5000, int(predicted_budget))
+            predictions['estimatedBudget'] = max(1000, int(predicted_budget))
+            predictions['confidence'] = 0.92
         else:
-            # Fallback: simple rules
-            base_budget = attendees * 150  # $150 per attendee
-            type_multiplier = {'Academic': 1.0, 'Sports': 1.2, 'Cultural': 1.4}
-            predictions['estimatedBudget'] = int(base_budget * type_multiplier.get(event_type, 1.0))
+            base_rates = {'Academic': 150, 'Sports': 200, 'Cultural': 300, 'Workshop': 180, 'Seminar': 160}
+            rate = base_rates.get(event_type, 150)
+            predictions['estimatedBudget'] = attendees * rate
 
-        # EQUIPMENT PREDICTION
-        if os.path.exists(equipment_model_path):
-            equipment_model, mlb = joblib.load(equipment_model_path)
-            event_type_encoded = {'Academic': 0, 'Sports': 1, 'Cultural': 2}.get(event_type, 0)
-            equipment_pred = equipment_model.predict([[event_type_encoded, attendees]])[0]
-            predicted_equipment = mlb.inverse_transform([equipment_pred])[0]
-            predictions['resources'] = list(predicted_equipment)
+        # --- BUDGET BREAKDOWN ---
+        if os.path.exists(BREAKDOWN_PROFILE_PATH):
+            profiles = joblib.load(BREAKDOWN_PROFILE_PATH)
+            if event_type in profiles:
+                total = predictions['estimatedBudget']
+                raw_breakdown = {k: int(v * total) for k, v in profiles[event_type].items()}
+                predictions['budgetBreakdown'] = raw_breakdown
+            else:
+                predictions['budgetBreakdown'] = {
+                    "Venue": int(predictions['estimatedBudget'] * 0.3),
+                    "Equipment": int(predictions['estimatedBudget'] * 0.4),
+                    "Marketing": int(predictions['estimatedBudget'] * 0.2),
+                    "Misc": int(predictions['estimatedBudget'] * 0.1)
+                }
+
+        # --- EQUIPMENT PREDICTION ---
+        if os.path.exists(EQUIPMENT_MODEL_PATH):
+            equipment_model, mlb = joblib.load(EQUIPMENT_MODEL_PATH)
+            eq_pred_binary = equipment_model.predict([[event_type_encoded, attendees]])
+            predicted_items = mlb.inverse_transform(eq_pred_binary)[0]
+            predictions['resources'] = list(predicted_items)
         else:
-            # Fallback: type-based rules
-            equipment_map = {
+            defaults = {
                 'Academic': ['Projector', 'Microphone', 'Whiteboard'],
-                'Sports': ['Scoreboard', 'First Aid Kit', 'Speakers'],
+                'Sports': ['Scoreboard', 'First Aid Kit', 'Sound System'],
                 'Cultural': ['Stage Lighting', 'Sound System', 'Microphone']
             }
-            predictions['resources'] = equipment_map.get(event_type, ['Projector', 'Microphone'])
+            predictions['resources'] = defaults.get(event_type, ['Projector', 'Microphone'])
 
-        # TIMELINE GENERATION
-        predictions['timeline'] = generate_smart_timeline(event_type, duration, attendees)
-
-        # BUDGET BREAKDOWN
-        predictions['budgetBreakdown'] = generate_budget_breakdown(predictions['estimatedBudget'], event_type)
-
-        # Add catering suggestions based on attendees
-        if attendees > 200:
-            predictions['catering'] = ['Snacks', 'Drinks', 'Lunch']
-        elif attendees > 100:
-            predictions['catering'] = ['Snacks', 'Drinks']
-        else:
-            predictions['catering'] = ['Snacks']
-
+        # --- TIMELINE GENERATION ---
+        predictions['timeline'] = [
+            {'phase': 'Setup', 'startTime': '08:00', 'endTime': '09:00'},
+            {'phase': 'Main Event', 'startTime': '09:00', 'endTime': f"{9+int(duration)}:00"},
+            {'phase': 'Teardown', 'startTime': f"{9+int(duration)}:00", 'endTime': f"{10+int(duration)}:00"}
+        ]
+        
         return jsonify({'success': True, **predictions})
 
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)})
 
-@ml_bp.route('/train-models', methods=['POST'])
-def train_models():
-    """Train ML models on current training data"""
-    try:
-        success = train_compact_models()
-        if success:
-            return jsonify({'success': True, 'message': 'Models trained successfully'})
-        else:
-            return jsonify({'success': False, 'message': 'Insufficient training data'})
-    except Exception as e:
-        return jsonify({'success': False, 'error': str(e)})
-
-@ml_bp.route('/add-training-data', methods=['POST'])
-def add_training_data():
-    """Add new training example"""
+@ml_bp.route('/classify-event-type', methods=['POST'])
+def classify_event_type():
     try:
         data = request.json
-        conn = get_db()
-        cursor = conn.cursor()
+        text = data.get('text', '')
+        
+        if not text or len(text) < 3:
+            return jsonify({'success': False, 'error': 'Text too short'})
 
-        cursor.execute("""
-            INSERT INTO ai_training_data
-            (event_name, event_type, expected_attendees, total_budget,
-             equipment, activities, catering, additional_resources, is_validated)
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, 1)
-        """, (
-            data.get('eventName', ''),
-            data.get('eventType', 'Academic'),
-            data.get('attendees', 0),
-            data.get('budget', 0),
-            json.dumps(data.get('equipment', [])),
-            json.dumps(data.get('activities', [])),
-            json.dumps(data.get('catering', [])),
-            json.dumps(data.get('additionalResources', []))
-        ))
+        if not os.path.exists(EVENT_CLASSIFIER_PATH) or not os.path.exists(EVENT_VECTORIZER_PATH):
+            return jsonify({'success': False, 'message': 'Models not initialized'})
 
-        conn.commit()
-        conn.close()
+        classifier = joblib.load(EVENT_CLASSIFIER_PATH)
+        vectorizer = joblib.load(EVENT_VECTORIZER_PATH)
 
-        return jsonify({'success': True, 'message': 'Training data added'})
-
-    except Exception as e:
-        return jsonify({'success': False, 'error': str(e)})
-
-@ml_bp.route('/training-stats', methods=['GET'])
-def training_stats():
-    """Get training data statistics"""
-    try:
-        conn = get_db()
-        cursor = conn.cursor(dictionary=True)
-
-        cursor.execute("SELECT COUNT(*) as total, event_type FROM ai_training_data WHERE is_validated = 1 GROUP BY event_type")
-        stats = cursor.fetchall()
-
-        cursor.execute("SELECT COUNT(*) as total FROM ai_training_data WHERE is_validated = 1")
-        total = cursor.fetchone()['total']
-
-        conn.close()
+        text_vec = vectorizer.transform([text])
+        prediction = classifier.predict(text_vec)[0]
+        
+        probs = classifier.predict_proba(text_vec)[0]
+        confidence = max(probs) * 100
 
         return jsonify({
             'success': True,
-            'total_samples': total,
-            'by_type': {s['event_type']: s['total'] for s in stats}
+            'eventType': prediction,
+            'confidence': round(confidence, 1)
         })
 
     except Exception as e:

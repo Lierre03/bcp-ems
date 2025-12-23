@@ -26,11 +26,14 @@ window.AdminEventsManager = function AdminEventsManager() {
     status: 'Pending', description: '', activities: [], catering: [], additionalResources: []
   });
 
+  // Dynamic Equipment Categories State (Updated to fetch from DB)
+  // Initial state serves as a fallback while loading
   const [equipmentCategories, setEquipmentCategories] = useState({
     'Audio & Visual': ['Projector', 'Speaker', 'Microphone', 'Screen'],
     'Furniture & Setup': ['Tables', 'Chairs', 'Stage', 'Podium'],
     'Sports & Venue': ['Scoreboard', 'Lighting', 'Camera', 'First Aid Kit']
   });
+  
   const [venueOptions, setVenueOptions] = useState(['Auditorium', 'Gymnasium', 'Main Hall', 'Cafeteria', 'Lab', 'Courtyard', 'Library']);
 
   // Helpers
@@ -66,10 +69,10 @@ window.AdminEventsManager = function AdminEventsManager() {
   };
 
   useEffect(() => {
-    loadEvents();
-    loadEquipment();
+    fetchEvents();
     loadVenues();
-  }, []);
+    fetchEquipmentOptions(); // Load dynamic equipment on mount
+  }, [sortBy, filterStatus, filterType]);
 
   const loadVenues = async () => {
     try {
@@ -85,45 +88,29 @@ window.AdminEventsManager = function AdminEventsManager() {
     }
   };
 
-  const loadEquipment = async () => {
+  // NEW: Fetch dynamic equipment from database
+  const fetchEquipmentOptions = async () => {
     try {
-      const res = await fetch('/api/venues/equipment');
-      if (res.ok) {
-        const data = await res.json();
-        if (data.success && data.equipment) {
-          // Group by category, excluding AV and Furniture categories
-          const grouped = data.equipment
-            .filter(item => item.category !== 'AV' && item.category !== 'Furniture')
-            .reduce((acc, item) => {
-              if (!acc[item.category]) acc[item.category] = [];
-              acc[item.category].push(item.name);
-              return acc;
-            }, {});
-          setEquipmentCategories(grouped);
-
-          // Check if all default equipment exist in database
-          const defaultEquipment = [
-            'Projector', 'Speaker', 'Microphone', 'Screen',
-            'Tables', 'Chairs', 'Stage', 'Podium',
-            'Scoreboard', 'Lighting', 'Camera', 'First Aid Kit'
-          ];
-          const existingNames = data.equipment.map(item => item.name);
-          const missingEquipment = defaultEquipment.filter(name => !existingNames.includes(name));
-
-          if (missingEquipment.length > 0) {
-            console.warn('Missing equipment in database:', missingEquipment);
-            console.warn('Please add these equipment to the database so they can be saved with events.');
-          }
-        }
+      const response = await fetch('/api/ml/equipment-options');
+      const data = await response.json();
+      if (data.success && data.categories) {
+        setEquipmentCategories(data.categories);
       }
-    } catch (err) {
-      console.error('Failed to load equipment:', err);
+    } catch (error) {
+      console.error('Failed to load equipment options:', error);
     }
   };
 
-  const loadEvents = async () => {
+  const fetchEvents = async () => {
     try {
-      const res = await fetch('/api/events', { credentials: 'include' });
+      setLoading(true);
+      const queryParams = new URLSearchParams({
+        sort: sortBy,
+        status: filterStatus !== 'All' ? filterStatus : '',
+        type: filterType !== 'All' ? filterType : ''
+      });
+      
+      const res = await fetch(`/api/events?${queryParams}`, { credentials: 'include' });
       if (res.ok) {
         const data = await res.json();
         setEvents(data.events || []);
@@ -240,41 +227,30 @@ window.AdminEventsManager = function AdminEventsManager() {
         requestor_id: user.id || 1,
         equipment: formData.equipment || [],
         activities: formData.activities || [],
-        budget_breakdown: budgetData?.breakdown || {}
+        budget_breakdown: budgetData?.breakdown || {},
+        catering: formData.catering || [],
+        additional_resources: formData.additionalResources || []
       };
 
-      if (editingId) {
-        const res = await fetch(`/api/events/${editingId}`, {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          credentials: 'include',
-          body: JSON.stringify(eventData)
-        });
-        if (res.ok) {
-          alert('Event updated successfully');
-          loadEvents();
-        } else {
-          const err = await res.json();
-          alert('Error: ' + (err.error || 'Failed to update'));
-        }
-      } else {
-        const res = await fetch('/api/events', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          credentials: 'include',
-          body: JSON.stringify(eventData)
-        });
-        if (res.ok) {
-          alert('Event created successfully');
-          loadEvents();
-        } else {
-          const err = await res.json();
-          alert('Error: ' + (err.error || 'Failed to create'));
-        }
-      }
+      const endpoint = editingId ? `/api/events/${editingId}` : '/api/events';
+      const method = editingId ? 'PUT' : 'POST';
 
-      setShowModal(false);
-      setAiSuggestions(null);
+      const res = await fetch(endpoint, {
+        method: method,
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify(eventData)
+      });
+
+      if (res.ok) {
+        alert(`Event ${editingId ? 'updated' : 'created'} successfully`);
+        loadEvents();
+        setShowModal(false);
+        setAiSuggestions(null);
+      } else {
+        const err = await res.json();
+        alert('Error: ' + (err.error || 'Failed to save'));
+      }
     } catch (err) {
       console.error('Error saving event:', err);
       alert('Error: ' + err.message);
@@ -288,16 +264,61 @@ window.AdminEventsManager = function AdminEventsManager() {
     }
     setAiLoading(true);
     try {
+      // Use the classified event type if available, otherwise use form type
+      const classifiedType = aiSuggestions && aiSuggestions.classifiedType ? aiSuggestions.classifiedType : formData.type;
+
       const response = await fetch('/api/ml/predict-resources', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ eventName: formData.name, eventType: formData.type })
+        body: JSON.stringify({
+          eventType: classifiedType || formData.type,
+          expectedAttendees: parseInt(formData.attendees) || 100,
+          duration: 4  // Default 4 hours
+        })
       });
 
       const aiData = await response.json();
 
       if (aiData.success) {
+        // --- 1. Populate AI Suggestions State ---
+        // This is crucial for the "AI Analysis" panel to appear
+        
+        // Convert breakdown object to string for display to prevent React error
+        const breakdownStr = aiData.budgetBreakdown 
+            ? Object.entries(aiData.budgetBreakdown)
+                .map(([k, v]) => `${k}: ₱${typeof v === 'number' ? v.toLocaleString() : v}`)
+                .join(', ')
+            : '';
+
+        setAiSuggestions({
+            success: true,
+            confidence: aiData.confidence,
+            estimatedBudget: aiData.estimatedBudget,
+            budgetBreakdown: breakdownStr // Passed as formatted string
+        });
+
+        // --- 2. Update Form Data (Auto-fill) ---
         const totalBudget = aiData.estimatedBudget || 50000;
+        
+        let updatedFormData = {
+          ...formData,
+          description: aiData.description || formData.description,
+          budget: totalBudget
+        };
+
+        if (aiData.resources && aiData.resources.length > 0) {
+          // Add AI-suggested equipment to existing selections, avoiding duplicates
+          const existingEquipment = updatedFormData.equipment || [];
+          const combinedEquipment = [...new Set([...existingEquipment, ...aiData.resources])];
+          updatedFormData = { ...updatedFormData, equipment: combinedEquipment };
+        }
+
+        if (aiData.eventType && aiData.eventType !== formData.type) {
+          updatedFormData = { ...updatedFormData, type: aiData.eventType };
+        }
+
+        // --- 3. Set Child Component Data ---
+        // Budget Breakdown Logic (Matching your original)
         const budgetBreakdown = aiData.budgetBreakdown || {};
         const categories = Object.keys(budgetBreakdown);
         const breakdown = {};
@@ -305,15 +326,16 @@ window.AdminEventsManager = function AdminEventsManager() {
         let totalPercentage = 0;
 
         categories.forEach(cat => {
-          const percentage = budgetBreakdown[cat] || 0;
+          const catData = budgetBreakdown[cat] || {};
+          const percentage = typeof catData === 'object' ? catData.percentage || 0 : catData;
           totalPercentage += percentage;
           const amount = Math.round((totalBudget * percentage) / 100);
           breakdown[cat] = { percentage: percentage, amount: amount };
           percentages.push(percentage);
         });
 
+        // Normalize logic
         if (totalPercentage > 100) {
-          console.warn(`Budget percentages exceed 100% (${totalPercentage}%). Normalizing...`);
           const normalizedBreakdown = {};
           const normalizedPercentages = [];
           categories.forEach(cat => {
@@ -339,29 +361,15 @@ window.AdminEventsManager = function AdminEventsManager() {
 
         setResourceData({
           checklist: {
-            'Resources': (aiData.resources || []).map(r => ({ name: r, status: 'available' }))
+            'Resources': (aiData.resources || []).map(r => ({ name: r, status: 'available' })),
+            'Catering': [], // Kept empty as per your preference
+            'Venue': ['Chairs', 'Tables'] 
           }
         });
 
         setTimelineData({ timeline: aiData.timeline || [] });
 
-        let updatedFormData = {
-          ...formData,
-          description: aiData.description,
-          budget: totalBudget
-        };
-
-        if (aiData.resources && aiData.resources.length > 0) {
-          // Add AI-suggested equipment to existing selections, avoiding duplicates
-          const existingEquipment = updatedFormData.equipment || [];
-          const combinedEquipment = [...new Set([...existingEquipment, ...aiData.resources])];
-          updatedFormData = { ...updatedFormData, equipment: combinedEquipment };
-        }
-
-        if (aiData.eventType && aiData.eventType !== formData.type) {
-          updatedFormData = { ...updatedFormData, type: aiData.eventType };
-        }
-
+        // Map timeline to form activities
         if (aiData.timeline && aiData.timeline.length > 0) {
           const firstPhase = aiData.timeline[0];
           const lastPhase = aiData.timeline[aiData.timeline.length - 1];
@@ -369,11 +377,9 @@ window.AdminEventsManager = function AdminEventsManager() {
             ...updatedFormData,
             startTime: firstPhase.startTime,
             endTime: lastPhase.endTime,
-            // Map timeline phases to activities list with time range included
             activities: aiData.timeline.map(t => `${t.startTime} - ${t.endTime}: ${t.phase}`)
           };
         } else if (aiData.activities && aiData.activities.length > 0) {
-           // Fallback to generic activities if no timeline
            updatedFormData = {
              ...updatedFormData,
              activities: aiData.activities
@@ -381,13 +387,13 @@ window.AdminEventsManager = function AdminEventsManager() {
         }
 
         setFormData(updatedFormData);
-        setAiSuggestions({ success: true, confidence: aiData.confidence });
+
       } else {
         alert('AI analysis failed. Please try again.');
       }
     } catch (error) {
       console.error('Fetch error:', error);
-      alert(`Backend Error: ${error.message}\n\nChecking:\n1. Backend running? (python app.py)\n2. Port 5000 accessible?`);
+      alert(`Backend Error: ${error.message}`);
     }
     setAiLoading(false);
   };
@@ -421,7 +427,7 @@ window.AdminEventsManager = function AdminEventsManager() {
         });
         if (res.ok) {
           alert('Event deleted successfully');
-          loadEvents();
+          fetchEvents(); // Reload events
         } else {
           alert('Failed to delete event');
         }
@@ -432,31 +438,32 @@ window.AdminEventsManager = function AdminEventsManager() {
     }
   };
 
-  const toggleEquipment = (equip) => {
+  const toggleEquipment = (item) => {
     setFormData(prev => ({
       ...prev,
-      equipment: prev.equipment.includes(equip)
-        ? prev.equipment.filter(e => e !== equip)
-        : [...prev.equipment, equip]
+      equipment: prev.equipment.includes(item)
+        ? prev.equipment.filter(i => i !== item)
+        : [...prev.equipment, item]
     }));
   };
 
+  // Filter Logic
   let filteredEvents = events.filter(e => {
     const matchStatus = filterStatus === 'All' || e.status === filterStatus;
-    const matchType = filterType === 'All' || e.type === filterType;
+    const matchType = filterType === 'All' || (e.event_type || e.type) === filterType;
     const matchSearch = e.name.toLowerCase().includes(searchTerm.toLowerCase());
     return matchStatus && matchType && matchSearch;
   });
 
-  if (sortBy === 'date') filteredEvents.sort((a, b) => new Date(a.date) - new Date(b.date));
-  else if (sortBy === 'budget') filteredEvents.sort((a, b) => b.budget - a.budget);
+  if (sortBy === 'date') filteredEvents.sort((a, b) => new Date(a.start_datetime || a.date) - new Date(b.start_datetime || b.date));
+  else if (sortBy === 'budget') filteredEvents.sort((a, b) => (parseFloat(b.budget) || 0) - (parseFloat(a.budget) || 0));
   else if (sortBy === 'name') filteredEvents.sort((a, b) => a.name.localeCompare(b.name));
 
   const totalBudget = events.reduce((sum, e) => sum + (parseInt(e.budget) || 0), 0);
   const stats = {
     total: events.length,
-    planning: events.filter(e => e.status === 'Planning').length,
-    inProgress: events.filter(e => e.status === 'In Progress').length,
+    planning: events.filter(e => e.status === 'Planning' || e.status === 'Pending').length,
+    inProgress: events.filter(e => e.status === 'In Progress' || e.status === 'Ongoing').length,
     completed: events.filter(e => e.status === 'Completed').length
   };
 
@@ -516,7 +523,7 @@ window.AdminEventsManager = function AdminEventsManager() {
             onChange={(e) => setFilterType(e.target.value)}
             className="px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
           >
-            <option>All Types</option>
+            <option value="All">All Types</option>
             <option>Academic</option>
             <option>Sports</option>
             <option>Cultural</option>
@@ -538,26 +545,11 @@ window.AdminEventsManager = function AdminEventsManager() {
         <table className="w-full">
           <thead className="bg-slate-50 text-slate-600 border-b border-slate-200">
             <tr>
-              <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider">
-                Event Name
-                <span className="ml-1 text-slate-400">↕</span>
-              </th>
-              <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider">
-                Type
-                <span className="ml-1 text-slate-400">↕</span>
-              </th>
-              <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider">
-                Schedule
-                <span className="ml-1 text-slate-400">↕</span>
-              </th>
-              <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider">
-                Budget
-                <span className="ml-1 text-slate-400">↕</span>
-              </th>
-              <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider">
-                Status
-                <span className="ml-1 text-slate-400">↕</span>
-              </th>
+              <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider">Event Name</th>
+              <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider">Type</th>
+              <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider">Schedule</th>
+              <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider">Budget</th>
+              <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider">Status</th>
               <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider">Approvals</th>
               <th className="px-4 py-3 text-center text-xs font-semibold uppercase tracking-wider">Actions</th>
             </tr>
@@ -582,14 +574,11 @@ window.AdminEventsManager = function AdminEventsManager() {
                   </td>
                   <td className="px-4 py-3.5">
                     <span className={`inline-flex items-center px-2.5 py-1 rounded-md text-xs font-medium ${
-                      event.type === 'Academic' ? 'bg-blue-50 text-blue-700 border border-blue-200' :
-                      event.type === 'Sports' ? 'bg-blue-50 text-blue-700 border border-blue-200' :
-                      event.type === 'Social' ? 'bg-blue-50 text-blue-700 border border-blue-200' :
-                      event.type === 'Corporate' ? 'bg-blue-50 text-blue-700 border border-blue-200' :
-                      event.type === 'Training' ? 'bg-blue-50 text-blue-700 border border-blue-200' :
+                      (event.event_type || event.type) === 'Academic' ? 'bg-blue-50 text-blue-700 border border-blue-200' :
+                      (event.event_type || event.type) === 'Sports' ? 'bg-orange-50 text-orange-700 border border-orange-200' :
                       'bg-slate-50 text-slate-700 border border-slate-200'
                     }`}>
-                      {event.type}
+                      {event.event_type || event.type}
                     </span>
                   </td>
                   <td className="px-4 py-3.5">
@@ -598,7 +587,7 @@ window.AdminEventsManager = function AdminEventsManager() {
                         <svg className="w-4 h-4 text-slate-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
                         </svg>
-                        <span>{formatDate(event.date)}</span>
+                        <span>{formatDate(event.start_datetime || event.date)}</span>
                       </div>
                       <div className="flex items-center gap-1 text-xs text-slate-500">
                         <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -612,10 +601,10 @@ window.AdminEventsManager = function AdminEventsManager() {
                     <div className="font-semibold text-slate-900 text-sm">₱{Number(event.budget || 0).toLocaleString()}</div>
                   </td>
                   <td className="px-4 py-3.5">
-                    <StatusBadge status={event.status} />
+                    {window.StatusBadge ? <StatusBadge status={event.status} /> : <span className="text-sm">{event.status}</span>}
                   </td>
                   <td className="px-4 py-3.5">
-                    <ApprovalActions event={event} userRole={user.role_name} onSuccess={loadEvents} />
+                    {window.ApprovalActions && <ApprovalActions event={event} userRole={user.role_name} onSuccess={fetchEvents} />}
                   </td>
                   <td className="px-4 py-3.5">
                     <div className="flex items-center justify-center gap-1.5">
@@ -657,7 +646,7 @@ window.AdminEventsManager = function AdminEventsManager() {
               <h3 className="text-lg font-bold text-slate-900">Event Status History</h3>
               <button onClick={() => setSelectedEventHistory(null)} className="text-gray-500 hover:text-gray-700">✕</button>
             </div>
-            <EventStatusTimeline eventId={selectedEventHistory} />
+            {window.EventStatusTimeline && <EventStatusTimeline eventId={selectedEventHistory} />}
           </div>
         </div>
       )}
@@ -696,8 +685,9 @@ window.AdminEventsManager = function AdminEventsManager() {
           handleEquipmentUpdate={handleEquipmentUpdate}
           setAiSuggestions={setAiSuggestions}
           setBudgetData={setBudgetData}
+          setTimelineData={setTimelineData}
         />
       )}
     </div>
   );
-}
+};

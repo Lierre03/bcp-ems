@@ -1,5 +1,5 @@
 // EventFormModal - Reusable event creation/edit modal
-// Updated for responsiveness and matching panel heights
+// Updated: Disabled auto-triggering of AI Analysis to allow uninterrupted typing
 window.EventFormModal = function EventFormModal({
   editingId, formData, setFormData, aiLoading, aiSuggestions,
   budgetData, resourceData, timelineData, activeEquipmentTab, setActiveEquipmentTab,
@@ -10,15 +10,12 @@ window.EventFormModal = function EventFormModal({
   handleBudgetUpdate, handleEquipmentUpdate, setAiSuggestions, setBudgetData, setTimelineData
 }) {
   // We use ReactDOM.createPortal to render the modal at the document body level.
-  // This ensures the backdrop covers the entire screen regardless of parent CSS (z-index, overflow, relative positioning).
-  
-  // Ensure we have a valid DOM node to attach to (fallback to body if needed)
   const portalTarget = document.body;
 
   if (!portalTarget) return null;
 
   return ReactDOM.createPortal(
-    // BACKDROP WRAPPER: Covers entire screen using viewport units to guarantee full coverage
+    // BACKDROP WRAPPER
     <div 
       style={{
         position: 'fixed',
@@ -28,9 +25,9 @@ window.EventFormModal = function EventFormModal({
         bottom: 0,
         width: '100vw',
         height: '100vh',
-        backgroundColor: 'rgba(0, 0, 0, 0.1)', // Removed dark black, kept very slight tint for definition
-        backdropFilter: 'blur(8px)', // Increased blur for a better "glass" effect
-        zIndex: 9999, // Extremely high z-index to sit on top of everything
+        backgroundColor: 'rgba(0, 0, 0, 0.1)',
+        backdropFilter: 'blur(8px)',
+        zIndex: 9999,
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
@@ -38,7 +35,7 @@ window.EventFormModal = function EventFormModal({
       }}
       onClick={() => setShowModal(false)}
     >
-      {/* MODAL CONTAINER: Removed fixed positioning, now centered by parent flex */}
+      {/* MODAL CONTAINER */}
       <div 
         onClick={(e) => e.stopPropagation()} 
         style={{
@@ -52,14 +49,14 @@ window.EventFormModal = function EventFormModal({
         }}
       >
         
-        {/* CREATE EVENT MODAL - Fixed Height to match AI Panel */}
+        {/* CREATE EVENT MODAL */}
         <div className="bg-white rounded-lg overflow-hidden shadow-2xl" style={{width: '750px', flexShrink: 1, height: '743px', maxHeight: '90vh', display: 'flex', flexDirection: 'column'}}>
           {/* Header */}
           <div className="bg-gradient-to-r from-blue-700 to-blue-600 px-6 py-4 flex-shrink-0">
             <h2 className="text-lg font-bold text-white">{editingId ? 'Edit Event' : 'Create New Event'}</h2>
           </div>
 
-          {/* Form Content - Optimized for the fixed height */}
+          {/* Form Content */}
           <div className="p-5 overflow-y-auto flex-1 custom-scrollbar">
             <div className="grid grid-cols-3 gap-4">
               {/* LEFT COLUMN */}
@@ -72,9 +69,10 @@ window.EventFormModal = function EventFormModal({
                     value={formData.name}
                     onChange={async (e) => {
                       const newName = e.target.value;
-                      setFormData({...formData, name: newName});
+                      // 1. Immediate state update to ensure UI is responsive
+                      setFormData(prev => ({...prev, name: newName}));
 
-                      // Real-time classification if name is not empty
+                      // 2. Real-time classification (Subtle background update only)
                       if (newName.trim().length > 2) {
                         try {
                           const response = await fetch('/api/ml/classify-event-type', {
@@ -84,12 +82,18 @@ window.EventFormModal = function EventFormModal({
                           });
 
                           const result = await response.json();
-                          if (result.success && result.confidence > 40) {
-                            // Auto-select event type if confidence is good
-                            setFormData(prev => ({...prev, name: newName, type: result.eventType}));
+                          if (result.success && result.confidence > 30) {
+                            // Only update the TYPE dropdown automatically
+                            // This is helpful but non-intrusive
+                            setFormData(prev => ({...prev, type: result.eventType}));
+                            
+                            // Store for the button to use later
+                            setAiSuggestions(prev => ({...prev, classifiedType: result.eventType}));
+
+                            // NOTE: Auto-generation removed to prevent interruption while typing
                           }
                         } catch (error) {
-                          console.log('Classification failed, using manual selection');
+                          // Silent fail for background classification
                         }
                       }
                     }}
@@ -281,7 +285,7 @@ window.EventFormModal = function EventFormModal({
           </div>
         </div>
 
-        {/* AI ANALYSIS MODAL - ORIGINAL DESIGN & HEIGHT */}
+        {/* AI ANALYSIS MODAL - Shows only when data is generated manually */}
         {aiSuggestions && (
           <div className="bg-white rounded-lg overflow-hidden shadow-lg" style={{width: '550px', height: '743px', maxHeight: '90vh', flexShrink: 0, display: 'flex', flexDirection: 'column'}}>
             {/* AI Modal Header */}
@@ -322,8 +326,6 @@ window.EventFormModal = function EventFormModal({
                 </div>
               )}
 
-
-
               {/* Catering */}
               {formData.catering.length > 0 && (
                 <div className="bg-white rounded-lg p-3 border border-slate-200">
@@ -363,6 +365,6 @@ window.EventFormModal = function EventFormModal({
         )}
       </div>
     </div>,
-    portalTarget // PORTAL DESTINATION
+    portalTarget
   );
 }
