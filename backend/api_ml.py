@@ -68,9 +68,19 @@ def load_training_data():
     scaler = StandardScaler()
     df['attendees_scaled'] = scaler.fit_transform(df[['attendees']])
 
-    # Parse JSON arrays into Python lists (Removed catering)
-    for col in ['equipment', 'activities', 'additional_resources', 'budget_breakdown']:
-        df[f'{col}_list'] = df[col].apply(lambda x: json.loads(x) if x else [])
+    # Parse JSON arrays - extract names from equipment/resources objects
+    df['equipment_list'] = df['equipment'].apply(lambda x: 
+        [item['name'] if isinstance(item, dict) and 'name' in item else item 
+         for item in (json.loads(x) if x else [])]
+    )
+    
+    df['additional_resources_list'] = df['additional_resources'].apply(lambda x:
+        [item['name'] if isinstance(item, dict) and 'name' in item else item 
+         for item in (json.loads(x) if x else [])]
+    )
+    
+    df['activities_list'] = df['activities'].apply(lambda x: json.loads(x) if x else [])
+    df['budget_breakdown_list'] = df['budget_breakdown'].apply(lambda x: json.loads(x) if x else [])
 
     return df
 
@@ -118,14 +128,28 @@ def get_training_history():
         conn = get_db()
         cursor = conn.cursor(dictionary=True)
         cursor.execute("""
-            SELECT * FROM ai_training_data
+            SELECT
+                id,
+                event_name as eventName,
+                event_type as eventType,
+                description,
+                venue,
+                organizer,
+                attendees,
+                total_budget as budget,
+                budget_breakdown,
+                equipment,
+                activities,
+                additional_resources as additionalResources,
+                created_at
+            FROM ai_training_data
             WHERE is_validated = 1
             ORDER BY created_at DESC
         """)
         data = cursor.fetchall()
         conn.close()
 
-        # Parse JSON fields for frontend
+        # Parse JSON fields for frontend and format data
         for item in data:
             try:
                 # Parse equipment (stored as JSON array)
@@ -133,20 +157,34 @@ def get_training_history():
                     item['equipment'] = json.loads(item['equipment'])
 
                 # Parse additional_resources (stored as JSON array)
-                if item.get('additional_resources') and isinstance(item['additional_resources'], str):
-                    item['additional_resources'] = json.loads(item['additional_resources'])
+                if item.get('additionalResources') and isinstance(item['additionalResources'], str):
+                    item['additionalResources'] = json.loads(item['additionalResources'])
 
                 # Parse budget_breakdown (stored as JSON array)
                 if item.get('budget_breakdown') and isinstance(item['budget_breakdown'], str):
                     item['budget_breakdown'] = json.loads(item['budget_breakdown'])
 
+                # Parse activities/timeline (stored as JSON array)
+                if item.get('activities') and isinstance(item['activities'], str):
+                    item['activities'] = json.loads(item['activities'])
+
+                # Format created_at date properly
+                if item.get('created_at'):
+                    # Convert to readable format
+                    dt = datetime.fromisoformat(str(item['created_at']).replace('Z', '+00:00'))
+                    item['created_at'] = dt.isoformat()
+
             except json.JSONDecodeError as e:
                 print(f"JSON parsing error for item {item.get('id', 'unknown')}: {e}")
                 # Keep original values if parsing fails
                 pass
+            except Exception as e:
+                print(f"Data processing error for item {item.get('id', 'unknown')}: {e}")
+                pass
 
         return jsonify({'success': True, 'data': data})
     except Exception as e:
+        print(f"Training data API error: {e}")
         return jsonify({'success': False, 'error': str(e)})
 
 @ml_bp.route('/training-stats', methods=['GET'])
@@ -245,7 +283,18 @@ def train_models():
         joblib.dump((equipment_model, mlb), EQUIPMENT_MODEL_PATH)
         equipment_accuracy = equipment_model.score(X_budget, y_equipment)
 
-        # --- 3. Train Event Classifier (TF-IDF + Logistic Regression) ---
+        # --- 3. Train Additional Resources Model (Random Forest) ---
+        mlb_resources = MultiLabelBinarizer()
+        y_resources = mlb_resources.fit_transform(df['additional_resources_list'])
+        
+        resources_model = MultiOutputClassifier(RandomForestClassifier(n_estimators=100, random_state=42))
+        resources_model.fit(X_budget, y_resources)
+        
+        RESOURCES_MODEL_PATH = os.path.join(MODEL_DIR, 'resources_predictor.pkl')
+        joblib.dump((resources_model, mlb_resources), RESOURCES_MODEL_PATH)
+        resources_accuracy = resources_model.score(X_budget, y_resources)
+
+        # --- 4. Train Event Classifier (TF-IDF + Logistic Regression) ---
         if 'event_name' in df.columns:
             vectorizer = TfidfVectorizer(max_features=1000, stop_words='english')
             classifier = LogisticRegression(random_state=42, max_iter=1000)
@@ -284,7 +333,9 @@ def train_models():
             'samples': len(df),
             'budget_score': budget_score,
             'equipment_accuracy': equipment_accuracy,
-            'equipment_labels': list(mlb.classes_)
+            'equipment_labels': list(mlb.classes_),
+            'resources_accuracy': resources_accuracy,
+            'resources_labels': list(mlb_resources.classes_)
         }
         joblib.dump(metadata, METADATA_PATH)
 
@@ -346,12 +397,13 @@ def predict_resources():
                     "Misc": int(predictions['estimatedBudget'] * 0.1)
                 }
 
-        # --- EQUIPMENT PREDICTION ---
+        # --- EQUIPMENT PREDICTION (School-owned) ---
         if os.path.exists(EQUIPMENT_MODEL_PATH):
             equipment_model, mlb = joblib.load(EQUIPMENT_MODEL_PATH)
             eq_pred_binary = equipment_model.predict([[event_type_encoded, attendees]])
             predicted_items = mlb.inverse_transform(eq_pred_binary)[0]
             predictions['resources'] = list(predicted_items)
+            predictions['equipment'] = list(predicted_items)
         else:
             defaults = {
                 'Academic': ['Projector', 'Microphone', 'Whiteboard'],
@@ -359,6 +411,17 @@ def predict_resources():
                 'Cultural': ['Stage Lighting', 'Sound System', 'Microphone']
             }
             predictions['resources'] = defaults.get(event_type, ['Projector', 'Microphone'])
+            predictions['equipment'] = predictions['resources']
+        
+        # --- ADDITIONAL RESOURCES PREDICTION (External items) ---
+        RESOURCES_MODEL_PATH = os.path.join(MODEL_DIR, 'resources_predictor.pkl')
+        if os.path.exists(RESOURCES_MODEL_PATH):
+            resources_model, mlb_resources = joblib.load(RESOURCES_MODEL_PATH)
+            res_pred_binary = resources_model.predict([[event_type_encoded, attendees]])
+            predicted_resources = mlb_resources.inverse_transform(res_pred_binary)[0]
+            predictions['additionalResources'] = list(predicted_resources)
+        else:
+            predictions['additionalResources'] = []
 
         # --- TIMELINE GENERATION ---
         predictions['timeline'] = [
@@ -399,5 +462,88 @@ def classify_event_type():
             'confidence': round(confidence, 1)
         })
 
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)})
+
+@ml_bp.route('/model-status', methods=['GET'])
+def model_status():
+    """
+    Check if ML models are trained and ready to use.
+    Returns model availability, metadata, and training status.
+    """
+    try:
+        # Check if all critical models exist
+        models_exist = {
+            'budget': os.path.exists(BUDGET_MODEL_PATH),
+            'equipment': os.path.exists(EQUIPMENT_MODEL_PATH),
+            'classifier': os.path.exists(EVENT_CLASSIFIER_PATH),
+            'breakdown': os.path.exists(BREAKDOWN_PROFILE_PATH)
+        }
+        
+        all_ready = all(models_exist.values())
+        
+        # Load metadata if available
+        metadata = None
+        if os.path.exists(METADATA_PATH):
+            try:
+                metadata = joblib.load(METADATA_PATH)
+            except:
+                metadata = None
+        
+        # Get training data count
+        try:
+            conn = get_db()
+            cursor = conn.cursor(dictionary=True)
+            cursor.execute("SELECT COUNT(*) as total FROM ai_training_data WHERE is_validated = 1")
+            training_samples = cursor.fetchone()['total']
+            conn.close()
+        except:
+            training_samples = 0
+        
+        return jsonify({
+            'success': True,
+            'ready': all_ready,
+            'models': models_exist,
+            'metadata': metadata,
+            'training_samples': training_samples,
+            'needs_training': training_samples >= 5 and not all_ready
+        })
+    
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)})
+
+@ml_bp.route('/quick-estimate', methods=['POST'])
+def quick_estimate():
+    """
+    Lightweight budget estimation for inline hints.
+    Only requires event type (and optionally attendees).
+    """
+    try:
+        data = request.json
+        event_type = data.get('eventType', 'Academic')
+        attendees = int(data.get('attendees', 100)) if data.get('attendees') else 100
+        
+        type_mapping = {'Academic': 0, 'Sports': 1, 'Cultural': 2, 'Workshop': 3, 'Seminar': 4}
+        event_type_encoded = type_mapping.get(event_type, 0)
+        
+        # Try using trained model first
+        if os.path.exists(BUDGET_MODEL_PATH):
+            budget_model = joblib.load(BUDGET_MODEL_PATH)
+            estimated = budget_model.predict([[event_type_encoded, attendees]])[0]
+            estimated_budget = max(1000, int(estimated))
+            using_model = True
+        else:
+            # Fallback to simple calculation
+            base_rates = {'Academic': 150, 'Sports': 200, 'Cultural': 300, 'Workshop': 180, 'Seminar': 160}
+            rate = base_rates.get(event_type, 150)
+            estimated_budget = attendees * rate
+            using_model = False
+        
+        return jsonify({
+            'success': True,
+            'estimatedBudget': estimated_budget,
+            'usingModel': using_model
+        })
+    
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)})

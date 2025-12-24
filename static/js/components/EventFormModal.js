@@ -1,18 +1,25 @@
 // EventFormModal - Reusable event creation/edit modal
-// Updated: Disabled auto-triggering of AI Analysis to allow uninterrupted typing
+// Updated: Smart AI assistance with inline hints and readiness indicators
 window.EventFormModal = function EventFormModal({
   editingId, formData, setFormData, aiLoading, aiSuggestions,
   budgetData, resourceData, timelineData, activeEquipmentTab, setActiveEquipmentTab,
-  checkedActivities, checkedCatering, checkedResources,
+  checkedActivities, checkedResources,
   equipmentCategories, venueOptions,
   handleAutoFill, handleSaveEvent, setShowModal, toggleEquipment,
-  toggleActivity, toggleCatering, toggleAdditionalResource,
-  handleBudgetUpdate, handleEquipmentUpdate, setAiSuggestions, setBudgetData, setTimelineData
+  toggleActivity, toggleAdditionalResource,
+  handleBudgetUpdate, handleEquipmentUpdate, setAiSuggestions, setBudgetData, setTimelineData,
+  modelStatus, budgetEstimate, lastAIRequest, hasEnoughData
 }) {
   // We use ReactDOM.createPortal to render the modal at the document body level.
   const portalTarget = document.body;
 
   if (!portalTarget) return null;
+  
+  // Check if AI suggestions are stale
+  const isStale = lastAIRequest && aiSuggestions && (
+    lastAIRequest.eventType !== formData.type ||
+    lastAIRequest.expectedAttendees !== parseInt(formData.attendees)
+  );
 
   return ReactDOM.createPortal(
     // BACKDROP WRAPPER
@@ -87,10 +94,8 @@ window.EventFormModal = function EventFormModal({
                             // This is helpful but non-intrusive
                             setFormData(prev => ({...prev, type: result.eventType}));
                             
-                            // Store for the button to use later
-                            setAiSuggestions(prev => ({...prev, classifiedType: result.eventType}));
-
-                            // NOTE: Auto-generation removed to prevent interruption while typing
+                            // NOTE: We don't set aiSuggestions here to avoid auto-opening the modal
+                            // The classified type is stored in formData.type and will be used by handleAutoFill
                           }
                         } catch (error) {
                           // Silent fail for background classification
@@ -207,7 +212,7 @@ window.EventFormModal = function EventFormModal({
                                 <button
                                   key={itemName}
                                   onClick={() => toggleEquipment(itemName)}
-                                  className={`px-3 py-1.5 rounded text-xs border font-medium transition ${
+                                  className={`px-3 py-1.5 rounded text-xs border font-medium transition flex items-center gap-1 ${
                                     isChecked
                                       ? 'bg-blue-500 text-white border-blue-600 hover:bg-blue-600'
                                       : isAISuggested
@@ -216,7 +221,13 @@ window.EventFormModal = function EventFormModal({
                                   }`}
                                   title={isAISuggested ? 'AI Suggested' : ''}
                                 >
-                                  {isChecked ? '✓ ' : isAISuggested ? '🤖 ' : ''}{itemName}
+                                  {isChecked && <span>✓</span>}
+                                  {isAISuggested && !isChecked && (
+                                    <svg className="w-3 h-3" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                                      <path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09zM18.259 8.715L18 9.75l-.259-1.035a3.375 3.375 0 00-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 002.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 002.456 2.456L21.75 6l-1.035.259a3.375 3.375 0 00-2.456 2.456zM16.894 20.567L16.5 21.75l-.394-1.183a2.25 2.25 0 00-1.423-1.423L13.5 18.75l1.183-.394a2.25 2.25 0 001.423-1.423l.394-1.183.394 1.183a2.25 2.25 0 001.423 1.423l1.183.394-1.183.394a2.25 2.25 0 00-1.423 1.423z" />
+                                    </svg>
+                                  )}
+                                  {itemName}
                                 </button>
                               );
                             })}
@@ -266,7 +277,17 @@ window.EventFormModal = function EventFormModal({
                     </div>
                     <div>
                       <label className="block text-xs font-medium text-gray-600 mb-1">Budget (₱)</label>
-                      <input type="number" value={formData.budget} onChange={(e) => setFormData({...formData, budget: e.target.value})} placeholder="0.00" className="w-full px-2 py-1.5 border border-gray-300 rounded text-sm text-gray-700" />
+                      <div className="relative">
+                        <input type="number" value={formData.budget} onChange={(e) => setFormData({...formData, budget: e.target.value})} placeholder="0.00" className="w-full px-2 py-1.5 border border-gray-300 rounded text-sm text-gray-700" />
+                        {budgetEstimate && formData.name.trim().length >= 3 && !formData.budget && (
+                          <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1 text-xs text-blue-600 font-medium bg-blue-50 px-2 py-0.5 rounded">
+                            <svg className="w-3 h-3" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09zM18.259 8.715L18 9.75l-.259-1.035a3.375 3.375 0 00-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 002.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 002.456 2.456L21.75 6l-1.035.259a3.375 3.375 0 00-2.456 2.456zM16.894 20.567L16.5 21.75l-.394-1.183a2.25 2.25 0 00-1.423-1.423L13.5 18.75l1.183-.394a2.25 2.25 0 001.423-1.423l.394-1.183.394 1.183a2.25 2.25 0 001.423 1.423l1.183.394-1.183.394a2.25 2.25 0 00-1.423 1.423z" />
+                            </svg>
+                            Est: ₱{budgetEstimate.toLocaleString()}
+                          </div>
+                        )}
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -276,9 +297,15 @@ window.EventFormModal = function EventFormModal({
 
           {/* Action Buttons */}
           <div className="flex gap-3 px-5 py-4 border-t border-gray-200 bg-white flex-shrink-0">
-            <button onClick={handleAutoFill} disabled={aiLoading} className="flex-1 px-4 py-2 bg-blue-600 text-white rounded text-sm font-semibold hover:bg-blue-700 transition flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed shadow-sm">
+            <button onClick={handleAutoFill} disabled={aiLoading} className="flex-1 px-4 py-2 bg-blue-600 text-white rounded text-sm font-semibold hover:bg-blue-700 transition flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed shadow-sm relative">
               <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path d="M13 6a3 3 0 11-6 0 3 3 0 016 0zM18 8a2 2 0 11-4 0 2 2 0 014 0zM14 15a4 4 0 00-8 0v3h8v-3zM6 8a2 2 0 11-4 0 2 2 0 014 0zM16 18v-3a5.972 5.972 0 00-.75-2.906A3.005 3.005 0 0119 15v3h-3zM4.75 12.094A5.973 5.973 0 004 15v3H1v-3a3 3 0 013.75-2.906z" /></svg>
               {aiLoading ? 'Analyzing...' : 'AI Auto-Organize'}
+              {hasEnoughData && hasEnoughData() && !aiLoading && (
+                <span className="absolute -top-1 -right-1 w-3 h-3 bg-green-500 border-2 border-white rounded-full" title="Ready for AI suggestions"></span>
+              )}
+              {!modelStatus.ready && !aiLoading && (
+                <span className="absolute -top-1 -right-1 w-3 h-3 bg-yellow-500 border-2 border-white rounded-full" title="Using basic estimates"></span>
+              )}
             </button>
             <button onClick={() => setShowModal(false)} className="px-6 py-2 bg-white border border-gray-300 text-gray-700 rounded text-sm font-semibold hover:bg-gray-50 transition shadow-sm">Cancel</button>
             <button onClick={handleSaveEvent} className="px-6 py-2 bg-blue-700 text-white rounded text-sm font-semibold hover:bg-blue-800 transition shadow-sm">{editingId ? 'Update' : 'Create'}</button>
@@ -303,6 +330,30 @@ window.EventFormModal = function EventFormModal({
 
             {/* AI Content - Single column, compact, scrollable */}
             <div className="p-4 space-y-3 overflow-y-auto flex-1">
+              {/* Stale Data Warning */}
+              {isStale && (
+                <div className="bg-yellow-50 rounded-lg px-3 py-2 border border-yellow-200 flex items-start gap-2">
+                  <svg className="w-4 h-4 text-yellow-600 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                  </svg>
+                  <div className="flex-1">
+                    <p className="text-xs font-semibold text-yellow-800">Suggestions may be outdated</p>
+                    <p className="text-xs text-yellow-700 mt-0.5">
+                      Based on {lastAIRequest.expectedAttendees} attendees ({formData.type})
+                    </p>
+                    <button 
+                      onClick={handleAutoFill} 
+                      className="mt-1.5 text-xs font-medium text-yellow-800 hover:text-yellow-900 underline flex items-center gap-1"
+                    >
+                      <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                      </svg>
+                      Refresh with current data
+                    </button>
+                  </div>
+                </div>
+              )}
+              
               {/* Confidence Score */}
               <div className="bg-blue-50 rounded-lg px-3 py-2 border border-blue-100">
                 <p className="text-xs text-slate-700"><span className="font-semibold">Model Confidence:</span> {aiSuggestions.confidence || '92.5'}%</p>
@@ -323,17 +374,6 @@ window.EventFormModal = function EventFormModal({
                   {aiSuggestions.budgetBreakdown && (
                     <p className="text-xs text-slate-500 mt-1 leading-tight">{aiSuggestions.budgetBreakdown}</p>
                   )}
-                </div>
-              )}
-
-              {/* Catering */}
-              {formData.catering.length > 0 && (
-                <div className="bg-white rounded-lg p-3 border border-slate-200">
-                  <div className="flex items-center gap-2 mb-2">
-                    <div className="w-5 h-5 bg-amber-100 rounded flex items-center justify-center"><svg className="w-3 h-3 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" /></svg></div>
-                    <p className="text-xs font-bold text-slate-700 uppercase">Catering</p>
-                  </div>
-                  <div className="flex flex-wrap gap-1.5">{formData.catering.map(c => {const isChecked = checkedCatering.includes(c); return <button key={c} onClick={() => toggleCatering(c)} className={`px-2 py-1 rounded text-xs border font-medium transition ${isChecked ? 'bg-amber-50 text-amber-700 border-amber-200 hover:bg-amber-100' : 'bg-slate-50 text-slate-400 border-slate-300 hover:bg-slate-100'}`}>{isChecked ? '✓ ' : ''}{c}</button>;})}</div>
                 </div>
               )}
 

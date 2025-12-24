@@ -18,13 +18,17 @@ window.AdminEventsManager = function AdminEventsManager() {
   const [timelineData, setTimelineData] = useState(null);
   const [activeEquipmentTab, setActiveEquipmentTab] = useState('Audio & Visual');
   const [checkedActivities, setCheckedActivities] = useState([]);
-  const [checkedCatering, setCheckedCatering] = useState([]);
   const [checkedResources, setCheckedResources] = useState([]);
   const [formData, setFormData] = useState({
     name: '', type: 'Academic', date: '', endDate: '', startTime: '09:00', endTime: '17:00',
     venue: 'Auditorium', equipment: [], attendees: '', budget: '', organizer: '',
-    status: 'Pending', description: '', activities: [], catering: [], additionalResources: []
+    status: 'Pending', description: '', activities: [], additionalResources: []
   });
+
+  // AI Enhancement States
+  const [modelStatus, setModelStatus] = useState({ ready: false, models: {} });
+  const [budgetEstimate, setBudgetEstimate] = useState(null);
+  const [lastAIRequest, setLastAIRequest] = useState(null);
 
   // Dynamic Equipment Categories State (Updated to fetch from DB)
   // Initial state serves as a fallback while loading
@@ -72,7 +76,21 @@ window.AdminEventsManager = function AdminEventsManager() {
     fetchEvents();
     loadVenues();
     fetchEquipmentOptions(); // Load dynamic equipment on mount
+    checkModelStatus(); // Check if AI models are ready
   }, [sortBy, filterStatus, filterType]);
+
+  // Check AI model status on mount
+  const checkModelStatus = async () => {
+    try {
+      const response = await fetch('/api/ml/model-status');
+      const data = await response.json();
+      if (data.success) {
+        setModelStatus(data);
+      }
+    } catch (error) {
+      console.error('Failed to check model status:', error);
+    }
+  };
 
   const loadVenues = async () => {
     try {
@@ -132,12 +150,52 @@ window.AdminEventsManager = function AdminEventsManager() {
     setFormData(prev => ({ ...prev, equipment: updatedEquipment }));
   };
 
+  // Helper: Check if enough data for AI suggestions
+  const hasEnoughData = () => {
+    return (
+      formData.name.trim().length >= 3 &&
+      formData.type &&
+      formData.attendees &&
+      parseInt(formData.attendees) > 0
+    );
+  };
+
+  // Fetch quick budget estimate for inline hint
+  const fetchBudgetEstimate = async (eventType, attendees = null) => {
+    try {
+      const response = await fetch('/api/ml/quick-estimate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          eventType, 
+          attendees: attendees || 100 
+        })
+      });
+      const data = await response.json();
+      if (data.success) {
+        setBudgetEstimate(data.estimatedBudget);
+      }
+    } catch (error) {
+      console.error('Failed to fetch budget estimate:', error);
+    }
+  };
+
+  // Update budget estimate when type or attendees change
+  useEffect(() => {
+    if (formData.name.trim().length >= 3 && formData.type && formData.attendees && parseInt(formData.attendees) > 0) {
+      const attendees = parseInt(formData.attendees);
+      fetchBudgetEstimate(formData.type, attendees);
+    } else {
+      setBudgetEstimate(null);
+    }
+  }, [formData.name, formData.type, formData.attendees]);
+
   const handleAddEvent = () => {
     setEditingId(null);
     setFormData({
       name: '', type: 'Academic', date: '', endDate: '', startTime: '09:00', endTime: '17:00',
       venue: 'Auditorium', equipment: [], attendees: '', budget: '', organizer: '',
-      status: 'Pending', description: '', activities: [], catering: [], additionalResources: []
+      status: 'Pending', description: '', activities: [], additionalResources: []
     });
     setAiSuggestions(null);
     setShowModal(true);
@@ -160,7 +218,7 @@ window.AdminEventsManager = function AdminEventsManager() {
       status: event.status || 'Planning',
       description: event.description || '',
       activities: event.activities || [],
-      catering: event.catering || [],
+
       additionalResources: event.additionalResources || []
     });
 
@@ -228,7 +286,7 @@ window.AdminEventsManager = function AdminEventsManager() {
         equipment: formData.equipment || [],
         activities: formData.activities || [],
         budget_breakdown: budgetData?.breakdown || {},
-        catering: formData.catering || [],
+
         additional_resources: formData.additionalResources || []
       };
 
@@ -262,19 +320,36 @@ window.AdminEventsManager = function AdminEventsManager() {
       alert('Please enter an event name first!');
       return;
     }
+    
+    // Check if models are trained
+    if (!modelStatus.ready) {
+      const needsTraining = modelStatus.training_samples >= 5;
+      if (needsTraining) {
+        alert('⚠️ AI models need training!\n\nYou have enough training data, but models haven\'t been trained yet.\n\nPlease visit the AI Training Dashboard to train the models first.');
+      } else {
+        alert('⚠️ Not enough training data!\n\nAI needs at least 5 validated events to learn from.\n\nUsing basic estimates for now. Add more training data in AI Training Dashboard for better predictions.');
+      }
+      // Continue with fallback estimates even without models
+    }
+    
     setAiLoading(true);
     try {
-      // Use the classified event type if available, otherwise use form type
-      const classifiedType = aiSuggestions && aiSuggestions.classifiedType ? aiSuggestions.classifiedType : formData.type;
+      // Use the form type (which was already updated by classification if applicable)
+      const eventType = formData.type;
+      
+      const requestParams = {
+        eventType: eventType,
+        expectedAttendees: parseInt(formData.attendees) || 100,
+        duration: 4
+      };
+
+      // Store request params for stale detection
+      setLastAIRequest(requestParams);
 
       const response = await fetch('/api/ml/predict-resources', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          eventType: classifiedType || formData.type,
-          expectedAttendees: parseInt(formData.attendees) || 100,
-          duration: 4  // Default 4 hours
-        })
+        body: JSON.stringify(requestParams)
       });
 
       const aiData = await response.json();
@@ -361,9 +436,8 @@ window.AdminEventsManager = function AdminEventsManager() {
 
         setResourceData({
           checklist: {
-            'Resources': (aiData.resources || []).map(r => ({ name: r, status: 'available' })),
-            'Catering': [], // Kept empty as per your preference
-            'Venue': ['Chairs', 'Tables'] 
+            'Equipment': (aiData.equipment || aiData.resources || []).map(r => ({ name: r, status: 'available' })),
+            'Additional Resources': (aiData.additionalResources || []).map(r => ({ name: r, status: 'available' }))
           }
         });
 
@@ -404,12 +478,6 @@ window.AdminEventsManager = function AdminEventsManager() {
       : [...checkedActivities, item];
     setCheckedActivities(newActivities);
     setFormData(prev => ({ ...prev, activities: newActivities }));
-  };
-
-  const toggleCatering = (item) => {
-    setCheckedCatering(prev => 
-      prev.includes(item) ? prev.filter(c => c !== item) : [...prev, item]
-    );
   };
 
   const toggleAdditionalResource = (item) => {
@@ -670,7 +738,6 @@ window.AdminEventsManager = function AdminEventsManager() {
           activeEquipmentTab={activeEquipmentTab}
           setActiveEquipmentTab={setActiveEquipmentTab}
           checkedActivities={checkedActivities}
-          checkedCatering={checkedCatering}
           checkedResources={checkedResources}
           equipmentCategories={equipmentCategories}
           venueOptions={venueOptions}
@@ -679,13 +746,16 @@ window.AdminEventsManager = function AdminEventsManager() {
           setShowModal={setShowModal}
           toggleEquipment={toggleEquipment}
           toggleActivity={toggleActivity}
-          toggleCatering={toggleCatering}
           toggleAdditionalResource={toggleAdditionalResource}
           handleBudgetUpdate={handleBudgetUpdate}
           handleEquipmentUpdate={handleEquipmentUpdate}
           setAiSuggestions={setAiSuggestions}
           setBudgetData={setBudgetData}
           setTimelineData={setTimelineData}
+          modelStatus={modelStatus}
+          budgetEstimate={budgetEstimate}
+          lastAIRequest={lastAIRequest}
+          hasEnoughData={hasEnoughData}
         />
       )}
     </div>

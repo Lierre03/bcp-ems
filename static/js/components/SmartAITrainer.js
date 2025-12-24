@@ -805,27 +805,34 @@ window.SmartAITrainer = function SmartAITrainer() {
                       </div>
                     </div>
 
-                    {/* Detailed Modal */}
+                    {/* Beautiful Detailed Modal */}
                     {selectedHistoryItem && (
-                      <div className="fixed inset-0 bg-black bg-opacity-50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-                        <div className="bg-white rounded-2xl max-w-5xl w-full max-h-[95vh] overflow-hidden shadow-2xl transform transition-all">
-                          {/* Header */}
-                          <div className="bg-gradient-to-r from-blue-600 to-indigo-600 px-8 py-6 text-white">
-                            <div className="flex items-center justify-between">
-                              <div className="flex items-center gap-4">
-                                <div className="w-12 h-12 bg-white bg-opacity-20 rounded-xl flex items-center justify-center">
-                                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <div className="fixed inset-0 bg-black bg-opacity-60 backdrop-blur-md flex items-center justify-center z-50 p-4">
+                        <div className="bg-white rounded-3xl max-w-6xl w-full max-h-[90vh] overflow-hidden shadow-2xl border border-slate-200">
+                          {/* Modern Header */}
+                          <div className="relative bg-gradient-to-br from-blue-600 via-indigo-600 to-purple-700 px-8 py-8 text-white overflow-hidden">
+                            {/* Background Pattern */}
+                            <div className="absolute inset-0 opacity-10">
+                              <div className="absolute top-0 left-0 w-full h-full bg-white" style={{
+                                backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='0.1'%3E%3Ccircle cx='30' cy='30' r='2'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`
+                              }}></div>
+                            </div>
+
+                            <div className="relative flex items-center justify-between">
+                              <div className="flex items-center gap-6">
+                                <div className="w-16 h-16 bg-white bg-opacity-25 backdrop-blur-sm rounded-2xl flex items-center justify-center shadow-lg">
+                                  <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
                                   </svg>
                                 </div>
                                 <div>
-                                  <h2 className="text-2xl font-bold">{selectedHistoryItem.eventName}</h2>
-                                  <p className="text-blue-100 mt-1">Training Data Verification</p>
+                                  <h1 className="text-3xl font-bold mb-1">{selectedHistoryItem.eventName}</h1>
+                                  <p className="text-blue-100 text-lg">Complete Training Data Overview</p>
                                 </div>
                               </div>
                               <button
                                 onClick={() => setSelectedHistoryItem(null)}
-                                className="text-white hover:bg-white hover:bg-opacity-20 rounded-lg p-2 transition-colors"
+                                className="w-12 h-12 bg-white bg-opacity-20 hover:bg-opacity-30 backdrop-blur-sm rounded-xl flex items-center justify-center transition-all duration-200 hover:scale-105"
                               >
                                 <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
@@ -835,151 +842,275 @@ window.SmartAITrainer = function SmartAITrainer() {
                           </div>
 
                           {/* Content */}
-                          <div className="overflow-y-auto max-h-[calc(95vh-160px)]">
-                            {/* Quick Stats */}
-                            <div className="bg-slate-50 px-8 py-6 border-b border-slate-200">
+                          <div className="overflow-y-auto max-h-[calc(90vh-200px)]">
+                            {/* Stats Cards */}
+                            <div className="px-8 py-8 bg-gradient-to-r from-slate-50 to-blue-50 border-b border-slate-200">
                               <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
-                                <div className="text-center">
-                                  <div className="text-2xl font-bold text-slate-900">{selectedHistoryItem.attendees}</div>
-                                  <div className="text-sm text-slate-600">Attendees</div>
+                                <div className="bg-white rounded-2xl p-6 shadow-lg border border-slate-200 hover:shadow-xl transition-all duration-200">
+                                  <div className="flex items-center gap-3 mb-3">
+                                    <div className="w-10 h-10 bg-blue-100 rounded-xl flex items-center justify-center">
+                                      <svg className="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                                      </svg>
+                                    </div>
+                                    <div>
+                                      <div className="text-3xl font-bold text-slate-900">{selectedHistoryItem.attendees}</div>
+                                      <div className="text-sm text-slate-600 font-medium">Expected Attendees</div>
+                                    </div>
+                                  </div>
                                 </div>
-                                <div className="text-center">
-                                  <div className="text-2xl font-bold text-green-600">₱{selectedHistoryItem.budget?.toLocaleString()}</div>
-                                  <div className="text-sm text-slate-600">Budget</div>
+
+                                <div className="bg-white rounded-2xl p-6 shadow-lg border border-slate-200 hover:shadow-xl transition-all duration-200">
+                                  <div className="flex items-center gap-3 mb-3">
+                                    <div className="w-10 h-10 bg-green-100 rounded-xl flex items-center justify-center">
+                                      <svg className="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                      </svg>
+                                    </div>
+                                    <div>
+                                      <div className="text-2xl font-bold text-slate-900">₱{selectedHistoryItem.budget?.toLocaleString()}</div>
+                                      <div className="text-sm text-slate-600 font-medium">Total Budget</div>
+                                    </div>
+                                  </div>
                                 </div>
-                                <div className="text-center">
-                                  <div className="text-2xl font-bold text-blue-600">{selectedHistoryItem.equipment?.length || 0}</div>
-                                  <div className="text-sm text-slate-600">Equipment</div>
+
+                                <div className="bg-white rounded-2xl p-6 shadow-lg border border-slate-200 hover:shadow-xl transition-all duration-200">
+                                  <div className="flex items-center gap-3 mb-3">
+                                    <div className="w-10 h-10 bg-indigo-100 rounded-xl flex items-center justify-center">
+                                      <svg className="w-5 h-5 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+                                      </svg>
+                                    </div>
+                                    <div>
+                                      <div className="text-3xl font-bold text-slate-900">{selectedHistoryItem.equipment?.length || 0}</div>
+                                      <div className="text-sm text-slate-600 font-medium">Equipment Items</div>
+                                    </div>
+                                  </div>
                                 </div>
-                                <div className="text-center">
-                                  <span className="inline-flex px-3 py-1 text-sm font-medium bg-blue-100 text-blue-800 rounded-full">
-                                    {selectedHistoryItem.eventType}
-                                  </span>
-                                  <div className="text-sm text-slate-600 mt-1">Event Type</div>
+
+                                <div className="bg-white rounded-2xl p-6 shadow-lg border border-slate-200 hover:shadow-xl transition-all duration-200">
+                                  <div className="flex items-center gap-3 mb-3">
+                                    <div className="w-10 h-10 bg-purple-100 rounded-xl flex items-center justify-center">
+                                      <svg className="w-5 h-5 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a.997.997 0 01-1.414 0l-7-7A1.994 1.994 0 013 7V3a2 2 0 012-2z" />
+                                      </svg>
+                                    </div>
+                                    <div>
+                                      <span className="inline-block px-4 py-2 bg-gradient-to-r from-blue-500 to-purple-600 text-white text-sm font-bold rounded-xl shadow-sm">
+                                        {selectedHistoryItem.eventType}
+                                      </span>
+                                      <div className="text-sm text-slate-600 font-medium mt-2">Event Category</div>
+                                    </div>
+                                  </div>
                                 </div>
                               </div>
                             </div>
 
-                            {/* Detailed Information */}
+                            {/* Information Sections */}
                             <div className="px-8 py-8">
-                              <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                                {/* Left Column */}
-                                <div className="space-y-6">
-                                  {/* Basic Information */}
-                                  <div className="bg-white border border-slate-200 rounded-xl p-6">
-                                    <h3 className="text-lg font-semibold text-slate-800 mb-4 flex items-center gap-2">
-                                      <svg className="w-5 h-5 text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                      </svg>
-                                      Basic Information
-                                    </h3>
-                                    <div className="space-y-4">
-                                      <div className="grid grid-cols-2 gap-4">
+                              <div className="grid grid-cols-1 xl:grid-cols-3 gap-8">
+                                {/* Left Column - Basic Info & Budget */}
+                                <div className="xl:col-span-2 space-y-8">
+                                  {/* Event Overview */}
+                                  <div className="bg-white rounded-2xl p-8 shadow-lg border border-slate-200">
+                                    <div className="flex items-center gap-3 mb-6">
+                                      <div className="w-10 h-10 bg-blue-100 rounded-xl flex items-center justify-center">
+                                        <svg className="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                        </svg>
+                                      </div>
+                                      <h3 className="text-xl font-bold text-slate-800">Event Overview</h3>
+                                    </div>
+
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                                      <div className="space-y-4">
                                         <div>
-                                          <label className="block text-sm font-medium text-slate-600 mb-1">Venue</label>
-                                          <p className="text-slate-900 font-medium">{selectedHistoryItem.venue}</p>
-                                        </div>
-                                        <div>
-                                          <label className="block text-sm font-medium text-slate-600 mb-1">Organizer</label>
-                                          <p className="text-slate-900 font-medium">{selectedHistoryItem.organizer || 'N/A'}</p>
+                                          <label className="block text-sm font-semibold text-slate-600 mb-2">Venue & Organizer</label>
+                                          <div className="space-y-2">
+                                            <div className="flex items-center gap-2">
+                                              <svg className="w-4 h-4 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                                              </svg>
+                                              <span className="text-slate-800 font-medium">{selectedHistoryItem.venue}</span>
+                                            </div>
+                                            <div className="flex items-center gap-2">
+                                              <svg className="w-4 h-4 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                                              </svg>
+                                              <span className="text-slate-800 font-medium">{selectedHistoryItem.organizer || 'Not specified'}</span>
+                                            </div>
+                                          </div>
                                         </div>
                                       </div>
+
                                       <div>
-                                        <label className="block text-sm font-medium text-slate-600 mb-1">Description</label>
-                                        <p className="text-slate-700 bg-slate-50 rounded-lg p-3">{selectedHistoryItem.description || 'No description provided'}</p>
+                                        <label className="block text-sm font-semibold text-slate-600 mb-2">Event Description</label>
+                                        <div className="bg-slate-50 rounded-xl p-4 border border-slate-200">
+                                          <p className="text-slate-700 leading-relaxed">{selectedHistoryItem.description || 'No description was provided for this event.'}</p>
+                                        </div>
                                       </div>
                                     </div>
                                   </div>
 
                                   {/* Budget Breakdown */}
-                                  <div className="bg-white border border-slate-200 rounded-xl p-6">
-                                    <h3 className="text-lg font-semibold text-slate-800 mb-4 flex items-center gap-2">
-                                      <svg className="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                      </svg>
-                                      Budget Breakdown
-                                    </h3>
-                                    {selectedHistoryItem.budget_breakdown && Object.keys(selectedHistoryItem.budget_breakdown).length > 0 ? (
-                                      <div className="space-y-3">
+                                  <div className="bg-white rounded-2xl p-8 shadow-lg border border-slate-200">
+                                    <div className="flex items-center gap-3 mb-6">
+                                      <div className="w-10 h-10 bg-green-100 rounded-xl flex items-center justify-center">
+                                        <svg className="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                                        </svg>
+                                      </div>
+                                      <h3 className="text-xl font-bold text-slate-800">Budget Breakdown</h3>
+                                    </div>
+
+                                    {selectedHistoryItem.budget_breakdown && selectedHistoryItem.budget_breakdown.length > 0 ? (
+                                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                         {selectedHistoryItem.budget_breakdown.map((item, index) => (
-                                          <div key={index} className="flex justify-between items-center py-2 border-b border-slate-100 last:border-0">
-                                            <span className="text-slate-700">{item.name}</span>
-                                            <span className="font-mono font-semibold text-green-600">₱{item.amount?.toLocaleString()}</span>
+                                          <div key={index} className="bg-gradient-to-r from-green-50 to-emerald-50 rounded-xl p-4 border border-green-200">
+                                            <div className="flex justify-between items-center">
+                                              <span className="text-slate-800 font-medium">{item.name}</span>
+                                              <span className="text-lg font-bold text-green-700">₱{item.amount?.toLocaleString()}</span>
+                                            </div>
                                           </div>
                                         ))}
                                       </div>
                                     ) : (
-                                      <p className="text-slate-500 italic">No budget breakdown recorded</p>
+                                      <div className="text-center py-8">
+                                        <svg className="w-12 h-12 text-slate-400 mx-auto mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                                        </svg>
+                                        <p className="text-slate-500 font-medium">No budget breakdown was recorded</p>
+                                      </div>
                                     )}
                                   </div>
                                 </div>
 
-                                {/* Right Column */}
-                                <div className="space-y-6">
+                                {/* Right Column - Equipment & Timeline */}
+                                <div className="space-y-8">
                                   {/* Equipment List */}
-                                  <div className="bg-white border border-slate-200 rounded-xl p-6">
-                                    <h3 className="text-lg font-semibold text-slate-800 mb-4 flex items-center gap-2">
-                                      <svg className="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
-                                      </svg>
-                                      Equipment ({selectedHistoryItem.equipment?.length || 0} items)
-                                    </h3>
+                                  <div className="bg-white rounded-2xl p-6 shadow-lg border border-slate-200">
+                                    <div className="flex items-center gap-3 mb-6">
+                                      <div className="w-10 h-10 bg-indigo-100 rounded-xl flex items-center justify-center">
+                                        <svg className="w-5 h-5 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+                                        </svg>
+                                      </div>
+                                      <h3 className="text-lg font-bold text-slate-800">Equipment ({selectedHistoryItem.equipment?.length || 0})</h3>
+                                    </div>
+
                                     {selectedHistoryItem.equipment?.length > 0 ? (
-                                      <div className="grid grid-cols-1 gap-2">
+                                      <div className="space-y-3">
                                         {selectedHistoryItem.equipment.map((eq, idx) => (
-                                          <div key={idx} className="flex justify-between items-center bg-slate-50 rounded-lg p-3">
-                                            <span className="text-slate-700">{eq.name}</span>
-                                            <span className="bg-blue-100 text-blue-800 px-2 py-1 rounded-full text-xs font-medium">
-                                              Qty: {eq.quantity}
-                                            </span>
+                                          <div key={idx} className="flex items-center justify-between bg-gradient-to-r from-indigo-50 to-blue-50 rounded-xl p-4 border border-indigo-200">
+                                            <span className="text-slate-800 font-medium">{eq.name}</span>
+                                            <div className="bg-indigo-100 text-indigo-800 px-3 py-1 rounded-full text-sm font-bold">
+                                              {eq.quantity}
+                                            </div>
                                           </div>
                                         ))}
                                       </div>
                                     ) : (
-                                      <p className="text-slate-500 italic">No equipment recorded</p>
+                                      <div className="text-center py-6">
+                                        <svg className="w-10 h-10 text-slate-400 mx-auto mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+                                        </svg>
+                                        <p className="text-slate-500 text-sm">No equipment recorded</p>
+                                      </div>
+                                    )}
+                                  </div>
+
+                                  {/* Event Timeline */}
+                                  <div className="bg-white rounded-2xl p-6 shadow-lg border border-slate-200">
+                                    <div className="flex items-center gap-3 mb-6">
+                                      <div className="w-10 h-10 bg-orange-100 rounded-xl flex items-center justify-center">
+                                        <svg className="w-5 h-5 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                        </svg>
+                                      </div>
+                                      <h3 className="text-lg font-bold text-slate-800">Timeline ({selectedHistoryItem.activities?.length || 0} phases)</h3>
+                                    </div>
+
+                                    {selectedHistoryItem.activities?.length > 0 ? (
+                                      <div className="space-y-3">
+                                        {selectedHistoryItem.activities.map((activity, idx) => (
+                                          <div key={idx} className="flex items-center gap-4 bg-gradient-to-r from-orange-50 to-amber-50 rounded-xl p-4 border border-orange-200">
+                                            <div className="w-8 h-8 bg-orange-100 text-orange-800 rounded-full flex items-center justify-center text-sm font-bold">
+                                              {idx + 1}
+                                            </div>
+                                            <span className="text-slate-800 font-medium flex-1">{activity}</span>
+                                          </div>
+                                        ))}
+                                      </div>
+                                    ) : (
+                                      <div className="text-center py-6">
+                                        <svg className="w-10 h-10 text-slate-400 mx-auto mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                        </svg>
+                                        <p className="text-slate-500 text-sm">No timeline recorded</p>
+                                      </div>
                                     )}
                                   </div>
 
                                   {/* Additional Resources */}
-                                  <div className="bg-white border border-slate-200 rounded-xl p-6">
-                                    <h3 className="text-lg font-semibold text-slate-800 mb-4 flex items-center gap-2">
-                                      <svg className="w-5 h-5 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.746 0 3.332.477 4.5 1.253v13C19.832 18.477 18.246 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
-                                      </svg>
-                                      Additional Resources
-                                    </h3>
+                                  <div className="bg-white rounded-2xl p-6 shadow-lg border border-slate-200">
+                                    <div className="flex items-center gap-3 mb-6">
+                                      <div className="w-10 h-10 bg-purple-100 rounded-xl flex items-center justify-center">
+                                        <svg className="w-5 h-5 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.746 0 3.332.477 4.5 1.253v13C19.832 18.477 18.246 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+                                        </svg>
+                                      </div>
+                                      <h3 className="text-lg font-bold text-slate-800">Additional Resources</h3>
+                                    </div>
+
                                     {selectedHistoryItem.additionalResources?.length > 0 ? (
                                       <div className="flex flex-wrap gap-2">
                                         {selectedHistoryItem.additionalResources.map((res, idx) => (
-                                          <span key={idx} className="bg-purple-100 text-purple-800 px-3 py-2 rounded-lg text-sm font-medium">
+                                          <span key={idx} className="bg-gradient-to-r from-purple-100 to-pink-100 text-purple-800 px-4 py-2 rounded-xl text-sm font-semibold border border-purple-200">
                                             {res}
                                           </span>
                                         ))}
                                       </div>
                                     ) : (
-                                      <p className="text-slate-500 italic">No additional resources</p>
+                                      <div className="text-center py-6">
+                                        <svg className="w-10 h-10 text-slate-400 mx-auto mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.746 0 3.332.477 4.5 1.253v13C19.832 18.477 18.246 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+                                        </svg>
+                                        <p className="text-slate-500 text-sm">No additional resources</p>
+                                      </div>
                                     )}
                                   </div>
 
-                                  {/* Timestamp */}
-                                  <div className="bg-slate-50 border border-slate-200 rounded-xl p-6">
-                                    <h3 className="text-lg font-semibold text-slate-800 mb-4 flex items-center gap-2">
-                                      <svg className="w-5 h-5 text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                      </svg>
-                                      Submission Details
-                                    </h3>
-                                    <div className="space-y-2">
-                                      <div className="flex justify-between">
-                                        <span className="text-slate-600">Date Submitted:</span>
-                                        <span className="font-medium text-slate-900">
-                                          {selectedHistoryItem.created_at ? new Date(selectedHistoryItem.created_at).toLocaleDateString() : 'N/A'}
+                                  {/* Submission Info */}
+                                  <div className="bg-gradient-to-r from-slate-100 to-slate-200 rounded-2xl p-6 border border-slate-300">
+                                    <div className="flex items-center gap-3 mb-4">
+                                      <div className="w-10 h-10 bg-slate-300 rounded-xl flex items-center justify-center">
+                                        <svg className="w-5 h-5 text-slate-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                        </svg>
+                                      </div>
+                                      <h3 className="text-lg font-bold text-slate-800">Submission Details</h3>
+                                    </div>
+
+                                    <div className="space-y-3">
+                                      <div className="flex justify-between items-center bg-white rounded-lg p-3">
+                                        <span className="text-slate-600 font-medium">Date Submitted</span>
+                                        <span className="text-slate-900 font-semibold">
+                                          {selectedHistoryItem.created_at ? new Date(selectedHistoryItem.created_at).toLocaleDateString('en-US', {
+                                            year: 'numeric',
+                                            month: 'long',
+                                            day: 'numeric'
+                                          }) : 'N/A'}
                                         </span>
                                       </div>
-                                      <div className="flex justify-between">
-                                        <span className="text-slate-600">Time Submitted:</span>
-                                        <span className="font-medium text-slate-900">
-                                          {selectedHistoryItem.created_at ? new Date(selectedHistoryItem.created_at).toLocaleTimeString() : 'N/A'}
+                                      <div className="flex justify-between items-center bg-white rounded-lg p-3">
+                                        <span className="text-slate-600 font-medium">Time Submitted</span>
+                                        <span className="text-slate-900 font-semibold">
+                                          {selectedHistoryItem.created_at ? new Date(selectedHistoryItem.created_at).toLocaleTimeString('en-US', {
+                                            hour: '2-digit',
+                                            minute: '2-digit',
+                                            second: '2-digit'
+                                          }) : 'N/A'}
                                         </span>
                                       </div>
                                     </div>
