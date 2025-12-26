@@ -1,1148 +1,936 @@
-// SmartAITrainer - Complete Database-Driven Version (Restored Original UI)
-const { useState, useEffect } = React;
+// SmartAITrainer - Professional Tabbed Interface
+const { useState, useEffect, useRef } = React;
 
-window.SmartAITrainer = function SmartAITrainer() {
-  const [activeEquipmentTab, setActiveEquipmentTab] = useState('Audio & Visual');
-  const [activeFormTab, setActiveFormTab] = useState('basic');
+window.SmartAITrainer = function SmartAITrainer({ onViewChange }) {
+  const [view, setView] = useState('dashboard'); // dashboard | form | history
+  const [activeTab, setActiveTab] = useState('basic'); // basic | equipment | timeline | budget | resources
+  const [eqTab, setEqTab] = useState('Audio & Visual');
+  const [eqCats, setEqCats] = useState({ 'Audio & Visual': ['Projector', 'Speaker', 'Microphone', 'Screen'], 'Furniture': ['Tables', 'Chairs', 'Stage', 'Podium'], 'Sports': ['Scoreboard', 'Lighting', 'Camera', 'First Aid Kit'] });
+  const [form, setForm] = useState({ name: '', type: 'Academic', venue: 'Auditorium', equipment: [], attendees: '', budget: '', organizer: '', description: '', timelines: [], budgetCats: [], resources: [], startDate: '', endDate: '', timelineMode: 'single', currentDay: 1, multiDayTimelines: {} });
+  const [newRes, setNewRes] = useState('');
+  const [history, setHistory] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [stats, setStats] = useState({ trained: 0, accuracy: 70 });
+  const [modal, setModal] = useState(null);
+  const timeRefs = useRef({});
+
+  const venues = ['Auditorium', 'Gymnasium', 'Main Hall', 'Cafeteria', 'Lab', 'Courtyard', 'Library', 'Covered Court'];
+  const types = ['Academic', 'Sports', 'Cultural', 'Workshop', 'Seminar'];
+
+  useEffect(() => { load(); }, []);
+
+  // Notify parent when view changes
+  useEffect(() => {
+    if (onViewChange) onViewChange(view);
+  }, [view, onViewChange]);
   
-  // Dynamic Equipment Categories (Fetched from API)
-  const [equipmentCategories, setEquipmentCategories] = useState({
-    'Audio & Visual': ['Projector', 'Speaker', 'Microphone', 'Screen'],
-    'Furniture & Setup': ['Tables', 'Chairs', 'Stage', 'Podium'],
-    'Sports & Venue': ['Scoreboard', 'Lighting', 'Camera', 'First Aid Kit']
-  });
-  
-  // FORM DATA STATE
-  const [formData, setFormData] = useState({
-    name: '', type: 'Academic', venue: 'Auditorium', equipment: [], attendees: '', budget: '', organizer: '',
-    description: '', timeline: [], budgetCategories: [], additionalResources: []
-  });
-
-  // Equipment quantities state
-  const [equipmentQuantities, setEquipmentQuantities] = useState({});
-
-  const [newResourceItem, setNewResourceItem] = useState(''); // State for new resource input
-
-  const [trainingHistory, setTrainingHistory] = useState([]);
-  const [predictionResult, setPredictionResult] = useState(null);
-  const [isProcessing, setIsProcessing] = useState(false);
-  const [stats, setStats] = useState({ trained: 0, accuracy: 0 });
-  const [selectedHistoryItem, setSelectedHistoryItem] = useState(null);
-
-  const venueOptions = ['Auditorium', 'Gymnasium', 'Main Hall', 'Cafeteria', 'Lab', 'Courtyard', 'Library'];
-
   useEffect(() => {
-    loadStats();
-    loadTrainingHistory();
-    loadEquipmentOptions();
-  }, []);
-
-  // Initialize Flatpickr time pickers for timeline
-  useEffect(() => {
-    if (activeFormTab === 'timeline' && formData.timeline.length > 0 && typeof window !== 'undefined' && window.flatpickr) {
-      // Small delay to ensure DOM is ready and Flatpickr is loaded
-      setTimeout(() => {
-        formData.timeline.forEach((phase, index) => {
-          // Initialize start time picker
-          const startPicker = document.getElementById(`start-time-${index}`);
-          if (startPicker && !startPicker._flatpickr) {
-            window.flatpickr(startPicker, {
-              enableTime: true,
-              noCalendar: true,
-              dateFormat: "H:i",
-              time_24hr: false,
-              defaultDate: phase.startTime,
-              onChange: (selectedDates, dateStr) => {
-                updateTimelinePhase(index, 'startTime', dateStr);
-              }
-            });
-          }
-
-          // Initialize end time picker
-          const endPicker = document.getElementById(`end-time-${index}`);
-          if (endPicker && !endPicker._flatpickr) {
-            window.flatpickr(endPicker, {
-              enableTime: true,
-              noCalendar: true,
-              dateFormat: "H:i",
-              time_24hr: false,
-              defaultDate: phase.endTime,
-              onChange: (selectedDates, dateStr) => {
-                updateTimelinePhase(index, 'endTime', dateStr);
-              }
-            });
-          }
-        });
-      }, 1000); // Increased delay to ensure Flatpickr is fully loaded
-    }
-  }, [activeFormTab, formData.timeline]);
-
-
-
-  // Auto-calculate total budget from categories
-  useEffect(() => {
-    const totalFromCategories = formData.budgetCategories.reduce((total, cat) => total + (cat.amount || 0), 0);
-    if (totalFromCategories > 0 && totalFromCategories !== parseFloat(formData.budget || 0)) {
-      setFormData(prev => ({ ...prev, budget: totalFromCategories.toString() }));
-    }
-  }, [formData.budgetCategories]);
-
-
-
-  const loadEquipmentOptions = async () => {
-    try {
-        const response = await fetch('/api/ml/equipment-options');
-        const data = await response.json();
-        if (data.success && data.categories) {
-            setEquipmentCategories(data.categories);
+    if (view === 'form' && activeTab === 'timeline' && typeof flatpickr !== 'undefined') {
+      // Destroy all existing flatpickr instances
+      Object.keys(timeRefs.current).forEach(key => {
+        if (timeRefs.current[key] && timeRefs.current[key]._flatpickr) {
+          timeRefs.current[key]._flatpickr.destroy();
         }
-    } catch (error) {
-        console.error('Failed to load equipment options:', error);
+      });
+      
+      // Create new flatpickr instances
+      Object.keys(timeRefs.current).forEach(key => {
+        if (timeRefs.current[key]) {
+          flatpickr(timeRefs.current[key], { 
+            enableTime: true, 
+            noCalendar: true, 
+            dateFormat: "h:i K", 
+            time_24hr: false,
+            onChange: function(selectedDates, dateStr, instance) {
+              const ref = instance.element;
+              const keyParts = Object.keys(timeRefs.current).find(k => timeRefs.current[k] === ref);
+              if (keyParts) {
+                const [type, day, index] = keyParts.split('-');
+                const field = type === 'start' ? 'startTime' : 'endTime';
+                updatePhase(parseInt(index), field, dateStr);
+              }
+            }
+          });
+        }
+      });
     }
+  }, [view, activeTab, form.timelines, form.multiDayTimelines, form.currentDay]);
+
+  useEffect(() => {
+    const t = form.budgetCats.reduce((s, c) => s + (c.amount || 0), 0);
+    if (t > 0) setForm(p => ({ ...p, budget: t.toString() }));
+  }, [form.budgetCats]);
+
+  const load = async () => {
+    try {
+      const [s, h, e] = await Promise.all([
+        fetch('/api/ml/training-stats').then(r => r.json()),
+        fetch('/api/ml/training-data').then(r => r.json()),
+        fetch('/api/ml/equipment-options').then(r => r.json())
+      ]);
+      if (s.success) setStats({ trained: s.total_samples || 0, accuracy: s.accuracy || 70 });
+      if (h.success) setHistory(h.data || []);
+      if (e.success) setEqCats(e.categories);
+    } catch (e) { console.error(e); }
   };
 
-  // --- Helper Functions ---
-  const toggleEquipment = (equip) => {
-    setFormData(prev => {
-      const isSelected = prev.equipment.some(item => item.name === equip);
-      let newEquipment;
-      if (isSelected) {
-        // Remove equipment
-        newEquipment = prev.equipment.filter(item => item.name !== equip);
-        // Also remove from quantities
-        const newQuantities = {...equipmentQuantities};
-        delete newQuantities[equip];
-        setEquipmentQuantities(newQuantities);
-      } else {
-        // Add equipment with default quantity of 1
-        newEquipment = [...prev.equipment, { name: equip, quantity: 1 }];
-        setEquipmentQuantities(prev => ({ ...prev, [equip]: 1 }));
-      }
-      return { ...prev, equipment: newEquipment };
-    });
-  };
-
-  const updateEquipmentQuantity = (equip, quantity) => {
-    // Allow empty strings during typing, store as string temporarily
-    if (quantity === '') {
-      setEquipmentQuantities(prev => ({ ...prev, [equip]: '' }));
-      setFormData(prev => ({
-        ...prev,
-        equipment: prev.equipment.map(item =>
-          item.name === equip ? { ...item, quantity: 1 } : item
-        )
-      }));
-      return;
-    }
-
-    const numValue = parseInt(quantity);
-    const validQty = isNaN(numValue) ? 1 : Math.max(1, numValue);
-    setEquipmentQuantities(prev => ({ ...prev, [equip]: validQty }));
-    setFormData(prev => ({
-      ...prev,
-      equipment: prev.equipment.map(item =>
-        item.name === equip ? { ...item, quantity: validQty } : item
-      )
-    }));
-  };
-
-  // Additional Resource Helpers
-  const addResource = () => {
-    if (newResourceItem.trim()) {
-      setFormData(prev => ({
-        ...prev,
-        additionalResources: [...prev.additionalResources, newResourceItem.trim()]
-      }));
-      setNewResourceItem('');
-    }
-  };
+  const toggleEq = (item) => setForm(p => ({ ...p, equipment: p.equipment.some(e => e.name === item) ? p.equipment.filter(e => e.name !== item) : [...p.equipment, { name: item, quantity: 1 }] }));
+  const updateQty = (item, q) => setForm(p => ({ ...p, equipment: p.equipment.map(e => e.name === item ? { ...e, quantity: Math.max(1, +q || 1) } : e) }));
   
-  const removeResource = (index) => {
-    setFormData(prev => ({ ...prev, additionalResources: prev.additionalResources.filter((_, i) => i !== index) }));
-  };
-
-  const addTimelinePhase = () => {
-    setFormData(prev => {
-      const lastPhase = prev.timeline[prev.timeline.length - 1];
-      const startTime = lastPhase ? lastPhase.endTime : '09:00';
-      const endTime = lastPhase ? lastPhase.endTime : '10:00'; // For first phase, use default; for others, start where previous ended
-
-      return {
-        ...prev,
-        timeline: [...prev.timeline, { startTime, endTime, phase: '' }]
-      };
+  const addPhase = () => {
+    setForm(p => {
+      if (p.timelineMode === 'multi') {
+        const dayKey = `day${p.currentDay}`;
+        const dayTimelines = p.multiDayTimelines[dayKey] || [];
+        const lastPhase = dayTimelines[dayTimelines.length - 1];
+        const startTime = lastPhase ? lastPhase.endTime : '09:00 AM';
+        
+        // Calculate end time (1 hour after start)
+        let endTime = '10:00 AM';
+        if (lastPhase && lastPhase.endTime) {
+          const match = lastPhase.endTime.match(/(\d{1,2}):(\d{2})\s*(AM|PM)/i);
+          if (match) {
+            let hours = parseInt(match[1]);
+            const minutes = parseInt(match[2]);
+            const period = match[3].toUpperCase();
+            
+            hours = hours + 1;
+            if (hours > 12) hours = 1;
+            endTime = `${hours}:${match[2]} ${period}`;
+          }
+        }
+        
+        return {
+          ...p,
+          multiDayTimelines: {
+            ...p.multiDayTimelines,
+            [dayKey]: [...dayTimelines, { startTime, endTime, phase: '' }]
+          }
+        };
+      }
+      
+      const lastPhase = p.timelines[p.timelines.length - 1];
+      const startTime = lastPhase ? lastPhase.endTime : '09:00 AM';
+      
+      // Calculate end time (1 hour after start)
+      let endTime = '10:00 AM';
+      if (lastPhase && lastPhase.endTime) {
+        const match = lastPhase.endTime.match(/(\d{1,2}):(\d{2})\s*(AM|PM)/i);
+        if (match) {
+          let hours = parseInt(match[1]);
+          const minutes = parseInt(match[2]);
+          const period = match[3].toUpperCase();
+          
+          hours = hours + 1;
+          if (hours > 12) hours = 1;
+          endTime = `${hours}:${match[2]} ${period}`;
+        }
+      }
+      
+      return { ...p, timelines: [...p.timelines, { startTime, endTime, phase: '' }] };
     });
   };
 
-  const updateTimelinePhase = (index, field, value) => {
-    const updated = [...formData.timeline];
-    updated[index][field] = value;
-    setFormData(prev => ({ ...prev, timeline: updated }));
-  };
-
-  const removeTimelinePhase = (index) => {
-    setFormData(prev => ({ ...prev, timeline: prev.timeline.filter((_, i) => i !== index) }));
-  };
-
-  const addBudgetCategory = () => {
-    setFormData(prev => ({
-      ...prev,
-      budgetCategories: [...prev.budgetCategories, { name: '', amount: 0 }]
-    }));
-  };
-
-  const updateBudgetCategory = (index, field, value) => {
-    const updated = [...formData.budgetCategories];
-    if (field === 'amount') updated[index][field] = parseFloat(value) || 0;
-    else updated[index][field] = value;
-    setFormData(prev => ({ ...prev, budgetCategories: updated }));
-  };
-
-  const removeBudgetCategory = (index) => {
-    setFormData(prev => ({ ...prev, budgetCategories: prev.budgetCategories.filter((_, i) => i !== index) }));
-  };
-
-  const loadStats = async () => {
-    try {
-      const response = await fetch('/api/ml/training-stats');
-      const data = await response.json();
-      if (data.success) {
-        setStats({
-          trained: data.total_samples || 0,
-          accuracy: data.total_samples > 5 ? Math.min(90 + (data.total_samples - 5), 98) : 70
-        });
+  const updatePhase = (i, k, v) => {
+    setForm(p => {
+      if (p.timelineMode === 'multi') {
+        const dayKey = `day${p.currentDay}`;
+        const dayTimelines = [...(p.multiDayTimelines[dayKey] || [])];
+        dayTimelines[i][k] = v;
+        return {
+          ...p,
+          multiDayTimelines: {
+            ...p.multiDayTimelines,
+            [dayKey]: dayTimelines
+          }
+        };
       }
-    } catch (error) { console.error('Stats failed', error); }
+      const t = [...p.timelines];
+      t[i][k] = v;
+      return { ...p, timelines: t };
+    });
   };
 
-  const loadTrainingHistory = async () => {
-    try {
-      const response = await fetch('/api/ml/training-data');
-      const data = await response.json();
-      if (data.success) {
-        setTrainingHistory(data.data || []);
+  const delPhase = (i) => {
+    setForm(p => {
+      if (p.timelineMode === 'multi') {
+        const dayKey = `day${p.currentDay}`;
+        return {
+          ...p,
+          multiDayTimelines: {
+            ...p.multiDayTimelines,
+            [dayKey]: (p.multiDayTimelines[dayKey] || []).filter((_, j) => j !== i)
+          }
+        };
       }
-    } catch (error) { console.error('History failed', error); }
+      return { ...p, timelines: p.timelines.filter((_, j) => j !== i) };
+    });
   };
 
-  const testPrediction = async () => {
-    if (!formData.name || !formData.attendees) {
-      alert('Please fill in event name and attendees');
-      return;
-    }
+  const addBudget = () => setForm(p => ({ ...p, budgetCats: [...p.budgetCats, { name: '', amount: 0 }] }));
+  const updateBudget = (i, k, v) => { const c = [...form.budgetCats]; c[i][k] = k === 'amount' ? +v || 0 : v; setForm(p => ({ ...p, budgetCats: c })); };
+  const delBudget = (i) => setForm(p => ({ ...p, budgetCats: p.budgetCats.filter((_, j) => j !== i) }));
+  const addRes = () => { if (newRes.trim()) { setForm(p => ({ ...p, resources: [...p.resources, newRes.trim()] })); setNewRes(''); } };
+  const delRes = (i) => setForm(p => ({ ...p, resources: p.resources.filter((_, j) => j !== i) }));
 
-    setIsProcessing(true);
+  const trainModels = async () => {
+    if (history.length === 0) return alert("No training data available. Please add training data first.");
+    setLoading(true);
     try {
-      const response = await fetch('/api/ml/predict-resources', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          eventType: formData.type,
-          attendees: parseInt(formData.attendees),
-          duration: 4
-        })
+      const t = await fetch('/api/ml/train-models', { method: 'POST', credentials: 'include' }).then(r => r.json());
+      alert(t.success ? '✅ AI models trained successfully!' : 'Training initiated!');
+      load();
+    } catch (e) { alert('Error training models: ' + e.message); }
+    finally { setLoading(false); }
+  };
+
+  const save = async () => {
+    if (!form.name || !form.budget) return alert("Please fill Event Name and Budget.");
+    setLoading(true);
+    try {
+      // Prepare activities based on timeline mode
+      let activities;
+      if (form.timelineMode === 'multi') {
+        // Multi-day: save as object with day keys
+        activities = form.multiDayTimelines;
+      } else {
+        // Single day: save as array
+        activities = form.timelines;
+      }
+
+      const res = await fetch('/api/ml/add-training-data', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'include',
+        body: JSON.stringify({ eventName: form.name, eventType: form.type, description: form.description, venue: form.venue, organizer: form.organizer, startDate: form.startDate || null, endDate: form.endDate || null, attendees: +form.attendees || 0, budget: +form.budget, budgetBreakdown: form.budgetCats, equipment: form.equipment, activities: activities, additionalResources: form.resources })
       });
-
-      const data = await response.json();
-
-      if (data.success) {
-        setPredictionResult(data);
-        if (!formData.budget) setFormData(prev => ({...prev, budget: data.estimatedBudget}));
-      } else {
-        alert('Prediction failed: ' + (data.error || 'Unknown error'));
-      }
-    } catch (error) {
-      alert('Prediction error: ' + error.message);
-    } finally {
-      setIsProcessing(false);
-    }
+      const d = await res.json();
+      if (!d.success) throw new Error(d.error);
+      const t = await fetch('/api/ml/train-models', { method: 'POST', credentials: 'include' }).then(r => r.json());
+      alert(t.success ? '✅ Training complete!' : '✅ Data saved!');
+      load();
+      setForm({ name: '', type: 'Academic', venue: 'Auditorium', equipment: [], attendees: '', budget: '', organizer: '', description: '', timelines: [], budgetCats: [], resources: [], startDate: '', endDate: '', timelineMode: 'single', currentDay: 1, multiDayTimelines: {} });
+      setView('dashboard');
+      setActiveTab('basic');
+    } catch (e) { alert('Error: ' + e.message); }
+    finally { setLoading(false); }
   };
 
-  const addToTraining = async () => {
-    if (!formData.name || !formData.budget) {
-        alert("Please ensure Event Name and Budget are filled out.");
-        return;
-    }
+  const I = ({ d, c = "w-5 h-5" }) => <svg className={c} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d={d} /></svg>;
 
-    const confirmMsg = `Save this event data to the training set?\n\nEvent: ${formData.name}\nBudget: ₱${formData.budget}\n\nThe AI will learn from YOUR inputs, not its own guess.`;
-    if (!confirm(confirmMsg)) return;
+  // Shared Modal Component
+  const renderModal = () => {
+    if (!modal) return null;
+    
+    const additionalResources = modal.additionalResources || modal.additional_resources || [];
+    
+    // Handle both array (single-day) and object (multi-day) activities
+    const isMultiDay = modal.activities && typeof modal.activities === 'object' && !Array.isArray(modal.activities);
+    const activitiesCount = isMultiDay 
+      ? Object.values(modal.activities).reduce((sum, dayActivities) => sum + (dayActivities?.length || 0), 0)
+      : (modal.activities?.length || 0);
+    
+    return (
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={() => setModal(null)}>
+      <div className="bg-white rounded-xl max-w-3xl w-full max-h-[90vh] overflow-hidden shadow-xl" onClick={e => e.stopPropagation()}>
+        {/* Header */}
+        <div className="bg-gray-900 px-6 py-4 text-white border-b border-gray-800">
+          <div className="flex justify-between items-start">
+            <div>
+              <h2 className="text-xl font-semibold mb-1">{modal.eventName}</h2>
+              <div className="flex items-center gap-2 text-sm text-gray-300">
+                <span>{modal.eventType}</span>
+                <span>•</span>
+                <span>{modal.venue}</span>
+              </div>
+            </div>
+            <button onClick={() => setModal(null)} className="w-8 h-8 hover:bg-gray-800 rounded-lg flex items-center justify-center transition-colors">
+              <I d="M6 18L18 6M6 6l12 12" c="w-4 h-4" />
+            </button>
+          </div>
+        </div>
 
-    setIsProcessing(true);
-    try {
-      const response = await fetch('/api/ml/add-training-data', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({
-          // Basic Info
-          eventName: formData.name,
-          eventType: formData.type,
-          description: formData.description,
+        {/* Content */}
+        <div className="overflow-auto max-h-[calc(90vh-80px)] p-6 bg-gray-50">
           
-          // Logistics
-          venue: formData.venue,
-          organizer: formData.organizer,
-          attendees: parseInt(formData.attendees),
-          
-          // Budget (Learning from user input)
-          budget: parseFloat(formData.budget),
-          budgetBreakdown: formData.budgetCategories, 
-          
-          // Resources
-          equipment: formData.equipment,
-          activities: formData.timeline.map(t => `${t.startTime} - ${t.endTime}: ${t.phase}`),
-          
-          // Additional Resources (No catering)
-          additionalResources: formData.additionalResources || []
-        })
-      });
-
-      const data = await response.json();
-
-      if (data.success) {
-        alert('✅ Added to training data! The AI model will improve upon retraining.');
-        loadStats();
-        loadTrainingHistory();
-        loadEquipmentOptions(); 
-        
-        // Reset Form
-        setFormData({
-            name: '', type: 'Academic', venue: 'Auditorium', equipment: [], attendees: '', budget: '', organizer: '',
-            description: '', timeline: [], budgetCategories: [], additionalResources: []
-        });
-        setPredictionResult(null);
-        setActiveFormTab('basic');
-      } else {
-        alert('Error: ' + data.error);
-      }
-    } catch (error) {
-      alert('Error: ' + error.message);
-    } finally {
-      setIsProcessing(false);
-    }
-  };
-
-  const retrainModels = async () => {
-    setIsProcessing(true);
-    try {
-      const response = await fetch('/api/ml/train-models', { method: 'POST', credentials: 'include' });
-      const data = await response.json();
-      if (data.success) {
-        alert('🎉 AI models retrained successfully!');
-        loadStats();
-      } else {
-        alert('Training failed: ' + data.message);
-      }
-    } catch (error) { alert('Training error: ' + error.message); } 
-    finally { setIsProcessing(false); }
-  };
-
-  return (
-    <div className="flex flex-col gap-4">
-        <div className="bg-white rounded-xl shadow-lg border border-slate-200 overflow-hidden">
-          {/* Tab Navigation */}
-          <div className="bg-white border-b border-slate-200">
-            <div className="flex flex-wrap">
-              {[
-                { id: 'basic', label: 'Basic Info', icon: 'document' },
-                { id: 'equipment', label: 'Equipment', icon: 'wrench' },
-                { id: 'timeline', label: 'Timeline', icon: 'clock' },
-                { id: 'budget', label: 'Budget', icon: 'currency-dollar' },
-                { id: 'resources', label: 'Add. Resources', icon: 'archive' },
-                { id: 'history', label: 'Training History', icon: 'history' }
-              ].map((tab) => (
-                <button
-                  key={tab.id}
-                  onClick={() => setActiveFormTab(tab.id)}
-                  className={`flex-1 flex items-center justify-center gap-2 px-4 py-4 text-sm font-medium transition-all relative ${
-                    activeFormTab === tab.id ? 'text-blue-600 bg-blue-50/50' : 'text-slate-500 hover:text-slate-700 hover:bg-slate-50'
-                  }`}
-                >
-                  <span className="whitespace-nowrap">{tab.label}</span>
-                  {activeFormTab === tab.id && <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-indigo-600"></span>}
-                </button>
-              ))}
+          {/* Stats Row */}
+          <div className="grid grid-cols-4 gap-3 mb-5">
+            <div className="bg-white rounded-lg p-3 border border-gray-200">
+              <p className="text-xs text-gray-500 mb-1">Attendees</p>
+              <p className="text-lg font-semibold text-gray-900">{modal.attendees || 0}</p>
+            </div>
+            <div className="bg-white rounded-lg p-3 border border-gray-200">
+              <p className="text-xs text-gray-500 mb-1">Budget</p>
+              <p className="text-lg font-semibold text-gray-900">₱{(modal.budget || 0).toLocaleString()}</p>
+            </div>
+            <div className="bg-white rounded-lg p-3 border border-gray-200">
+              <p className="text-xs text-gray-500 mb-1">Equipment</p>
+              <p className="text-lg font-semibold text-gray-900">{modal.equipment?.length || 0}</p>
+            </div>
+            <div className="bg-white rounded-lg p-3 border border-gray-200">
+              <p className="text-xs text-gray-500 mb-1">Phases</p>
+              <p className="text-lg font-semibold text-gray-900">{activitiesCount}</p>
             </div>
           </div>
 
-          <div className="p-4 md:p-6 min-h-[300px]">
-            {activeFormTab === 'basic' && (
-              <div className="max-w-4xl mx-auto grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="col-span-1 md:col-span-2">
-                    <label className="block text-sm font-semibold text-slate-700 mb-2">Event Name *</label>
-                    <input type="text" value={formData.name} onChange={(e) => setFormData({...formData, name: e.target.value})} className="w-full px-4 py-2.5 border border-slate-300 rounded-lg text-sm" placeholder="e.g. Annual Science Fair 2024" />
-                </div>
-                <div>
-                    <label className="block text-sm font-semibold text-slate-700 mb-2">Event Type *</label>
-                    <select value={formData.type} onChange={(e) => setFormData({...formData, type: e.target.value})} className="w-full px-4 py-2.5 border border-slate-300 rounded-lg text-sm bg-white">
-                      <option>Academic</option><option>Sports</option><option>Cultural</option><option>Workshop</option><option>Seminar</option>
-                    </select>
-                </div>
-                <div>
-                    <label className="block text-sm font-semibold text-slate-700 mb-2">Venue</label>
-                    <select value={formData.venue} onChange={(e) => setFormData({...formData, venue: e.target.value})} className="w-full px-4 py-2.5 border border-slate-300 rounded-lg text-sm bg-white">
-                        {venueOptions.map(v => <option key={v}>{v}</option>)}
-                    </select>
-                </div>
-                <div className="col-span-1 md:col-span-2">
-                    <label className="block text-sm font-semibold text-slate-700 mb-2">Description</label>
-                    <textarea value={formData.description} onChange={(e) => setFormData({...formData, description: e.target.value})} className="w-full px-4 py-3 border border-slate-300 rounded-lg text-sm" rows="3" />
-                </div>
-                <div>
-                    <label className="block text-sm font-semibold text-slate-700 mb-2">Organizer</label>
-                    <input type="text" value={formData.organizer} onChange={(e) => setFormData({...formData, organizer: e.target.value})} className="w-full px-4 py-2.5 border border-slate-300 rounded-lg text-sm" />
-                </div>
-                <div>
-                    <label className="block text-sm font-semibold text-slate-700 mb-2">Attendees *</label>
-                    <input type="number" value={formData.attendees} onChange={(e) => setFormData({...formData, attendees: e.target.value})} className="w-full px-4 py-2.5 border border-slate-300 rounded-lg text-sm" />
-                </div>
-              </div>
-            )}
-
-            {activeFormTab === 'equipment' && (
-              <div className="max-w-5xl mx-auto space-y-6">
-                 {/* Dynamic Equipment Category Tabs */}
-                 <div className="flex flex-wrap gap-2 pb-4 border-b border-slate-100">
-                    {Object.keys(equipmentCategories).map(cat => (
-                        <button key={cat} onClick={() => setActiveEquipmentTab(cat)} className={`px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 shadow-sm ${activeEquipmentTab === cat ? 'bg-blue-900 text-white hover:bg-blue-800' : 'bg-blue-50 text-blue-900 border border-blue-200 hover:bg-blue-100'}`}>{cat}</button>
-                    ))}
-                 </div>
-
-                 {/* Equipment Grid with Inline Quantity Controls */}
-                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                    {(equipmentCategories[activeEquipmentTab] || []).map(item => {
-                      const isSelected = formData.equipment.some(e => e.name === item);
-                      const currentQuantity = formData.equipment.find(e => e.name === item)?.quantity || 1;
-
-                      return (
-                        <div
-                          key={item}
-                          onClick={() => toggleEquipment(item)}
-                          className={`relative p-4 rounded-xl border transition-all cursor-pointer ${isSelected ? 'bg-blue-800 text-white border-blue-800 shadow-lg hover:bg-blue-900' : 'bg-white text-slate-600 border-slate-200 hover:border-blue-300 hover:shadow-md hover:bg-blue-50/50'}`}
-                        >
-                          <div className="flex justify-between items-start mb-3">
-                            <span className="font-medium text-sm leading-tight pr-2">{item}</span>
-                            {!isSelected && (
-                              <div className="flex-shrink-0 w-8 h-8 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center text-sm font-bold">
-                                +
-                              </div>
-                            )}
-                          </div>
-
-                          {isSelected && (
-                            <div className="flex items-center justify-between gap-2">
-                              <div className="flex items-center gap-2 flex-1">
-                                <label className="text-xs opacity-90">Qty:</label>
-                                <input
-                                  type="number"
-                                  min="1"
-                                  max="999"
-                                  defaultValue={currentQuantity}
-                                  onBlur={(e) => {
-                                    const value = parseInt(e.target.value);
-                                    if (!isNaN(value) && value >= 1) {
-                                      updateEquipmentQuantity(item, e.target.value);
-                                    } else {
-                                      e.target.value = currentQuantity.toString();
-                                    }
-                                  }}
-                                  onClick={(e) => e.stopPropagation()}
-                                  className="w-16 px-2 py-1 border border-white/30 rounded text-sm bg-white/10 text-white placeholder-white/50 focus:ring-1 focus:ring-white/50 focus:border-white/50 text-center font-medium"
-                                  placeholder="1"
-                                />
-                              </div>
-                              <button
-                                onClick={(e) => { e.stopPropagation(); toggleEquipment(item); }}
-                                className="flex-shrink-0 w-6 h-6 bg-white/20 hover:bg-white/30 text-white rounded-full flex items-center justify-center text-xs font-bold transition-colors"
-                                title="Remove equipment"
-                              >
-                                ×
-                              </button>
-                            </div>
-                          )}
-                        </div>
-                      );
-                    })}
-                 </div>
-
-                 {/* Summary of Selected Equipment */}
-                 {formData.equipment.length > 0 && (
-                   <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 mt-4">
-                     <div className="flex items-center justify-between mb-2">
-                       <h4 className="text-sm font-semibold text-slate-800">Selected Equipment Summary</h4>
-                       <span className="text-xs text-slate-500 bg-white px-2 py-1 rounded-full border">
-                         {formData.equipment.length} item{formData.equipment.length !== 1 ? 's' : ''}
-                       </span>
-                     </div>
-                     <div className="text-xs text-slate-600 space-y-1">
-                       {formData.equipment.map((equip, index) => (
-                         <div key={index} className="flex justify-between">
-                           <span>{equip.name}</span>
-                           <span className="font-medium">×{equip.quantity}</span>
-                         </div>
-                       ))}
-                     </div>
-                   </div>
-                 )}
-              </div>
-            )}
-            
-            {activeFormTab === 'timeline' && (
-              <div className="space-y-6 max-w-4xl mx-auto">
-                <div className="flex justify-between items-end mb-4">
-                  <div>
-                    <h3 className="text-lg font-bold text-slate-800">Event Timeline</h3>
-                    <p className="text-slate-500 text-sm">Sequence of activities for flow optimization.</p>
+          {/* Basic Info */}
+          {(modal.organizer || modal.description || modal.start_date || modal.end_date) && (
+            <div className="bg-white rounded-lg p-4 mb-4 border border-gray-200">
+              <h3 className="text-sm font-semibold text-gray-900 mb-3 uppercase tracking-wide">Basic Information</h3>
+              <div className="space-y-2">
+                {modal.organizer && (
+                  <div className="flex">
+                    <span className="text-xs text-gray-500 w-24 flex-shrink-0">Organizer:</span>
+                    <span className="text-sm text-gray-900">{modal.organizer}</span>
                   </div>
-                  <button
-                    onClick={addTimelinePhase}
-                    className="px-4 py-2 bg-indigo-50 text-indigo-700 border border-indigo-100 rounded-lg text-sm font-medium hover:bg-indigo-100 transition-colors flex items-center gap-2"
-                  >
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4" /></svg>
-                    Add Phase
-                  </button>
-                </div>
+                )}
+                {(modal.start_date || modal.end_date) && (
+                  <div className="flex">
+                    <span className="text-xs text-gray-500 w-24 flex-shrink-0">Duration:</span>
+                    <span className="text-sm text-gray-900">
+                      {modal.start_date && modal.end_date 
+                        ? `${new Date(modal.start_date).toLocaleDateString()} - ${new Date(modal.end_date).toLocaleDateString()}`
+                        : modal.start_date 
+                          ? new Date(modal.start_date).toLocaleDateString()
+                          : new Date(modal.end_date).toLocaleDateString()}
+                    </span>
+                  </div>
+                )}
+                {modal.description && (
+                  <div className="pt-2 border-t border-gray-100">
+                    <p className="text-sm text-gray-700 leading-relaxed">{modal.description}</p>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
 
-                <div className="space-y-3">
-                  {formData.timeline.length === 0 ? (
-                    <div className="bg-slate-50 border-2 border-dashed border-slate-200 rounded-xl p-8 text-center flex flex-col items-center justify-center">
-                      <div className="w-12 h-12 bg-slate-100 rounded-full flex items-center justify-center mb-3">
-                        <svg className="w-6 h-6 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-                      </div>
-                      <p className="text-slate-900 font-medium">No timeline set</p>
-                      <p className="text-slate-500 text-sm">Click "Add Phase" to start mapping out the event schedule</p>
-                    </div>
-                  ) : (
-                    <div className="bg-white rounded-xl border border-slate-200 divide-y divide-slate-100 overflow-hidden shadow-sm">
-                      {/* Header Row */}
-                      <div className="grid grid-cols-12 gap-4 px-6 py-3 bg-slate-50 text-xs font-semibold text-slate-500 uppercase tracking-wider">
-                        <div className="col-span-3">Start</div>
-                        <div className="col-span-3">End</div>
-                        <div className="col-span-5">Activity</div>
-                        <div className="col-span-1"></div>
-                      </div>
+          {/* Equipment */}
+          {modal.equipment?.length > 0 && (
+            <div className="bg-white rounded-lg p-4 mb-4 border border-gray-200">
+              <h3 className="text-sm font-semibold text-gray-900 mb-3 uppercase tracking-wide">Equipment ({modal.equipment.length})</h3>
+              <div className="grid grid-cols-2 gap-2">
+                {modal.equipment.map((e, i) => (
+                  <div key={i} className="flex justify-between items-center text-sm py-1.5 px-2 bg-gray-50 rounded">
+                    <span className="text-gray-700">{e.name}</span>
+                    <span className="text-gray-900 font-medium">×{e.quantity}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
 
-                      {/* Timeline Phase Rows */}
-                      {formData.timeline.map((phase, index) => (
-                        <div key={index} className="grid grid-cols-12 gap-4 px-6 py-4 items-center hover:bg-slate-50 transition-colors group">
-                          <div className="col-span-3">
-                            <input
-                              id={`start-time-${index}`}
-                              type="text"
-                              value={phase.startTime}
-                              onChange={(e) => updateTimelinePhase(index, 'startTime', e.target.value)}
-                              className="flatpickr-input w-full px-3 py-2 border border-slate-200 rounded bg-white text-sm cursor-pointer"
-                              placeholder="Start time"
-                              readOnly
-                            />
-                          </div>
-                          <div className="col-span-3">
-                            <input
-                              id={`end-time-${index}`}
-                              type="text"
-                              value={phase.endTime}
-                              onChange={(e) => updateTimelinePhase(index, 'endTime', e.target.value)}
-                              className="flatpickr-input w-full px-3 py-2 border border-slate-200 rounded bg-white text-sm cursor-pointer"
-                              placeholder="End time"
-                              readOnly
-                            />
-                          </div>
-                          <div className="col-span-5">
-                            <input
-                              type="text"
-                              value={phase.phase}
-                              onChange={(e) => updateTimelinePhase(index, 'phase', e.target.value)}
-                              placeholder="e.g. Opening Ceremony"
-                              className="w-full px-3 py-2 border border-slate-200 rounded bg-white text-sm focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500"
-                            />
-                          </div>
-                          <div className="col-span-1 text-right">
-                            <button
-                              onClick={() => removeTimelinePhase(index)}
-                              className="text-slate-400 hover:text-red-500 transition-colors p-1"
-                              title="Remove phase"
-                            >
-                              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
-                            </button>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
+          {/* Budget */}
+          {modal.budget_breakdown?.length > 0 && (
+            <div className="bg-white rounded-lg p-4 mb-4 border border-gray-200">
+              <h3 className="text-sm font-semibold text-gray-900 mb-3 uppercase tracking-wide">Budget Breakdown</h3>
+              <div className="space-y-1.5">
+                {modal.budget_breakdown.map((b, i) => (
+                  <div key={i} className="flex justify-between items-center text-sm py-1.5">
+                    <span className="text-gray-700">{b.name}</span>
+                    <span className="text-gray-900 font-medium">₱{(b.amount || 0).toLocaleString()}</span>
+                  </div>
+                ))}
+                <div className="flex justify-between items-center text-sm py-2 border-t border-gray-200 font-semibold">
+                  <span className="text-gray-900">Total</span>
+                  <span className="text-gray-900">₱{modal.budget_breakdown.reduce((sum, b) => sum + (b.amount || 0), 0).toLocaleString()}</span>
                 </div>
               </div>
-            )}
+            </div>
+          )}
 
-            {activeFormTab === 'budget' && (
-              <div className="space-y-6 max-w-4xl mx-auto">
-                <div className="flex justify-between items-end mb-4">
-                  <div>
-                    <h3 className="text-lg font-bold text-slate-800">Budget Breakdown</h3>
-                    <p className="text-slate-500 text-sm">Track actual spend for smarter estimation.</p>
-                  </div>
-                  <button
-                    onClick={addBudgetCategory}
-                    className="px-4 py-2 bg-amber-50 text-amber-700 border border-amber-100 rounded-lg text-sm font-medium hover:bg-amber-100 transition-colors flex items-center gap-2"
-                  >
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4" /></svg>
-                    Add Category
-                  </button>
-                </div>
-
-                <div className="space-y-3">
-                  {formData.budgetCategories.length === 0 ? (
-                    <div className="bg-amber-50/50 border-2 border-dashed border-amber-200 rounded-xl p-8 text-center flex flex-col items-center justify-center">
-                      <div className="w-12 h-12 bg-amber-100 rounded-full flex items-center justify-center mb-3">
-                        <svg className="w-6 h-6 text-amber-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-                      </div>
-                      <p className="text-slate-900 font-medium">No budget data</p>
-                      <p className="text-slate-500 text-sm">Break down the expenses to train the financial model</p>
-                    </div>
-                  ) : (
-                    <div className="bg-white rounded-xl border border-slate-200 divide-y divide-slate-100 overflow-hidden shadow-sm">
-                      <div className="grid grid-cols-12 gap-4 px-6 py-3 bg-amber-50/50 text-xs font-semibold text-amber-700 uppercase tracking-wider">
-                        <div className="col-span-5">Category Name</div>
-                        <div className="col-span-3">Amount (₱)</div>
-                        <div className="col-span-3">Allocation</div>
-                        <div className="col-span-1"></div>
-                      </div>
-
-                      {formData.budgetCategories.map((category, index) => {
-                        const percentage = formData.budget && category.amount ?
-                          Math.round((category.amount / parseFloat(formData.budget)) * 100) : 0;
-                        return (
-                          <div key={index} className="grid grid-cols-12 gap-4 px-6 py-4 items-center hover:bg-amber-50/20 transition-colors">
-                            <div className="col-span-5">
-                              <input
-                                type="text"
-                                value={category.name}
-                                onChange={(e) => updateBudgetCategory(index, 'name', e.target.value)}
-                                placeholder="e.g. Venue Rental"
-                                className="w-full px-3 py-2 border border-slate-200 rounded bg-white text-sm focus:ring-1 focus:ring-amber-500 focus:border-amber-500"
-                              />
-                            </div>
-                            <div className="col-span-3">
-                              <div className="relative">
-                                <span className="absolute left-3 top-2 text-slate-400 text-xs">₱</span>
-                                <input
-                                  type="number"
-                                  min="0"
-                                  value={category.amount || ''}
-                                  onChange={(e) => updateBudgetCategory(index, 'amount', e.target.value)}
-                                  placeholder="0"
-                                  className="w-full pl-6 pr-3 py-2 border border-slate-200 rounded bg-white text-sm focus:ring-1 focus:ring-amber-500 focus:border-amber-500 text-right font-mono"
-                                />
-                              </div>
-                            </div>
-                            <div className="col-span-3">
-                              <div className="flex items-center gap-2">
-                                <div className="flex-1 h-2 bg-amber-100 rounded-full overflow-hidden">
-                                  <div className="h-full bg-amber-500 rounded-full" style={{width: `${Math.min(percentage, 100)}%`}}></div>
+          {/* Timeline */}
+          {modal.activities && (Array.isArray(modal.activities) ? modal.activities.length > 0 : Object.keys(modal.activities).length > 0) && (
+            <div className="bg-white rounded-lg p-4 mb-4 border border-gray-200">
+              <h3 className="text-sm font-semibold text-gray-900 mb-3 uppercase tracking-wide">Timeline ({activitiesCount})</h3>
+              {isMultiDay ? (
+                // Multi-day timeline
+                <div className="space-y-4">
+                  {Object.keys(modal.activities).sort().map((dayKey, dayIndex) => {
+                    const dayActivities = modal.activities[dayKey];
+                    if (!dayActivities || dayActivities.length === 0) return null;
+                    
+                    return (
+                      <div key={dayKey}>
+                        <h4 className="text-xs font-bold text-gray-700 uppercase mb-2 pb-1 border-b border-gray-200">
+                          {dayKey.replace('day', 'Day ')}
+                        </h4>
+                        <div className="space-y-2">
+                          {dayActivities.map((activity, i) => {
+                            if (typeof activity === 'string') {
+                              const timeMatch = activity.match(/^(\d{1,2}:\d{2})\s*-\s*(\d{1,2}:\d{2}):\s*(.+)$/);
+                              if (timeMatch) {
+                                return (
+                                  <div key={i} className="flex gap-3 text-sm py-1.5">
+                                    <span className="text-gray-500 font-mono text-xs w-24 flex-shrink-0">{timeMatch[1]} - {timeMatch[2]}</span>
+                                    <span className="text-gray-700">{timeMatch[3]}</span>
+                                  </div>
+                                );
+                              }
+                              return (
+                                <div key={i} className="text-sm text-gray-700 py-1">{activity}</div>
+                              );
+                            } else if (typeof activity === 'object') {
+                              const startTime = activity.start_time || activity.startTime || '';
+                              const endTime = activity.end_time || activity.endTime || '';
+                              const phase = activity.phase || activity.description || '';
+                              
+                              return (
+                                <div key={i} className="flex gap-3 text-sm py-1.5">
+                                  {(startTime && endTime) && (
+                                    <span className="text-gray-500 font-mono text-xs w-24 flex-shrink-0">{startTime} - {endTime}</span>
+                                  )}
+                                  <span className="text-gray-700">{phase}</span>
                                 </div>
-                                <span className="text-xs font-medium text-amber-700 w-8 text-right">{percentage}%</span>
-                              </div>
-                            </div>
-                            <div className="col-span-1 text-right">
-                              <button
-                                onClick={() => removeBudgetCategory(index)}
-                                className="text-slate-400 hover:text-red-500 transition-colors p-1"
-                              >
-                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
-                              </button>
-                            </div>
+                              );
+                            }
+                            return null;
+                          })}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : (
+                // Single-day timeline
+                <div className="space-y-2">
+                  {modal.activities.map((activity, i) => {
+                    if (typeof activity === 'string') {
+                      const timeMatch = activity.match(/^(\d{1,2}:\d{2})\s*-\s*(\d{1,2}:\d{2}):\s*(.+)$/);
+                      if (timeMatch) {
+                        return (
+                          <div key={i} className="flex gap-3 text-sm py-1.5">
+                            <span className="text-gray-500 font-mono text-xs w-24 flex-shrink-0">{timeMatch[1]} - {timeMatch[2]}</span>
+                            <span className="text-gray-700">{timeMatch[3]}</span>
                           </div>
                         );
-                      })}
-                    </div>
-                  )}
-                </div>
-
-                {formData.budget && formData.budgetCategories.length > 0 && (
-                  <div className="mt-4 bg-gradient-to-r from-amber-50 to-orange-50 rounded-xl p-6 border border-amber-100 flex items-center justify-between">
-                    <div>
-                      <span className="block text-amber-800 text-sm font-medium opacity-80">Total Allocation</span>
-                      <span className="text-2xl font-bold text-amber-900">
-                        ₱{formData.budgetCategories.reduce((total, cat) => total + (cat.amount || 0), 0).toLocaleString()}
-                      </span>
-                    </div>
-                    <div className="text-right">
-                      <span className="block text-amber-800 text-sm font-medium opacity-80">Actual Total Budget</span>
-                      <span className="text-xl font-bold text-amber-900">
-                        ₱{parseFloat(formData.budget).toLocaleString()}
-                      </span>
-                    </div>
-                  </div>
-                )}
-              </div>
-            )}
-
-
-
-            {/* Additional Resources Tab Content - Adjusted Spacing */}
-            {activeFormTab === 'resources' && (
-              <div className="max-w-4xl mx-auto space-y-4">
-                <div className="bg-teal-50/50 p-4 rounded-xl border border-teal-100" style={{minHeight: '200px'}}>
-                    <h4 className="text-sm font-bold text-teal-800 mb-2">Additional Resources</h4>
-                    <p className="text-xs text-slate-500 mb-3">Add non-equipment items like decorations, certificates, ice, etc.</p>
-                    <div className="flex gap-2 mb-4">
-                        <input
-                            type="text"
-                            value={newResourceItem}
-                            onChange={(e) => setNewResourceItem(e.target.value)}
-                            onKeyPress={(e) => e.key === 'Enter' && addResource()}
-                            className="flex-1 px-4 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
-                            placeholder="e.g. Certificates, Medals"
-                        />
-                        <button onClick={addResource} className="px-4 py-2 bg-teal-600 text-white rounded-lg text-sm font-medium hover:bg-teal-700 shadow-sm">Add</button>
-                    </div>
-                    <div className="flex flex-wrap gap-2">
-                        {formData.additionalResources.map((item, idx) => (
-                            <span key={idx} className="bg-white border border-teal-200 text-teal-700 px-3 py-1 rounded-full text-sm flex items-center gap-2 shadow-sm animate-in fade-in zoom-in duration-200">
-                                {item}
-                                <button onClick={() => removeResource(idx)} className="text-teal-400 hover:text-red-500 font-bold ml-1">×</button>
-                            </span>
-                        ))}
-                        {formData.additionalResources.length === 0 && (
-                            <div className="w-full text-center py-8">
-                                <span className="text-slate-400 text-sm italic">No extra items added yet</span>
-                            </div>
-                        )}
-                    </div>
-                </div>
-              </div>
-            )}
-
-            {/* Training History Tab Content */}
-            {activeFormTab === 'history' && (
-              <div className="max-w-6xl mx-auto space-y-6">
-                <div className="flex justify-between items-end mb-4">
-                  <div>
-                    <h3 className="text-lg font-bold text-slate-800">Training History</h3>
-                    <p className="text-slate-500 text-sm">Verify your database uploads and track AI learning progress.</p>
-                  </div>
-                  <div className="flex items-center gap-4">
-                    <div className="text-right">
-                      <div className="text-sm text-slate-600">Total Training Samples</div>
-                      <div className="text-lg font-bold text-blue-600">{stats.trained}</div>
-                    </div>
-                    <button
-                      onClick={() => loadTrainingHistory()}
-                      className="px-4 py-2 bg-slate-100 text-slate-700 border border-slate-200 rounded-lg text-sm font-medium hover:bg-slate-200 transition-colors flex items-center gap-2"
-                    >
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                      </svg>
-                      Refresh
-                    </button>
-                  </div>
-                </div>
-
-                {trainingHistory.length === 0 ? (
-                  <div className="bg-slate-50 border-2 border-dashed border-slate-200 rounded-xl p-12 text-center flex flex-col items-center justify-center">
-                    <div className="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center mb-4">
-                      <svg className="w-8 h-8 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.746 0 3.332.477 4.5 1.253v13C19.832 18.477 18.246 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
-                      </svg>
-                    </div>
-                    <p className="text-slate-900 font-medium text-lg">No training data yet</p>
-                    <p className="text-slate-500 text-sm mt-1">Complete and submit event forms to see your training history here</p>
-                  </div>
-                ) : (
-                  <div className="space-y-4">
-                    <div className="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-sm">
-                      <div className="overflow-x-auto">
-                        <table className="w-full">
-                          <thead className="bg-slate-50 border-b border-slate-200">
-                            <tr>
-                              <th className="px-6 py-4 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">Event Name</th>
-                              <th className="px-6 py-4 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">Type</th>
-                              <th className="px-6 py-4 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">Budget</th>
-                              <th className="px-6 py-4 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">Date Added</th>
-                              <th className="px-6 py-4 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">Actions</th>
-                            </tr>
-                          </thead>
-                          <tbody className="divide-y divide-slate-100">
-                            {trainingHistory.map((item, index) => (
-                              <tr key={index} className="hover:bg-slate-50 transition-colors">
-                                <td className="px-6 py-4">
-                                  <div className="text-sm font-medium text-slate-900">{item.eventName}</div>
-                                </td>
-                                <td className="px-6 py-4">
-                                  <span className="inline-flex px-2 py-1 text-xs font-medium bg-blue-100 text-blue-800 rounded-full">
-                                    {item.eventType}
-                                  </span>
-                                </td>
-                                <td className="px-6 py-4">
-                                  <span className="text-sm font-mono text-slate-900">₱{item.budget?.toLocaleString()}</span>
-                                </td>
-                                <td className="px-6 py-4">
-                                  <span className="text-sm text-slate-500">
-                                    {item.created_at ? new Date(item.created_at).toLocaleDateString() : 'N/A'}
-                                  </span>
-                                </td>
-                                <td className="px-6 py-4">
-                                  <button
-                                    onClick={() => {
-                                      console.log('Selected item:', item);
-                                      setSelectedHistoryItem(item);
-                                    }}
-                                    className="px-3 py-1 bg-blue-50 text-blue-700 border border-blue-200 rounded-lg text-xs font-medium hover:bg-blue-100 transition-colors"
-                                  >
-                                    View Details
-                                  </button>
-                                </td>
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
-                      </div>
-
-                      <div className="bg-slate-50 px-6 py-4 border-t border-slate-200">
-                        <div className="flex items-center justify-between text-sm text-slate-600">
-                          <span>Showing {trainingHistory.length} training sample{trainingHistory.length !== 1 ? 's' : ''}</span>
-                          <span>Click "View Details" for full information</span>
+                      }
+                      return (
+                        <div key={i} className="text-sm text-gray-700 py-1">{activity}</div>
+                      );
+                    } else if (typeof activity === 'object') {
+                      const startTime = activity.start_time || activity.startTime || '';
+                      const endTime = activity.end_time || activity.endTime || '';
+                      const phase = activity.phase || activity.description || '';
+                      
+                      return (
+                        <div key={i} className="flex gap-3 text-sm py-1.5">
+                          {(startTime && endTime) && (
+                            <span className="text-gray-500 font-mono text-xs w-24 flex-shrink-0">{startTime} - {endTime}</span>
+                          )}
+                          <span className="text-gray-700">{phase}</span>
                         </div>
-                      </div>
-                    </div>
+                      );
+                    }
+                    return null;
+                  })}
+                </div>
+              )}
+            </div>
+          )}
 
-                    {/* Beautiful Detailed Modal */}
-                    {selectedHistoryItem && (
-                      <div className="fixed inset-0 bg-black bg-opacity-60 backdrop-blur-md flex items-center justify-center z-50 p-4">
-                        <div className="bg-white rounded-3xl max-w-6xl w-full max-h-[90vh] overflow-hidden shadow-2xl border border-slate-200">
-                          {/* Modern Header */}
-                          <div className="relative bg-gradient-to-br from-blue-600 via-indigo-600 to-purple-700 px-8 py-8 text-white overflow-hidden">
-                            {/* Background Pattern */}
-                            <div className="absolute inset-0 opacity-10">
-                              <div className="absolute top-0 left-0 w-full h-full bg-white" style={{
-                                backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='0.1'%3E%3Ccircle cx='30' cy='30' r='2'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`
-                              }}></div>
-                            </div>
-
-                            <div className="relative flex items-center justify-between">
-                              <div className="flex items-center gap-6">
-                                <div className="w-16 h-16 bg-white bg-opacity-25 backdrop-blur-sm rounded-2xl flex items-center justify-center shadow-lg">
-                                  <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                                  </svg>
-                                </div>
-                                <div>
-                                  <h1 className="text-3xl font-bold mb-1">{selectedHistoryItem.eventName}</h1>
-                                  <p className="text-blue-100 text-lg">Complete Training Data Overview</p>
-                                </div>
-                              </div>
-                              <button
-                                onClick={() => setSelectedHistoryItem(null)}
-                                className="w-12 h-12 bg-white bg-opacity-20 hover:bg-opacity-30 backdrop-blur-sm rounded-xl flex items-center justify-center transition-all duration-200 hover:scale-105"
-                              >
-                                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
-                                </svg>
-                              </button>
-                            </div>
-                          </div>
-
-                          {/* Content */}
-                          <div className="overflow-y-auto max-h-[calc(90vh-200px)]">
-                            {/* Stats Cards */}
-                            <div className="px-8 py-8 bg-gradient-to-r from-slate-50 to-blue-50 border-b border-slate-200">
-                              <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
-                                <div className="bg-white rounded-2xl p-6 shadow-lg border border-slate-200 hover:shadow-xl transition-all duration-200">
-                                  <div className="flex items-center gap-3 mb-3">
-                                    <div className="w-10 h-10 bg-blue-100 rounded-xl flex items-center justify-center">
-                                      <svg className="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
-                                      </svg>
-                                    </div>
-                                    <div>
-                                      <div className="text-3xl font-bold text-slate-900">{selectedHistoryItem.attendees}</div>
-                                      <div className="text-sm text-slate-600 font-medium">Expected Attendees</div>
-                                    </div>
-                                  </div>
-                                </div>
-
-                                <div className="bg-white rounded-2xl p-6 shadow-lg border border-slate-200 hover:shadow-xl transition-all duration-200">
-                                  <div className="flex items-center gap-3 mb-3">
-                                    <div className="w-10 h-10 bg-green-100 rounded-xl flex items-center justify-center">
-                                      <svg className="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                      </svg>
-                                    </div>
-                                    <div>
-                                      <div className="text-2xl font-bold text-slate-900">₱{selectedHistoryItem.budget?.toLocaleString()}</div>
-                                      <div className="text-sm text-slate-600 font-medium">Total Budget</div>
-                                    </div>
-                                  </div>
-                                </div>
-
-                                <div className="bg-white rounded-2xl p-6 shadow-lg border border-slate-200 hover:shadow-xl transition-all duration-200">
-                                  <div className="flex items-center gap-3 mb-3">
-                                    <div className="w-10 h-10 bg-indigo-100 rounded-xl flex items-center justify-center">
-                                      <svg className="w-5 h-5 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
-                                      </svg>
-                                    </div>
-                                    <div>
-                                      <div className="text-3xl font-bold text-slate-900">{selectedHistoryItem.equipment?.length || 0}</div>
-                                      <div className="text-sm text-slate-600 font-medium">Equipment Items</div>
-                                    </div>
-                                  </div>
-                                </div>
-
-                                <div className="bg-white rounded-2xl p-6 shadow-lg border border-slate-200 hover:shadow-xl transition-all duration-200">
-                                  <div className="flex items-center gap-3 mb-3">
-                                    <div className="w-10 h-10 bg-purple-100 rounded-xl flex items-center justify-center">
-                                      <svg className="w-5 h-5 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a.997.997 0 01-1.414 0l-7-7A1.994 1.994 0 013 7V3a2 2 0 012-2z" />
-                                      </svg>
-                                    </div>
-                                    <div>
-                                      <span className="inline-block px-4 py-2 bg-gradient-to-r from-blue-500 to-purple-600 text-white text-sm font-bold rounded-xl shadow-sm">
-                                        {selectedHistoryItem.eventType}
-                                      </span>
-                                      <div className="text-sm text-slate-600 font-medium mt-2">Event Category</div>
-                                    </div>
-                                  </div>
-                                </div>
-                              </div>
-                            </div>
-
-                            {/* Information Sections */}
-                            <div className="px-8 py-8">
-                              <div className="grid grid-cols-1 xl:grid-cols-3 gap-8">
-                                {/* Left Column - Basic Info & Budget */}
-                                <div className="xl:col-span-2 space-y-8">
-                                  {/* Event Overview */}
-                                  <div className="bg-white rounded-2xl p-8 shadow-lg border border-slate-200">
-                                    <div className="flex items-center gap-3 mb-6">
-                                      <div className="w-10 h-10 bg-blue-100 rounded-xl flex items-center justify-center">
-                                        <svg className="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                        </svg>
-                                      </div>
-                                      <h3 className="text-xl font-bold text-slate-800">Event Overview</h3>
-                                    </div>
-
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-                                      <div className="space-y-4">
-                                        <div>
-                                          <label className="block text-sm font-semibold text-slate-600 mb-2">Venue & Organizer</label>
-                                          <div className="space-y-2">
-                                            <div className="flex items-center gap-2">
-                                              <svg className="w-4 h-4 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
-                                              </svg>
-                                              <span className="text-slate-800 font-medium">{selectedHistoryItem.venue}</span>
-                                            </div>
-                                            <div className="flex items-center gap-2">
-                                              <svg className="w-4 h-4 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                                              </svg>
-                                              <span className="text-slate-800 font-medium">{selectedHistoryItem.organizer || 'Not specified'}</span>
-                                            </div>
-                                          </div>
-                                        </div>
-                                      </div>
-
-                                      <div>
-                                        <label className="block text-sm font-semibold text-slate-600 mb-2">Event Description</label>
-                                        <div className="bg-slate-50 rounded-xl p-4 border border-slate-200">
-                                          <p className="text-slate-700 leading-relaxed">{selectedHistoryItem.description || 'No description was provided for this event.'}</p>
-                                        </div>
-                                      </div>
-                                    </div>
-                                  </div>
-
-                                  {/* Budget Breakdown */}
-                                  <div className="bg-white rounded-2xl p-8 shadow-lg border border-slate-200">
-                                    <div className="flex items-center gap-3 mb-6">
-                                      <div className="w-10 h-10 bg-green-100 rounded-xl flex items-center justify-center">
-                                        <svg className="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
-                                        </svg>
-                                      </div>
-                                      <h3 className="text-xl font-bold text-slate-800">Budget Breakdown</h3>
-                                    </div>
-
-                                    {selectedHistoryItem.budget_breakdown && selectedHistoryItem.budget_breakdown.length > 0 ? (
-                                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                        {selectedHistoryItem.budget_breakdown.map((item, index) => (
-                                          <div key={index} className="bg-gradient-to-r from-green-50 to-emerald-50 rounded-xl p-4 border border-green-200">
-                                            <div className="flex justify-between items-center">
-                                              <span className="text-slate-800 font-medium">{item.name}</span>
-                                              <span className="text-lg font-bold text-green-700">₱{item.amount?.toLocaleString()}</span>
-                                            </div>
-                                          </div>
-                                        ))}
-                                      </div>
-                                    ) : (
-                                      <div className="text-center py-8">
-                                        <svg className="w-12 h-12 text-slate-400 mx-auto mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
-                                        </svg>
-                                        <p className="text-slate-500 font-medium">No budget breakdown was recorded</p>
-                                      </div>
-                                    )}
-                                  </div>
-                                </div>
-
-                                {/* Right Column - Equipment & Timeline */}
-                                <div className="space-y-8">
-                                  {/* Equipment List */}
-                                  <div className="bg-white rounded-2xl p-6 shadow-lg border border-slate-200">
-                                    <div className="flex items-center gap-3 mb-6">
-                                      <div className="w-10 h-10 bg-indigo-100 rounded-xl flex items-center justify-center">
-                                        <svg className="w-5 h-5 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
-                                        </svg>
-                                      </div>
-                                      <h3 className="text-lg font-bold text-slate-800">Equipment ({selectedHistoryItem.equipment?.length || 0})</h3>
-                                    </div>
-
-                                    {selectedHistoryItem.equipment?.length > 0 ? (
-                                      <div className="space-y-3">
-                                        {selectedHistoryItem.equipment.map((eq, idx) => (
-                                          <div key={idx} className="flex items-center justify-between bg-gradient-to-r from-indigo-50 to-blue-50 rounded-xl p-4 border border-indigo-200">
-                                            <span className="text-slate-800 font-medium">{eq.name}</span>
-                                            <div className="bg-indigo-100 text-indigo-800 px-3 py-1 rounded-full text-sm font-bold">
-                                              {eq.quantity}
-                                            </div>
-                                          </div>
-                                        ))}
-                                      </div>
-                                    ) : (
-                                      <div className="text-center py-6">
-                                        <svg className="w-10 h-10 text-slate-400 mx-auto mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
-                                        </svg>
-                                        <p className="text-slate-500 text-sm">No equipment recorded</p>
-                                      </div>
-                                    )}
-                                  </div>
-
-                                  {/* Event Timeline */}
-                                  <div className="bg-white rounded-2xl p-6 shadow-lg border border-slate-200">
-                                    <div className="flex items-center gap-3 mb-6">
-                                      <div className="w-10 h-10 bg-orange-100 rounded-xl flex items-center justify-center">
-                                        <svg className="w-5 h-5 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                        </svg>
-                                      </div>
-                                      <h3 className="text-lg font-bold text-slate-800">Timeline ({selectedHistoryItem.activities?.length || 0} phases)</h3>
-                                    </div>
-
-                                    {selectedHistoryItem.activities?.length > 0 ? (
-                                      <div className="space-y-3">
-                                        {selectedHistoryItem.activities.map((activity, idx) => (
-                                          <div key={idx} className="flex items-center gap-4 bg-gradient-to-r from-orange-50 to-amber-50 rounded-xl p-4 border border-orange-200">
-                                            <div className="w-8 h-8 bg-orange-100 text-orange-800 rounded-full flex items-center justify-center text-sm font-bold">
-                                              {idx + 1}
-                                            </div>
-                                            <span className="text-slate-800 font-medium flex-1">{activity}</span>
-                                          </div>
-                                        ))}
-                                      </div>
-                                    ) : (
-                                      <div className="text-center py-6">
-                                        <svg className="w-10 h-10 text-slate-400 mx-auto mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                        </svg>
-                                        <p className="text-slate-500 text-sm">No timeline recorded</p>
-                                      </div>
-                                    )}
-                                  </div>
-
-                                  {/* Additional Resources */}
-                                  <div className="bg-white rounded-2xl p-6 shadow-lg border border-slate-200">
-                                    <div className="flex items-center gap-3 mb-6">
-                                      <div className="w-10 h-10 bg-purple-100 rounded-xl flex items-center justify-center">
-                                        <svg className="w-5 h-5 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.746 0 3.332.477 4.5 1.253v13C19.832 18.477 18.246 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
-                                        </svg>
-                                      </div>
-                                      <h3 className="text-lg font-bold text-slate-800">Additional Resources</h3>
-                                    </div>
-
-                                    {selectedHistoryItem.additionalResources?.length > 0 ? (
-                                      <div className="flex flex-wrap gap-2">
-                                        {selectedHistoryItem.additionalResources.map((res, idx) => (
-                                          <span key={idx} className="bg-gradient-to-r from-purple-100 to-pink-100 text-purple-800 px-4 py-2 rounded-xl text-sm font-semibold border border-purple-200">
-                                            {res}
-                                          </span>
-                                        ))}
-                                      </div>
-                                    ) : (
-                                      <div className="text-center py-6">
-                                        <svg className="w-10 h-10 text-slate-400 mx-auto mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.746 0 3.332.477 4.5 1.253v13C19.832 18.477 18.246 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
-                                        </svg>
-                                        <p className="text-slate-500 text-sm">No additional resources</p>
-                                      </div>
-                                    )}
-                                  </div>
-
-                                  {/* Submission Info */}
-                                  <div className="bg-gradient-to-r from-slate-100 to-slate-200 rounded-2xl p-6 border border-slate-300">
-                                    <div className="flex items-center gap-3 mb-4">
-                                      <div className="w-10 h-10 bg-slate-300 rounded-xl flex items-center justify-center">
-                                        <svg className="w-5 h-5 text-slate-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                        </svg>
-                                      </div>
-                                      <h3 className="text-lg font-bold text-slate-800">Submission Details</h3>
-                                    </div>
-
-                                    <div className="space-y-3">
-                                      <div className="flex justify-between items-center bg-white rounded-lg p-3">
-                                        <span className="text-slate-600 font-medium">Date Submitted</span>
-                                        <span className="text-slate-900 font-semibold">
-                                          {selectedHistoryItem.created_at ? new Date(selectedHistoryItem.created_at).toLocaleDateString('en-US', {
-                                            year: 'numeric',
-                                            month: 'long',
-                                            day: 'numeric'
-                                          }) : 'N/A'}
-                                        </span>
-                                      </div>
-                                      <div className="flex justify-between items-center bg-white rounded-lg p-3">
-                                        <span className="text-slate-600 font-medium">Time Submitted</span>
-                                        <span className="text-slate-900 font-semibold">
-                                          {selectedHistoryItem.created_at ? new Date(selectedHistoryItem.created_at).toLocaleTimeString('en-US', {
-                                            hour: '2-digit',
-                                            minute: '2-digit',
-                                            second: '2-digit'
-                                          }) : 'N/A'}
-                                        </span>
-                                      </div>
-                                    </div>
-                                  </div>
-                                </div>
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                )}
+          {/* Resources */}
+          {additionalResources?.length > 0 && (
+            <div className="bg-white rounded-lg p-4 border border-gray-200">
+              <h3 className="text-sm font-semibold text-gray-900 mb-3 uppercase tracking-wide">Additional Resources ({additionalResources.length})</h3>
+              <div className="flex flex-wrap gap-2">
+                {additionalResources.map((resource, i) => (
+                  <span key={i} className="px-3 py-1 bg-gray-100 text-gray-700 rounded text-sm border border-gray-200">
+                    {resource}
+                  </span>
+                ))}
               </div>
-            )}
+            </div>
+          )}
+          
+        </div>
+      </div>
+    </div>
+    );
+  };
 
+  // Dashboard View
+  if (view === 'dashboard') {
+    return (
+      <>
+        <div className="h-full flex flex-col">
+          <div className="grid lg:grid-cols-3 gap-6">
+          <div className="bg-white rounded-2xl shadow-lg border border-gray-100 p-6 flex flex-col">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-12 h-12 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-xl flex items-center justify-center text-white">
+                <I d="M12 6v6m0 0v6m0-6h6m-6 0H6" c="w-6 h-6" />
+              </div>
+              <div>
+                <h3 className="text-lg font-bold text-gray-800">Add Training Data</h3>
+                <p className="text-sm text-gray-500">Train the AI with new event patterns</p>
+              </div>
+            </div>
+            <p className="text-gray-600 text-sm mb-6 flex-1">
+              Add detailed event information including equipment, timeline, budget breakdown, and resources to improve AI predictions.
+            </p>
+            <button onClick={() => setView('form')} className="w-full py-3 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-xl font-semibold hover:shadow-lg transition-all flex items-center justify-center gap-2">
+              <I d="M12 4v16m8-8H4" c="w-5 h-5" /> Create New Entry
+            </button>
           </div>
 
-          <div className="bg-slate-50 border-t border-slate-200 px-4 py-4 md:px-6 flex flex-col md:flex-row justify-end gap-3">
-              <button onClick={testPrediction} disabled={isProcessing} className="px-6 py-2.5 bg-indigo-600 text-white rounded-lg text-sm font-semibold hover:bg-indigo-700 shadow-sm transition-all">
-                 {isProcessing ? 'Thinking...' : 'Generate Prediction'}
+          <div className="bg-white rounded-2xl shadow-lg border border-gray-100 p-6 flex flex-col">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-cyan-600 rounded-xl flex items-center justify-center text-white">
+                <I d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" c="w-6 h-6" />
+              </div>
+              <div>
+                <h3 className="text-lg font-bold text-gray-800">Train AI Models</h3>
+                <p className="text-sm text-gray-500">{stats.trained} training samples</p>
+              </div>
+            </div>
+            <p className="text-gray-600 text-sm mb-6 flex-1">
+              Train the AI models with your existing training data to enable smart event predictions and recommendations.
+            </p>
+            <button onClick={trainModels} disabled={loading || history.length === 0} className="w-full py-3 bg-gradient-to-r from-blue-600 to-cyan-600 text-white rounded-xl font-semibold hover:shadow-lg transition-all flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed">
+              <I d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" c="w-5 h-5" /> {loading ? 'Training...' : 'Train Models Now'}
+            </button>
+          </div>
+
+          <div className="bg-white rounded-2xl shadow-lg border border-gray-100 p-6 flex flex-col">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-3">
+                <div className="w-12 h-12 bg-gradient-to-br from-emerald-500 to-teal-600 rounded-xl flex items-center justify-center text-white">
+                  <I d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" c="w-6 h-6" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-bold text-gray-800">Training History</h3>
+                  <p className="text-sm text-gray-500">{history.length} records</p>
+                </div>
+              </div>
+              <button onClick={load} className="p-2 hover:bg-gray-100 rounded-lg transition-all">
+                <I d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" c="w-5 h-5 text-gray-500" />
               </button>
-              {predictionResult && (
-                  <button onClick={addToTraining} disabled={isProcessing} className="px-6 py-2.5 bg-emerald-600 text-white rounded-lg text-sm font-semibold hover:bg-emerald-700 shadow-sm transition-all flex items-center gap-2">
-                     <span>✅</span> Confirm & Train
-                  </button>
+            </div>
+            <div className="flex-1 overflow-auto space-y-2 max-h-64">
+              {history.length === 0 ? (
+                <div className="text-center py-8 text-gray-400">
+                  <I d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.746 0 3.332.477 4.5 1.253v13C19.832 18.477 18.246 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" c="w-10 h-10 mx-auto mb-2 opacity-50" />
+                  <p className="text-sm">No training data yet</p>
+                </div>
+              ) : (
+                history.slice(0, 5).map((h, i) => (
+                  <div key={i} onClick={() => setModal(h)} className="flex items-center gap-3 p-3 bg-gray-50 rounded-xl hover:bg-gray-100 cursor-pointer transition-all">
+                    <div className="w-10 h-10 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-lg flex items-center justify-center text-white font-bold text-sm">{h.eventName?.charAt(0)}</div>
+                    <div className="flex-1 min-w-0">
+                      <p className="font-semibold text-gray-800 truncate text-sm">{h.eventName}</p>
+                      <p className="text-xs text-gray-500">{h.eventType} • ₱{h.budget?.toLocaleString()}</p>
+                    </div>
+                    <I d="M9 5l7 7-7 7" c="w-4 h-4 text-gray-400" />
+                  </div>
+                ))
               )}
-              <button onClick={retrainModels} disabled={isProcessing} className="px-6 py-2.5 bg-white text-slate-700 border border-slate-300 rounded-lg text-sm font-semibold hover:bg-slate-50 shadow-sm transition-all">
-                  Retrain Model
+            </div>
+            {history.length > 5 && (
+              <button onClick={() => setView('history')} className="mt-4 w-full py-2 border-2 border-gray-200 text-gray-600 rounded-xl font-semibold hover:bg-gray-50 transition-all">
+                View All ({history.length})
               </button>
+            )}
           </div>
         </div>
+      </div>
+      {renderModal()}
+      </>
+    );
+  }
+
+  // History View
+  if (view === 'history') {
+    return (
+      <>
+        <div className="h-full flex flex-col">
+        <div className="flex items-center justify-between mb-6">
+          <div className="flex items-center gap-3">
+            <button onClick={() => setView('dashboard')} className="p-2 hover:bg-gray-100 rounded-lg">
+              <I d="M15 19l-7-7 7-7" c="w-5 h-5 text-gray-600" />
+            </button>
+            <h2 className="text-xl font-bold text-gray-800">Training History</h2>
+            <span className="px-3 py-1 bg-indigo-100 text-indigo-700 rounded-full text-sm font-semibold">{history.length} records</span>
+          </div>
+          <button onClick={load} className="px-4 py-2 bg-gray-100 text-gray-700 rounded-xl text-sm font-semibold hover:bg-gray-200 flex items-center gap-2">
+            <I d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" c="w-4 h-4" /> Refresh
+          </button>
+        </div>
+        <div className="flex-1 overflow-auto grid gap-3">
+          {history.map((h, i) => (
+            <div key={i} onClick={() => setModal(h)} className="flex items-center gap-4 p-4 bg-white rounded-2xl border border-gray-200 hover:shadow-md hover:border-indigo-200 cursor-pointer transition-all">
+              <div className="w-12 h-12 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-xl flex items-center justify-center text-white font-bold">{h.eventName?.charAt(0)}</div>
+              <div className="flex-1 min-w-0">
+                <p className="font-bold text-gray-800 truncate">{h.eventName}</p>
+                <div className="flex items-center gap-3 text-sm text-gray-500">
+                  <span className="px-2 py-0.5 bg-indigo-100 text-indigo-700 rounded text-xs font-semibold">{h.eventType}</span>
+                  <span>₱{h.budget?.toLocaleString()}</span>
+                  <span>{h.attendees} attendees</span>
+                </div>
+              </div>
+              <I d="M9 5l7 7-7 7" c="w-5 h-5 text-gray-400" />
+            </div>
+          ))}
+        </div>
+      </div>
+      {renderModal()}
+      </>
+    );
+  }
+
+  // Form View - Tabbed Interface
+  const tabs = [
+    { id: 'basic', label: 'Basic Info', icon: 'M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z' },
+    { id: 'equipment', label: 'Equipment', icon: 'M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z M15 12a3 3 0 11-6 0 3 3 0 016 0z' },
+    { id: 'timeline', label: 'Timeline', icon: 'M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z' },
+    { id: 'budget', label: 'Budget', icon: 'M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z' },
+    { id: 'resources', label: 'Resources', icon: 'M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10' }
+  ];
+
+  return (
+    <div className="h-full flex flex-col bg-gradient-to-br from-indigo-50 via-white to-purple-50">
+      {/* Header - transparent to show gradient */}
+      <div className="flex-shrink-0">
+        <div className="max-w-7xl mx-auto px-8 py-5">
+          {/* Top Bar */}
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              <button onClick={() => setView('dashboard')} className="p-2.5 bg-gradient-to-br from-gray-50 to-gray-100 hover:from-indigo-50 hover:to-purple-50 rounded-xl transition-all shadow-sm hover:shadow group border border-gray-200">
+                <I d="M15 19l-7-7 7-7" c="w-5 h-5 text-gray-500 group-hover:text-indigo-600" />
+              </button>
+              <div>
+                <div className="flex items-center gap-2">
+                  <div className="w-1.5 h-1.5 bg-indigo-600 rounded-full animate-pulse"></div>
+                  <h1 className="text-2xl font-bold text-gray-900">Add Training Data</h1>
+                </div>
+                <p className="text-sm text-gray-600 mt-1 flex items-center gap-1.5">
+                  <svg className="w-4 h-4 text-indigo-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
+                  Configure event details to improve AI predictions
+                </p>
+              </div>
+            </div>
+            <button onClick={save} disabled={loading} className="group relative px-7 py-3 bg-gradient-to-r from-indigo-600 via-indigo-700 to-purple-600 text-white rounded-xl font-bold shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed transition-all flex items-center gap-2.5 hover:scale-105 overflow-hidden">
+              <div className="absolute inset-0 bg-gradient-to-r from-purple-600 to-indigo-600 opacity-0 group-hover:opacity-100 transition-opacity"></div>
+              <span className="relative flex items-center gap-2.5">
+                {loading ? <><svg className="animate-spin w-5 h-5" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg> Saving...</> : <><I d="M5 13l4 4L19 7" c="w-5 h-5" /> Save & Train</>}
+              </span>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* Folder tabs + Content as one unit */}
+      <div className="flex-1 overflow-auto">
+        <div className="max-w-7xl mx-auto px-8 pt-4 pb-8">
+          {/* Folder Tabs - directly attached to content box */}
+          <div className="flex items-end relative">
+            {tabs.map((tab, idx) => (
+              <button
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id)}
+                className="relative"
+                style={{
+                  padding: '10px 20px',
+                  fontSize: '14px',
+                  fontWeight: 500,
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                  background: activeTab === tab.id ? 'white' : 'transparent',
+                  borderTop: activeTab === tab.id ? '1px solid #d1d5db' : 'none',
+                  borderLeft: activeTab === tab.id ? '1px solid #d1d5db' : 'none',
+                  borderRight: activeTab === tab.id ? '1px solid #d1d5db' : 'none',
+                  borderBottom: 'none',
+                  borderRadius: '8px 8px 0 0',
+                  marginBottom: activeTab === tab.id ? '-1px' : '0',
+                  paddingBottom: activeTab === tab.id ? '11px' : '10px',
+                  position: 'relative',
+                  zIndex: activeTab === tab.id ? 10 : 1,
+                  cursor: 'pointer',
+                  color: activeTab === tab.id ? '#111827' : '#6b7280',
+                  transition: 'all 0.15s'
+                }}
+              >
+                {/* Left curved corner SVG - only show if not first tab */}
+                {activeTab === tab.id && idx > 0 && (
+                  <svg style={{position: 'absolute', left: '-10px', bottom: '0', width: '10px', height: '10px'}} viewBox="0 0 10 10" fill="none">
+                    <path d="M10 10 L10 0 Q10 10 0 10 Z" fill="white"/>
+                    <path d="M10 0 Q10 10 0 10" stroke="#d1d5db" strokeWidth="1" fill="none"/>
+                  </svg>
+                )}
+                <span style={{color: activeTab === tab.id ? '#4f46e5' : '#9ca3af'}}>
+                  <I d={tab.icon} c="w-4 h-4" />
+                </span>
+                <span>{tab.label}</span>
+                {/* Right curved corner SVG */}
+                {activeTab === tab.id && (
+                  <svg style={{position: 'absolute', right: '-10px', bottom: '0', width: '10px', height: '10px'}} viewBox="0 0 10 10" fill="none">
+                    <path d="M0 10 L0 0 Q0 10 10 10 Z" fill="white"/>
+                    <path d="M0 0 Q0 10 10 10" stroke="#d1d5db" strokeWidth="1" fill="none"/>
+                  </svg>
+                )}
+              </button>
+            ))}
+          </div>
+          
+          {/* Content box - connected to tabs */}
+          <div style={{
+            background: 'white',
+            border: '1px solid #d1d5db',
+            borderRadius: '0 8px 8px 8px',
+            padding: '24px'
+          }}>
+          {activeTab === 'basic' && (
+            <div>
+              <div className="grid md:grid-cols-2 gap-6">
+                <div className="md:col-span-2">
+                  <label className="block text-sm font-semibold text-gray-900 mb-2.5">Event Name *</label>
+                  <input type="text" value={form.name} onChange={e => setForm({...form, name: e.target.value})} placeholder="e.g. Annual Science Fair 2024" className="w-full px-4 py-3 border border-gray-300 rounded-xl text-sm bg-white/50 backdrop-blur-sm focus:bg-white focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 outline-none transition-all shadow-sm hover:shadow-md" />
+                </div>
+                <div>
+                  <label className="block text-sm font-semibold text-gray-900 mb-2.5">Event Type *</label>
+                  <select value={form.type} onChange={e => setForm({...form, type: e.target.value})} className="w-full px-4 py-3 border border-gray-300 rounded-xl text-sm bg-white/50 backdrop-blur-sm focus:bg-white focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 outline-none transition-all shadow-sm hover:shadow-md">
+                    {types.map(t => <option key={t}>{t}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-semibold text-gray-900 mb-2.5">Venue</label>
+                  <select value={form.venue} onChange={e => setForm({...form, venue: e.target.value})} className="w-full px-4 py-3 border border-gray-300 rounded-xl text-sm bg-white/50 backdrop-blur-sm focus:bg-white focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 outline-none transition-all shadow-sm hover:shadow-md">
+                    {venues.map(v => <option key={v}>{v}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-semibold text-gray-900 mb-2.5">Attendees *</label>
+                  <input type="number" value={form.attendees} onChange={e => setForm({...form, attendees: e.target.value})} placeholder="Expected number of attendees" className="w-full px-4 py-3 border border-gray-300 rounded-xl text-sm bg-white/50 backdrop-blur-sm focus:bg-white focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 outline-none transition-all shadow-sm hover:shadow-md" />
+                </div>
+                <div>
+                  <label className="block text-sm font-semibold text-gray-900 mb-2.5">Organizer</label>
+                  <input type="text" value={form.organizer} onChange={e => setForm({...form, organizer: e.target.value})} placeholder="Department or organization" className="w-full px-4 py-3 border border-gray-300 rounded-xl text-sm bg-white/50 backdrop-blur-sm focus:bg-white focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 outline-none transition-all shadow-sm hover:shadow-md" />
+                </div>
+                <div>
+                  <label className="block text-sm font-semibold text-gray-900 mb-2.5">Start Date *</label>
+                  <input type="date" value={form.startDate} onChange={e => setForm({...form, startDate: e.target.value})} className="w-full px-4 py-3 border border-gray-300 rounded-xl text-sm bg-white/50 backdrop-blur-sm focus:bg-white focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 outline-none transition-all shadow-sm hover:shadow-md" />
+                </div>
+                <div>
+                  <label className="block text-sm font-semibold text-gray-900 mb-2.5">End Date</label>
+                  <input type="date" value={form.endDate} min={form.startDate} onChange={e => setForm({...form, endDate: e.target.value})} className="w-full px-4 py-3 border border-gray-300 rounded-xl text-sm bg-white/50 backdrop-blur-sm focus:bg-white focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 outline-none transition-all shadow-sm hover:shadow-md" />
+                </div>
+                <div className="md:col-span-2">
+                  <label className="block text-sm font-semibold text-gray-900 mb-2.5">Description</label>
+                  <textarea value={form.description} onChange={e => setForm({...form, description: e.target.value})} rows="4" placeholder="Brief description of the event..." className="w-full px-4 py-3 border border-gray-300 rounded-xl text-sm bg-white/50 backdrop-blur-sm focus:bg-white focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 outline-none transition-all resize-none shadow-sm hover:shadow-md" />
+                </div>
+              </div>
+            </div>
+          )}
+
+          {activeTab === 'equipment' && (
+            <div>
+              <div className="flex gap-2 mb-6 overflow-x-auto pb-2">
+                {Object.keys(eqCats).map(c => (
+                  <button key={c} onClick={() => setEqTab(c)} className={`px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-all ${eqTab === c ? 'bg-indigo-600 text-white shadow-md' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}>{c}</button>
+                ))}
+              </div>
+              <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                {(eqCats[eqTab] || []).map(item => {
+                  const sel = form.equipment.find(e => e.name === item);
+                  return (
+                    <div key={item} onClick={() => toggleEq(item)} className={`relative p-4 rounded-xl border transition-all cursor-pointer ${sel ? 'bg-indigo-600 text-white border-indigo-600 shadow-lg' : 'bg-white text-gray-600 border-gray-200 hover:border-indigo-300 hover:shadow-md'}`}>
+                      <div className="flex justify-between items-start mb-2">
+                        <span className="font-medium text-sm leading-tight pr-2">{item}</span>
+                        {!sel && <div className="w-6 h-6 bg-indigo-100 text-indigo-600 rounded-full flex items-center justify-center text-xs font-bold">+</div>}
+                      </div>
+                      {sel && (
+                        <div className="flex items-center gap-2 mt-2">
+                          <label className="text-xs opacity-90">Qty:</label>
+                          <input type="number" min="1" value={sel.quantity} onClick={e => e.stopPropagation()} onChange={e => updateQty(item, e.target.value)} className="w-16 px-2 py-1 border border-white/30 rounded text-sm bg-white/10 text-white text-center" />
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+              {form.equipment.length > 0 && (
+                <div className="bg-gray-50 border border-gray-200 rounded-xl p-4 mt-6">
+                  <div className="flex items-center justify-between mb-3">
+                    <h4 className="text-sm font-semibold text-gray-800">Selected Equipment</h4>
+                    <span className="text-xs text-gray-500 bg-white px-2 py-1 rounded-full">{form.equipment.length} items</span>
+                  </div>
+                  <div className="space-y-2">
+                    {form.equipment.map((e, i) => (
+                      <div key={i} className="flex justify-between text-sm text-gray-700">
+                        <span>{e.name}</span>
+                        <span className="font-semibold">×{e.quantity}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {activeTab === 'timeline' && (
+            <div>
+              {/* Multi-day Timeline Options */}
+              {form.startDate && form.endDate && form.startDate !== form.endDate && (
+                <div className="mb-4 p-4 bg-blue-50 border border-blue-200 rounded-xl">
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input 
+                      type="checkbox" 
+                      checked={form.timelineMode === 'multi'} 
+                      onChange={(e) => {
+                        const mode = e.target.checked ? 'multi' : 'single';
+                        setForm(p => ({ ...p, timelineMode: mode, currentDay: 1 }));
+                      }}
+                      className="w-4 h-4 text-indigo-600 rounded"
+                    />
+                    <span className="text-sm font-medium text-gray-700">Different timeline for each day</span>
+                  </label>
+                  <p className="text-xs text-gray-500 mt-1 ml-6">
+                    {form.timelineMode === 'multi' 
+                      ? 'Configure separate schedules for each day of the event'
+                      : 'Same schedule will be used for all days'}
+                  </p>
+                </div>
+              )}
+
+              {/* Day Selector for Multi-day */}
+              {form.timelineMode === 'multi' && (
+                <div className="mb-4 flex items-center gap-2 overflow-x-auto pb-2">
+                  <span className="text-sm font-semibold text-gray-700 flex-shrink-0">Select Day:</span>
+                  {(() => {
+                    const days = [];
+                    const start = new Date(form.startDate);
+                    const end = new Date(form.endDate);
+                    const diffTime = Math.abs(end - start);
+                    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
+                    
+                    for (let i = 1; i <= diffDays; i++) {
+                      days.push(
+                        <button
+                          key={i}
+                          onClick={() => setForm(p => ({ ...p, currentDay: i }))}
+                          className={`px-4 py-2 rounded-lg text-sm font-semibold transition-all flex-shrink-0 ${
+                            form.currentDay === i 
+                              ? 'bg-indigo-600 text-white shadow-md' 
+                              : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
+                          }`}
+                        >
+                          Day {i}
+                        </button>
+                      );
+                    }
+                    return days;
+                  })()}
+                </div>
+              )}
+
+              <div className="flex items-center justify-end mb-4">
+                <button onClick={addPhase} className="px-4 py-2 bg-indigo-600 text-white rounded-lg text-sm font-semibold hover:bg-indigo-700 flex items-center gap-2">
+                  <I d="M12 4v16m8-8H4" c="w-4 h-4" /> Add Phase
+                </button>
+              </div>
+              
+              <div className="space-y-3">
+                {(() => {
+                  // Get current timeline based on mode
+                  const currentTimeline = form.timelineMode === 'multi' 
+                    ? (form.multiDayTimelines[`day${form.currentDay}`] || [])
+                    : form.timelines;
+                  
+                  return currentTimeline.length === 0 ? (
+                    <div className="text-center py-12 text-gray-400 border-2 border-dashed border-gray-200 rounded-xl">
+                      <I d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" c="w-12 h-12 mx-auto mb-3 opacity-50" />
+                      <p className="text-sm">
+                        {form.timelineMode === 'multi' 
+                          ? `No timeline for Day ${form.currentDay} yet. Click "Add Phase" to start.`
+                          : 'No timeline phases yet. Click "Add Phase" to start.'}
+                      </p>
+                    </div>
+                  ) : currentTimeline.map((p, i) => (
+                    <div key={`${form.currentDay}-${i}`} className="flex items-center gap-3 p-4 bg-gray-50 rounded-xl border border-gray-200">
+                      <span className="text-sm text-gray-400 font-bold w-6">{i + 1}</span>
+                      <input type="text" ref={el => timeRefs.current[`start-${form.currentDay}-${i}`] = el} value={p.startTime} onChange={e => updatePhase(i, 'startTime', e.target.value)} placeholder="Start" className="w-20 px-3 py-2 bg-white border border-gray-300 rounded-lg text-sm text-center" />
+                      <span className="text-gray-400">→</span>
+                      <input type="text" ref={el => timeRefs.current[`end-${form.currentDay}-${i}`] = el} value={p.endTime} onChange={e => updatePhase(i, 'endTime', e.target.value)} placeholder="End" className="w-20 px-3 py-2 bg-white border border-gray-300 rounded-lg text-sm text-center" />
+                      <input type="text" value={p.phase} onChange={e => updatePhase(i, 'phase', e.target.value)} placeholder="Activity name" className="flex-1 px-3 py-2 bg-white border border-gray-300 rounded-lg text-sm" />
+                      <button onClick={() => delPhase(i)} className="text-gray-400 hover:text-red-500 p-2">
+                        <I d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" c="w-5 h-5" />
+                      </button>
+                    </div>
+                  ));
+                })()}
+              </div>
+            </div>
+          )}
+
+          {activeTab === 'budget' && (
+            <div>
+              <div className="flex items-center justify-end mb-4">
+                <button onClick={addBudget} className="px-4 py-2 bg-amber-600 text-white rounded-lg text-sm font-semibold hover:bg-amber-700 flex items-center gap-2">
+                  <I d="M12 4v16m8-8H4" c="w-4 h-4" /> Add Category
+                </button>
+              </div>
+              <div className="space-y-3">
+                {form.budgetCats.length === 0 ? (
+                  <div className="text-center py-12 text-gray-400 border-2 border-dashed border-gray-200 rounded-xl">
+                    <I d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" c="w-12 h-12 mx-auto mb-3 opacity-50" />
+                    <p className="text-sm">No budget categories yet. Click "Add Category" to start.</p>
+                  </div>
+                ) : form.budgetCats.map((c, i) => {
+                  const pct = form.budget && c.amount ? Math.round((c.amount / +form.budget) * 100) : 0;
+                  return (
+                    <div key={i} className="p-4 bg-gray-50 rounded-xl border border-gray-200">
+                      <div className="flex items-center gap-3 mb-3">
+                        <input type="text" value={c.name} onChange={e => updateBudget(i, 'name', e.target.value)} placeholder="Category name" className="flex-1 px-3 py-2 bg-white border border-gray-300 rounded-lg text-sm" />
+                        <div className="relative w-32">
+                          <span className="absolute left-3 top-2.5 text-gray-400 text-sm">₱</span>
+                          <input type="number" min="0" value={c.amount || ''} onChange={e => updateBudget(i, 'amount', e.target.value)} placeholder="0" className="w-full pl-7 pr-3 py-2 bg-white border border-gray-300 rounded-lg text-sm text-right" />
+                        </div>
+                        <button onClick={() => delBudget(i)} className="text-gray-400 hover:text-red-500 p-2">
+                          <I d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" c="w-5 h-5" />
+                        </button>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <div className="flex-1 h-2 bg-gray-200 rounded-full overflow-hidden">
+                          <div className="h-full bg-gradient-to-r from-amber-400 to-orange-500 rounded-full transition-all" style={{ width: Math.min(pct, 100) + '%' }} />
+                        </div>
+                        <span className="text-sm font-bold text-amber-600 w-12 text-right">{pct}%</span>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+              {form.budget && form.budgetCats.length > 0 && (
+                <div className="mt-6 bg-gradient-to-r from-amber-500 to-orange-500 rounded-xl p-6 text-white">
+                  <p className="text-sm opacity-90 mb-1">Total Budget</p>
+                  <p className="text-3xl font-bold">₱{(+form.budget).toLocaleString()}</p>
+                </div>
+              )}
+            </div>
+          )}
+
+          {activeTab === 'resources' && (
+            <div>
+              <div className="flex gap-3 mb-4">
+                <input type="text" value={newRes} onChange={e => setNewRes(e.target.value)} onKeyPress={e => e.key === 'Enter' && addRes()} placeholder="Add resource item..." className="flex-1 px-4 py-3 border border-gray-300 rounded-lg text-sm focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 outline-none" />
+                <button onClick={addRes} className="px-6 py-3 bg-indigo-600 text-white rounded-lg text-sm font-semibold hover:bg-indigo-700">Add</button>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {form.resources.length === 0 ? (
+                  <div className="w-full text-center py-12 text-gray-400 border-2 border-dashed border-gray-200 rounded-xl">
+                    <I d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" c="w-12 h-12 mx-auto mb-3 opacity-50" />
+                    <p className="text-sm">No additional resources added yet.</p>
+                  </div>
+                ) : form.resources.map((r, i) => (
+                  <span key={i} className="inline-flex items-center gap-2 bg-indigo-50 text-indigo-700 px-4 py-2 rounded-full text-sm font-medium border border-indigo-200">
+                    {r}
+                    <button onClick={() => delRes(i)} className="text-indigo-400 hover:text-red-500 font-bold">×</button>
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
+          </div>
+        </div>
+      </div>
+      {renderModal()}
     </div>
   );
 };

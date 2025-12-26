@@ -11,12 +11,13 @@ import pandas as pd
 import numpy as np
 from sklearn.linear_model import LinearRegression, LogisticRegression
 from sklearn.multioutput import MultiOutputClassifier
-from sklearn.ensemble import RandomForestClassifier
-from sklearn.preprocessing import StandardScaler, MultiLabelBinarizer
+from sklearn.ensemble import RandomForestClassifier, RandomForestRegressor, GradientBoostingRegressor
+from sklearn.preprocessing import StandardScaler, MultiLabelBinarizer, LabelEncoder
 from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.metrics.pairwise import cosine_similarity
 from sklearn.pipeline import make_pipeline
-from sklearn.model_selection import train_test_split
-from sklearn.metrics import r2_score, accuracy_score
+from sklearn.model_selection import train_test_split, cross_val_score
+from sklearn.metrics import r2_score, accuracy_score, mean_absolute_error
 import mysql.connector
 import json
 from datetime import datetime
@@ -38,6 +39,44 @@ def get_db():
     return mysql.connector.connect(
         host='localhost', user='root', password='', database='school_event_management'
     )
+
+def convert_to_24hour(time_str):
+    """Convert 12-hour AM/PM time to 24-hour format for HTML time input"""
+    if not time_str or ':' not in time_str:
+        return '09:00'
+    
+    # Already in 24-hour format (HH:MM)
+    if 'AM' not in time_str.upper() and 'PM' not in time_str.upper():
+        # Ensure it's properly formatted
+        parts = time_str.split(':')
+        if len(parts) == 2:
+            try:
+                hours = int(parts[0])
+                minutes = int(parts[1])
+                return f"{hours:02d}:{minutes:02d}"
+            except:
+                return '09:00'
+        return time_str
+    
+    # Convert from 12-hour AM/PM to 24-hour
+    try:
+        time_str = time_str.strip().upper()
+        is_pm = 'PM' in time_str
+        time_part = time_str.replace(' AM', '').replace(' PM', '').strip()
+        
+        parts = time_part.split(':')
+        hours = int(parts[0])
+        minutes = int(parts[1]) if len(parts) > 1 else 0
+        
+        # Convert to 24-hour
+        if is_pm and hours != 12:
+            hours += 12
+        elif not is_pm and hours == 12:
+            hours = 0
+        
+        return f"{hours:02d}:{minutes:02d}"
+    except:
+        return '09:00'
 
 def load_training_data():
     """Load and preprocess training data from ai_training_data table"""
@@ -92,24 +131,31 @@ def add_training_data():
         conn = get_db()
         cursor = conn.cursor()
 
-        # UPDATED INSERT STATEMENT: REMOVED CATERING
+        # Activities can be:
+        # - Single day: [{startTime, endTime, phase}, ...]
+        # - Multi-day: {day1: [...], day2: [...], day3: [...]}
+        activities = data.get('activities', [])
+        activities_json = json.dumps(activities)
+
         cursor.execute("""
             INSERT INTO ai_training_data
-            (event_name, event_type, description, venue, organizer,
+            (event_name, event_type, description, venue, organizer, start_date, end_date,
              attendees, total_budget, budget_breakdown,
              equipment, activities, additional_resources, is_validated)
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, 1)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, 1)
         """, (
             data.get('eventName', ''),
             data.get('eventType', 'Academic'),
             data.get('description', ''),
             data.get('venue', ''),
             data.get('organizer', ''),
+            data.get('startDate') or None,
+            data.get('endDate') or None,
             data.get('attendees', 0),
             data.get('budget', 0),
             json.dumps(data.get('budgetBreakdown', [])),
             json.dumps(data.get('equipment', [])),
-            json.dumps(data.get('activities', [])),
+            activities_json,
             json.dumps(data.get('additionalResources', []))
         ))
 
@@ -328,13 +374,55 @@ def train_models():
             
         joblib.dump(budget_profiles, BREAKDOWN_PROFILE_PATH)
 
+        # --- 5. Learn Timeline Profiles ---
+        timeline_profiles = {}
+        for event_type in df['event_type'].unique():
+            type_df = df[df['event_type'] == event_type]
+            timelines = []
+            
+            for activities in type_df['activities_list']:
+                timeline = None
+                if isinstance(activities, dict):  # Multi-day format {day1: [...], day2: [...]}
+                    # Extract day1 as the primary timeline pattern
+                    if 'day1' in activities and isinstance(activities['day1'], list) and activities['day1']:
+                        timeline = activities['day1']
+                elif isinstance(activities, list) and activities:  # Single-day format [...]
+                    timeline = activities
+                
+                # Validate and clean timeline data
+                if timeline:
+                    valid_timeline = []
+                    for activity in timeline:
+                        if isinstance(activity, dict) and 'phase' in activity:
+                            # Ensure all required fields exist
+                            cleaned = {
+                                'phase': activity.get('phase', 'Activity'),
+                                'startTime': activity.get('startTime', activity.get('start_time', '09:00 AM')),
+                                'endTime': activity.get('endTime', activity.get('end_time', '10:00 AM'))
+                            }
+                            valid_timeline.append(cleaned)
+                    
+                    if valid_timeline:
+                        timelines.append(valid_timeline)
+            
+            if timelines:
+                # Store all timeline examples for this event type
+                timeline_profiles[event_type] = timelines
+        
+        TIMELINE_PROFILE_PATH = os.path.join(MODEL_DIR, 'timeline_profiles.pkl')
+        joblib.dump(timeline_profiles, TIMELINE_PROFILE_PATH)
+
+        # Convert any NaN values to 0 for JSON compatibility
+        def safe_float(val):
+            return 0.0 if (isinstance(val, float) and np.isnan(val)) else float(val)
+        
         metadata = {
             'trained_at': datetime.now().isoformat(),
             'samples': len(df),
-            'budget_score': budget_score,
-            'equipment_accuracy': equipment_accuracy,
+            'budget_score': safe_float(budget_score),
+            'equipment_accuracy': safe_float(equipment_accuracy),
             'equipment_labels': list(mlb.classes_),
-            'resources_accuracy': resources_accuracy,
+            'resources_accuracy': safe_float(resources_accuracy),
             'resources_labels': list(mlb_resources.classes_)
         }
         joblib.dump(metadata, METADATA_PATH)
@@ -343,8 +431,8 @@ def train_models():
             'success': True, 
             'message': f'Models trained on {len(df)} samples',
             'metrics': {
-                'budget_r2': round(budget_score, 4),
-                'equipment_acc': round(equipment_accuracy, 4)
+                'budget_r2': round(safe_float(budget_score), 4),
+                'equipment_acc': round(safe_float(equipment_accuracy), 4)
             }
         })
 
@@ -353,11 +441,21 @@ def train_models():
 
 @ml_bp.route('/predict-resources', methods=['POST'])
 def predict_resources():
+    """
+    TRUE AI PREDICTION using scikit-learn models trained on ALL events.
+    This learns patterns from the entire dataset, not just one similar event.
+    """
     try:
         data = request.json
+        print(f"\n{'='*60}")
+        print(f"TRUE ML PREDICTION (Learning from ALL events)")
+        print(f"{'='*60}")
+        print(f"Request: {data}")
+        
         event_type = data.get('eventType', 'Academic')
         attendees = int(data.get('attendees', 100))
         duration = float(data.get('duration', 4))
+        event_name = data.get('eventName', '')
 
         predictions = {
             'eventType': event_type,
@@ -371,69 +469,330 @@ def predict_resources():
         type_mapping = {'Academic': 0, 'Sports': 1, 'Cultural': 2, 'Workshop': 3, 'Seminar': 4}
         event_type_encoded = type_mapping.get(event_type, 0)
 
-        # --- BUDGET PREDICTION ---
-        if os.path.exists(BUDGET_MODEL_PATH):
-            budget_model = joblib.load(BUDGET_MODEL_PATH)
-            predicted_budget = budget_model.predict([[event_type_encoded, attendees]])[0]
+        # Load ALL training data for analysis
+        df = load_training_data()
+        
+        if df.empty:
+            print("[ML] No training data available, using fallback predictions")
+            return generate_fallback_predictions(event_type, attendees, duration)
+
+        print(f"[ML] Loaded {len(df)} training samples for ML prediction")
+
+        # ========================================================================
+        # STEP 1: BUDGET PREDICTION - Learn from ALL events using ML
+        # ========================================================================
+        print(f"\n[BUDGET ML] Predicting budget using regression on ALL {len(df)} events...")
+        
+        try:
+            # Use RandomForestRegressor for better accuracy
+            X_budget = df[['event_type_encoded', 'attendees']].values
+            y_budget = df['total_budget'].values
+            
+            # Train on ALL events
+            budget_regressor = RandomForestRegressor(n_estimators=50, random_state=42, max_depth=10)
+            budget_regressor.fit(X_budget, y_budget)
+            
+            # Predict for new event
+            predicted_budget = budget_regressor.predict([[event_type_encoded, attendees]])[0]
             predictions['estimatedBudget'] = max(1000, int(predicted_budget))
-            predictions['confidence'] = 0.92
-        else:
-            base_rates = {'Academic': 150, 'Sports': 200, 'Cultural': 300, 'Workshop': 180, 'Seminar': 160}
-            rate = base_rates.get(event_type, 150)
+            
+            # Calculate confidence using cross-validation on training data
+            scores = cross_val_score(budget_regressor, X_budget, y_budget, cv=min(3, len(df)), scoring='r2')
+            budget_confidence = max(0.5, min(0.95, scores.mean()))
+            predictions['confidence'] = budget_confidence
+            
+            print(f"[BUDGET ML] Predicted: ₱{predictions['estimatedBudget']:,} (confidence: {budget_confidence:.2%})")
+            print(f"[BUDGET ML] Model trained on {len(df)} samples, R² score: {scores.mean():.3f}")
+            
+        except Exception as e:
+            print(f"[BUDGET ML] Error: {e}, using fallback")
+            rate = {'Academic': 200, 'Sports': 250, 'Cultural': 300, 'Workshop': 220, 'Seminar': 180}.get(event_type, 200)
             predictions['estimatedBudget'] = attendees * rate
 
-        # --- BUDGET BREAKDOWN ---
-        if os.path.exists(BREAKDOWN_PROFILE_PATH):
-            profiles = joblib.load(BREAKDOWN_PROFILE_PATH)
-            if event_type in profiles:
-                total = predictions['estimatedBudget']
-                raw_breakdown = {k: int(v * total) for k, v in profiles[event_type].items()}
-                predictions['budgetBreakdown'] = raw_breakdown
-            else:
-                predictions['budgetBreakdown'] = {
-                    "Venue": int(predictions['estimatedBudget'] * 0.3),
-                    "Equipment": int(predictions['estimatedBudget'] * 0.4),
-                    "Marketing": int(predictions['estimatedBudget'] * 0.2),
-                    "Misc": int(predictions['estimatedBudget'] * 0.1)
-                }
-
-        # --- EQUIPMENT PREDICTION (School-owned) ---
-        if os.path.exists(EQUIPMENT_MODEL_PATH):
-            equipment_model, mlb = joblib.load(EQUIPMENT_MODEL_PATH)
-            eq_pred_binary = equipment_model.predict([[event_type_encoded, attendees]])
-            predicted_items = mlb.inverse_transform(eq_pred_binary)[0]
-            predictions['resources'] = list(predicted_items)
-            predictions['equipment'] = list(predicted_items)
-        else:
+        # ========================================================================
+        # STEP 2: EQUIPMENT PREDICTION - Learn equipment patterns from ALL events
+        # ========================================================================
+        print(f"\n[EQUIPMENT ML] Learning equipment patterns from ALL events...")
+        
+        try:
+            # Collect ALL equipment from ALL events
+            all_equipment_counts = {}
+            type_equipment_counts = {}
+            
+            for idx, row in df.iterrows():
+                eq_list = row.get('equipment_list', [])
+                event_type_row = row.get('event_type', '')
+                
+                for item in eq_list:
+                    # Count across ALL events
+                    all_equipment_counts[item] = all_equipment_counts.get(item, 0) + 1
+                    
+                    # Count by event type
+                    if event_type_row not in type_equipment_counts:
+                        type_equipment_counts[event_type_row] = {}
+                    type_equipment_counts[event_type_row][item] = type_equipment_counts[event_type_row].get(item, 0) + 1
+            
+            # Calculate probability: how often does each equipment appear for this event type?
+            equipment_probs = {}
+            if event_type in type_equipment_counts:
+                type_total_events = len(df[df['event_type'] == event_type])
+                for item, count in type_equipment_counts[event_type].items():
+                    probability = count / type_total_events
+                    equipment_probs[item] = probability
+            
+            # Select equipment with >30% probability for this event type
+            predicted_equipment = [item for item, prob in equipment_probs.items() if prob > 0.3]
+            
+            # Add high-frequency items from ALL events (>50% appearance rate)
+            for item, count in all_equipment_counts.items():
+                if count / len(df) > 0.5 and item not in predicted_equipment:
+                    predicted_equipment.append(item)
+            
+            # Adjust based on attendees (large events need more equipment)
+            if attendees > 200:
+                for item in ['Microphone', 'Speaker', 'Tables', 'Chairs']:
+                    if item in all_equipment_counts and item not in predicted_equipment:
+                        predicted_equipment.append(item)
+            
+            predictions['resources'] = predicted_equipment
+            predictions['equipment'] = predicted_equipment
+            
+            print(f"[EQUIPMENT ML] Predicted {len(predicted_equipment)} items based on:")
+            print(f"  - {len(type_equipment_counts.get(event_type, {}))} patterns from {event_type} events")
+            print(f"  - Equipment probabilities: {[(k, f'{v:.1%}') for k, v in sorted(equipment_probs.items(), key=lambda x: -x[1])[:5]]}")
+            
+        except Exception as e:
+            print(f"[EQUIPMENT ML] Error: {e}, using fallback")
             defaults = {
                 'Academic': ['Projector', 'Microphone', 'Whiteboard'],
                 'Sports': ['Scoreboard', 'First Aid Kit', 'Sound System'],
-                'Cultural': ['Stage Lighting', 'Sound System', 'Microphone']
+                'Cultural': ['Stage', 'Sound System', 'Microphone', 'Lighting']
             }
-            predictions['resources'] = defaults.get(event_type, ['Projector', 'Microphone'])
-            predictions['equipment'] = predictions['resources']
-        
-        # --- ADDITIONAL RESOURCES PREDICTION (External items) ---
-        RESOURCES_MODEL_PATH = os.path.join(MODEL_DIR, 'resources_predictor.pkl')
-        if os.path.exists(RESOURCES_MODEL_PATH):
-            resources_model, mlb_resources = joblib.load(RESOURCES_MODEL_PATH)
-            res_pred_binary = resources_model.predict([[event_type_encoded, attendees]])
-            predicted_resources = mlb_resources.inverse_transform(res_pred_binary)[0]
-            predictions['additionalResources'] = list(predicted_resources)
-        else:
-            predictions['additionalResources'] = []
+            predictions['resources'] = defaults.get(event_type, ['Projector'])
 
-        # --- TIMELINE GENERATION ---
-        predictions['timeline'] = [
-            {'phase': 'Setup', 'startTime': '08:00', 'endTime': '09:00'},
-            {'phase': 'Main Event', 'startTime': '09:00', 'endTime': f"{9+int(duration)}:00"},
-            {'phase': 'Teardown', 'startTime': f"{9+int(duration)}:00", 'endTime': f"{10+int(duration)}:00"}
-        ]
+        # ========================================================================
+        # STEP 3: BUDGET BREAKDOWN - Learn from TOP 3 similar events ONLY
+        # ========================================================================
+        print(f"\n[BREAKDOWN ML] Finding similar events for budget breakdown...")
+        
+        # We'll find top similar events first, then use them for breakdown
+        top_similar_events = []
+        top_similarities = []
+        
+        if event_name and len(event_name) > 3:
+            try:
+                type_df = df[df['event_type'] == event_type]
+                
+                if not type_df.empty and 'event_name' in type_df.columns:
+                    vectorizer = TfidfVectorizer(max_features=100, stop_words='english')
+                    training_names = type_df['event_name'].tolist()
+                    all_names = training_names + [event_name]
+                    
+                    vectors = vectorizer.fit_transform(all_names)
+                    input_vector = vectors[-1]
+                    training_vectors = vectors[:-1]
+                    
+                    similarities = cosine_similarity(input_vector, training_vectors)[0]
+                    
+                    # Get TOP 3 similar events
+                    top_indices = similarities.argsort()[-3:][::-1]
+                    top_similarities = similarities[top_indices]
+                    
+                    print(f"[BREAKDOWN ML] Top 3 similar events for budget:")
+                    for idx, sim in zip(top_indices, top_similarities):
+                        if sim > 0.01:  # Very low threshold - even weak matches are useful
+                            similar_evt = type_df.iloc[idx]
+                            top_similar_events.append(similar_evt)
+                            print(f"  - {similar_evt['event_name']} (similarity: {sim:.2%})")
+                    
+                    # If no matches found, use most similar event anyway
+                    if len(top_similar_events) == 0 and len(top_indices) > 0:
+                        print(f"[BREAKDOWN ML] No strong matches, using top event anyway")
+                        top_similar_events.append(type_df.iloc[top_indices[0]])
+            except Exception as e:
+                print(f"[BREAKDOWN ML] Similarity error: {e}")
+        
+        # Use ONLY top similar events for breakdown
+        if len(top_similar_events) > 0:
+            try:
+                breakdown_patterns = {}
+                
+                # Collect categories ONLY from top similar events
+                for similar_evt in top_similar_events:
+                    breakdown_list = similar_evt.get('budget_breakdown_list', [])
+                    total_budget = similar_evt.get('total_budget', 1)
+                    
+                    for item in breakdown_list:
+                        category = item.get('name', 'Misc')
+                        amount = item.get('amount', 0)
+                        percentage = (amount / total_budget) * 100 if total_budget > 0 else 0
+                        
+                        if category not in breakdown_patterns:
+                            breakdown_patterns[category] = []
+                        breakdown_patterns[category].append(percentage)
+                
+                # Calculate AVERAGE percentage for each category
+                avg_percentages = {}
+                for category, percentages in breakdown_patterns.items():
+                    avg_percentages[category] = sum(percentages) / len(percentages)
+                
+                # Apply learned percentages to predicted budget
+                total_budget = predictions['estimatedBudget']
+                learned_breakdown = {}
+                
+                for category, avg_pct in avg_percentages.items():
+                    learned_breakdown[category] = int((avg_pct / 100) * total_budget)
+                
+                # Normalize to ensure sum equals total budget
+                breakdown_sum = sum(learned_breakdown.values())
+                if breakdown_sum > 0:
+                    for category in learned_breakdown:
+                        learned_breakdown[category] = int((learned_breakdown[category] / breakdown_sum) * total_budget)
+                
+                predictions['budgetBreakdown'] = learned_breakdown
+                
+                print(f"[BREAKDOWN ML] Learned from TOP {len(top_similar_events)} similar events only")
+                print(f"  - Categories used: {list(learned_breakdown.keys())}")
+                
+            except Exception as e:
+                print(f"[BREAKDOWN ML] Error: {e}, using default allocation")
+                predictions['budgetBreakdown'] = {
+                    "Equipment": int(predictions['estimatedBudget'] * 0.35),
+                    "Venue": int(predictions['estimatedBudget'] * 0.25),
+                    "Materials": int(predictions['estimatedBudget'] * 0.20),
+                    "Marketing": int(predictions['estimatedBudget'] * 0.10),
+                    "Miscellaneous": int(predictions['estimatedBudget'] * 0.10)
+                }
+        else:
+            # Fallback if no similar events found
+            predictions['budgetBreakdown'] = {
+                "Equipment": int(predictions['estimatedBudget'] * 0.35),
+                "Venue": int(predictions['estimatedBudget'] * 0.25),
+                "Materials": int(predictions['estimatedBudget'] * 0.20),
+                "Marketing": int(predictions['estimatedBudget'] * 0.10),
+                "Miscellaneous": int(predictions['estimatedBudget'] * 0.10)
+            }
+
+        # ========================================================================
+        # STEP 4: TIMELINE - Reuse top similar events already found
+        # ========================================================================
+        print(f"\n[TIMELINE ML] Using top similar events for timeline generation...")
+        
+        if len(top_similar_events) > 0:
+            try:
+                combined_phases = []
+                phase_occurrences = {}
+                
+                print(f"[TIMELINE ML] Combining timelines from {len(top_similar_events)} similar events")
+                
+                # Analyze phases from top similar events
+                for similar_event in top_similar_events:
+                    activities = similar_event.get('activities_list', [])
+                    
+                    if isinstance(activities, list):
+                        for activity in activities:
+                            if isinstance(activity, dict) and activity.get('phase'):
+                                phase_name = activity.get('phase')
+                                
+                                if phase_name not in phase_occurrences:
+                                    phase_occurrences[phase_name] = {
+                                        'count': 0,
+                                        'start_times': [],
+                                        'end_times': []
+                                    }
+                                
+                                phase_occurrences[phase_name]['count'] += 1
+                                phase_occurrences[phase_name]['start_times'].append(
+                                    activity.get('startTime', activity.get('start_time', '09:00'))
+                                )
+                                phase_occurrences[phase_name]['end_times'].append(
+                                    activity.get('endTime', activity.get('end_time', '10:00'))
+                                )
+                
+                # Use phases that appear in majority of similar events
+                min_occurrences = max(1, len(top_similar_events) // 2)  # At least half
+                for phase_name, data in phase_occurrences.items():
+                    if data['count'] >= min_occurrences:
+                        # Use most common time (mode)
+                        start_time = max(set(data['start_times']), key=data['start_times'].count)
+                        end_time = max(set(data['end_times']), key=data['end_times'].count)
+                        
+                        combined_phases.append({
+                            'phase': phase_name,
+                            'startTime': convert_to_24hour(start_time),
+                            'endTime': convert_to_24hour(end_time)
+                        })
+                
+                if combined_phases:
+                    # Sort by start time
+                    combined_phases.sort(key=lambda x: x['startTime'])
+                    predictions['timeline'] = combined_phases
+                    
+                    # Get description and attendees from most similar event
+                    predictions['description'] = top_similar_events[0].get('description', '')
+                    predictions['suggestedAttendees'] = int(top_similar_events[0].get('attendees', attendees))
+                    
+                    print(f"[TIMELINE ML] Generated {len(combined_phases)} phases")
+                    
+            except Exception as e:
+                print(f"[TIMELINE ML] Error: {e}")
+                import traceback
+                traceback.print_exc()
+
+        # Fallback timeline if none generated
+        if not predictions.get('timeline'):
+            predictions['timeline'] = [
+                {'phase': 'Registration', 'startTime': '08:00', 'endTime': '08:30'},
+                {'phase': 'Opening Ceremony', 'startTime': '08:30', 'endTime': '09:00'},
+                {'phase': 'Main Activities', 'startTime': '09:00', 'endTime': '12:00'},
+                {'phase': 'Lunch Break', 'startTime': '12:00', 'endTime': '13:00'},
+                {'phase': 'Afternoon Session', 'startTime': '13:00', 'endTime': '16:00'},
+                {'phase': 'Closing Ceremony', 'startTime': '16:00', 'endTime': '17:00'}
+            ]
+
+        print(f"\n{'='*60}")
+        print(f"[ML SUMMARY] Prediction complete!")
+        print(f"  Budget: ₱{predictions['estimatedBudget']:,}")
+        print(f"  Equipment: {len(predictions['resources'])} items")
+        print(f"  Timeline: {len(predictions['timeline'])} phases")
+        print(f"  Confidence: {predictions['confidence']:.1%}")
+        print(f"{'='*60}\n")
         
         return jsonify({'success': True, **predictions})
 
     except Exception as e:
+        import traceback
+        print(f"[ML ERROR] {e}")
+        traceback.print_exc()
         return jsonify({'success': False, 'error': str(e)})
+
+
+def generate_fallback_predictions(event_type, attendees, duration):
+    """Fallback when no training data exists"""
+    rate = {'Academic': 200, 'Sports': 250, 'Cultural': 300, 'Workshop': 220, 'Seminar': 180}.get(event_type, 200)
+    budget = attendees * rate
+    
+    equipment_defaults = {
+        'Academic': ['Projector', 'Microphone', 'Whiteboard', 'Chairs', 'Tables'],
+        'Sports': ['Scoreboard', 'First Aid Kit', 'Sound System', 'Timer'],
+        'Cultural': ['Stage', 'Sound System', 'Microphone', 'Lighting', 'Decorations']
+    }
+    
+    return jsonify({
+        'success': True,
+        'estimatedBudget': budget,
+        'resources': equipment_defaults.get(event_type, ['Projector']),
+        'timeline': [
+            {'phase': 'Registration', 'startTime': '08:00', 'endTime': '08:30'},
+            {'phase': 'Main Event', 'startTime': '08:30', 'endTime': '17:00'}
+        ],
+        'budgetBreakdown': {
+            'Equipment': int(budget * 0.4),
+            'Venue': int(budget * 0.3),
+            'Other': int(budget * 0.3)
+        },
+        'confidence': 0.5
+    })
 
 @ml_bp.route('/classify-event-type', methods=['POST'])
 def classify_event_type():

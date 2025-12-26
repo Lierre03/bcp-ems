@@ -339,9 +339,13 @@ window.AdminEventsManager = function AdminEventsManager() {
       
       const requestParams = {
         eventType: eventType,
-        expectedAttendees: parseInt(formData.attendees) || 100,
+        attendees: parseInt(formData.attendees) || 100,
+        eventName: formData.name || '',  // Fixed: use formData.name not formData.eventName
         duration: 4
       };
+
+      console.log('[DEBUG] AI Request - Event Name:', formData.name);
+      console.log('[DEBUG] AI Request - Full Params:', requestParams);
 
       // Store request params for stale detection
       setLastAIRequest(requestParams);
@@ -353,6 +357,9 @@ window.AdminEventsManager = function AdminEventsManager() {
       });
 
       const aiData = await response.json();
+      console.log('[DEBUG] AI Response:', aiData);
+      console.log('[DEBUG] AI Description:', aiData.description);
+      console.log('[DEBUG] AI Suggested Attendees:', aiData.suggestedAttendees);
 
       if (aiData.success) {
         // --- 1. Populate AI Suggestions State ---
@@ -369,7 +376,8 @@ window.AdminEventsManager = function AdminEventsManager() {
             success: true,
             confidence: aiData.confidence,
             estimatedBudget: aiData.estimatedBudget,
-            budgetBreakdown: breakdownStr // Passed as formatted string
+            budgetBreakdown: breakdownStr, // Passed as formatted string
+            suggestedAttendees: aiData.suggestedAttendees // Store for proportional calculation
         });
 
         // --- 2. Update Form Data (Auto-fill) ---
@@ -378,6 +386,7 @@ window.AdminEventsManager = function AdminEventsManager() {
         let updatedFormData = {
           ...formData,
           description: aiData.description || formData.description,
+          attendees: aiData.suggestedAttendees || formData.attendees,
           budget: totalBudget
         };
 

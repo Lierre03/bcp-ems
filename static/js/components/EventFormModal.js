@@ -78,6 +78,9 @@ window.EventFormModal = function EventFormModal({
                       const newName = e.target.value;
                       // 1. Immediate state update to ensure UI is responsive
                       setFormData(prev => ({...prev, name: newName}));
+                      
+                      // Clear AI suggestions when event name changes
+                      setAiSuggestions(null);
 
                       // 2. Real-time classification (Subtle background update only)
                       if (newName.trim().length > 2) {
@@ -119,7 +122,7 @@ window.EventFormModal = function EventFormModal({
                 <div className="grid grid-cols-2 gap-3">
                   <div>
                     <label className="block text-xs font-bold text-slate-700 mb-1">Event Type *</label>
-                    <select value={formData.type} onChange={(e) => setFormData({...formData, type: e.target.value})} className="w-full px-3 py-2 border border-slate-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                    <select value={formData.type} onChange={(e) => { setFormData({...formData, type: e.target.value}); setAiSuggestions(null); }} className="w-full px-3 py-2 border border-slate-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
                       <option>Academic</option>
                       <option>Sports</option>
                       <option>Cultural</option>
@@ -273,7 +276,53 @@ window.EventFormModal = function EventFormModal({
                   <div className="grid grid-cols-1 gap-3">
                     <div>
                       <label className="block text-xs font-medium text-gray-600 mb-1">Attendees</label>
-                      <input type="number" value={formData.attendees} onChange={(e) => setFormData({...formData, attendees: e.target.value})} placeholder="0" className="w-full px-2 py-1.5 border border-gray-300 rounded text-sm text-gray-700" />
+                      <input type="number" value={formData.attendees} onChange={(e) => {
+                        const newAttendees = e.target.value;
+                        const attendeeCount = parseInt(newAttendees) || 0;
+                        
+                        // Calculate budget proportionally based on AI data
+                        let newBudget = formData.budget;
+                        
+                        if (budgetData && budgetData.totalBudget && aiSuggestions) {
+                          // Use ratio: if AI suggested X attendees for Y budget,
+                          // then new attendees should have proportional budget
+                          const baseBudget = budgetData.totalBudget;
+                          const baseAttendees = aiSuggestions.suggestedAttendees || parseInt(formData.attendees) || 100;
+                          
+                          if (baseAttendees > 0 && attendeeCount > 0) {
+                            const ratio = attendeeCount / baseAttendees;
+                            newBudget = Math.round(baseBudget * ratio);
+                          }
+                        }
+                        
+                        // Update form data
+                        setFormData({
+                          ...formData, 
+                          attendees: newAttendees,
+                          budget: newBudget
+                        });
+                        
+                        // If budget breakdown exists, recalculate it proportionally
+                        if (budgetData && budgetData.breakdown && newBudget > 0) {
+                          const { categories, breakdown } = budgetData;
+                          const newBreakdown = {};
+                          const newPercentages = [];
+                          
+                          categories.forEach(cat => {
+                            const percentage = breakdown[cat].percentage;
+                            const amount = Math.round((newBudget * percentage) / 100);
+                            newBreakdown[cat] = { percentage, amount };
+                            newPercentages.push(percentage);
+                          });
+                          
+                          handleBudgetUpdate({
+                            totalBudget: newBudget,
+                            categories,
+                            breakdown: newBreakdown,
+                            percentages: newPercentages
+                          });
+                        }
+                      }} placeholder="0" className="w-full px-2 py-1.5 border border-gray-300 rounded text-sm text-gray-700" />
                     </div>
                     <div>
                       <label className="block text-xs font-medium text-gray-600 mb-1">Budget (₱)</label>
@@ -371,9 +420,6 @@ window.EventFormModal = function EventFormModal({
                       <p className="text-lg font-bold text-emerald-700">₱{typeof aiSuggestions.estimatedBudget === 'number' ? aiSuggestions.estimatedBudget.toLocaleString() : aiSuggestions.estimatedBudget}</p>
                     </div>
                   </div>
-                  {aiSuggestions.budgetBreakdown && (
-                    <p className="text-xs text-slate-500 mt-1 leading-tight">{aiSuggestions.budgetBreakdown}</p>
-                  )}
                 </div>
               )}
 
