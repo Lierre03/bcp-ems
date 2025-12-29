@@ -1,8 +1,28 @@
 // EventTimelineGenerator Component - AI-generated event timeline with editing capabilities
-window.EventTimelineGenerator = function EventTimelineGenerator({ timelineData, onTimelineUpdate }) {
+window.EventTimelineGenerator = function EventTimelineGenerator({ timelineData, onTimelineUpdate, initialEditMode = false }) {
   const [expandedPhase, setExpandedPhase] = React.useState(0);
-  const [isEditing, setIsEditing] = React.useState(false);
-  const [editedTimeline, setEditedTimeline] = React.useState(null);
+  const [isEditing, setIsEditing] = React.useState(initialEditMode);
+  
+  // Initialize editedTimeline immediately if initialEditMode is true
+  // If timeline is empty, start with one empty phase for user input
+  const getInitialEditedTimeline = () => {
+    if (!initialEditMode) return null;
+    
+    const timeline = timelineData?.timeline || [];
+    if (timeline.length === 0) {
+      // Return one empty phase if starting with empty timeline
+      return [{
+        phase: '',
+        description: '',
+        startTime: '09:00',
+        endTime: '10:00',
+        duration: 60
+      }];
+    }
+    return JSON.parse(JSON.stringify(timeline));
+  };
+  
+  const [editedTimeline, setEditedTimeline] = React.useState(getInitialEditedTimeline());
   const [currentTimeline, setCurrentTimeline] = React.useState(timelineData?.timeline || []);
 
   // Update currentTimeline when timelineData changes
@@ -11,6 +31,25 @@ window.EventTimelineGenerator = function EventTimelineGenerator({ timelineData, 
       setCurrentTimeline(timelineData.timeline);
     }
   }, [timelineData]);
+
+  // Initialize edit mode on mount if initialEditMode is true and editedTimeline not set
+  React.useEffect(() => {
+    if (initialEditMode && timelineData?.timeline && !editedTimeline) {
+      const timeline = timelineData.timeline;
+      if (timeline.length === 0) {
+        // Set one empty phase if timeline is empty
+        setEditedTimeline([{
+          phase: '',
+          description: '',
+          startTime: '09:00',
+          endTime: '10:00',
+          duration: 60
+        }]);
+      } else {
+        setEditedTimeline(JSON.parse(JSON.stringify(timeline)));
+      }
+    }
+  }, [initialEditMode, timelineData]);
 
   if (!timelineData) return null;
 
@@ -68,20 +107,37 @@ window.EventTimelineGenerator = function EventTimelineGenerator({ timelineData, 
     }
 
     updated[index] = phase;
-    setEditedTimeline(updated);
+    setEditedTimeline(updated);    
+    // Auto-save changes immediately
+    setCurrentTimeline(updated);
+    if (onTimelineUpdate) {
+      onTimelineUpdate({ ...timelineData, timeline: updated });
+    }    
+    // Auto-save changes immediately
+    setCurrentTimeline(updated);
+    if (onTimelineUpdate) {
+      onTimelineUpdate({ ...timelineData, timeline: updated });
+    }
   };
 
   // Add a new phase
   const addPhase = () => {
     if (!editedTimeline) return;
     const newPhase = {
-      phase: 'New Phase',
-      description: 'Description of the new phase',
+      phase: '',
+      description: '',
       startTime: '09:00',
       endTime: '10:00',
       duration: 60
     };
-    setEditedTimeline([...editedTimeline, newPhase]);
+    const updated = [...editedTimeline, newPhase];
+    setEditedTimeline(updated);
+    
+    // Auto-save changes immediately
+    setCurrentTimeline(updated);
+    if (onTimelineUpdate) {
+      onTimelineUpdate({ ...timelineData, timeline: updated });
+    }
   };
 
   // Remove a phase
@@ -89,10 +145,19 @@ window.EventTimelineGenerator = function EventTimelineGenerator({ timelineData, 
     if (!editedTimeline || editedTimeline.length <= 1) return;
     const updated = editedTimeline.filter((_, i) => i !== index);
     setEditedTimeline(updated);
+    
+    // Auto-save changes immediately
+    setCurrentTimeline(updated);
+    if (onTimelineUpdate) {
+      onTimelineUpdate({ ...timelineData, timeline: updated });
+    }
   };
 
   // Use edited timeline if in edit mode, otherwise use current timeline
-  const displayTimeline = isEditing ? editedTimeline : currentTimeline;
+  // Fallback to empty array if both are null/undefined
+  const displayTimeline = isEditing 
+    ? (editedTimeline || currentTimeline || [])
+    : (currentTimeline || []);
 
   // Convert 24-hour time to 12-hour format with AM/PM
   const formatTime12Hour = (time) => {
@@ -107,29 +172,12 @@ window.EventTimelineGenerator = function EventTimelineGenerator({ timelineData, 
   };
 
   return (
-    <div className="bg-white rounded-lg border border-slate-200 shadow-md overflow-hidden">
-      <div className="bg-gradient-to-r from-purple-600 to-pink-600 px-4 py-3 border-b border-purple-700 flex items-center justify-between">
-        <h3 className="text-sm font-bold text-white flex items-center gap-2">
+    <div className="bg-white rounded-lg border border-gray-200 shadow-sm overflow-hidden">
+      <div className="bg-slate-100 px-4 py-3 border-b border-slate-200">
+        <h3 className="text-sm font-semibold text-slate-700 flex items-center gap-2">
           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
           Event Timeline
         </h3>
-        {!isEditing ? (
-          <button onClick={startEditing} className="text-white hover:bg-pink-600 px-2 py-1 rounded text-xs transition">
-            Edit
-          </button>
-        ) : (
-          <div className="flex gap-2">
-            <button onClick={addPhase} className="text-white hover:bg-pink-600 px-2 py-1 rounded text-xs transition">
-              + Add Phase
-            </button>
-            <button onClick={saveChanges} className="text-white hover:bg-green-600 px-2 py-1 rounded text-xs transition">
-              Save
-            </button>
-            <button onClick={cancelEditing} className="text-white hover:bg-red-600 px-2 py-1 rounded text-xs transition">
-              Cancel
-            </button>
-          </div>
-        )}
       </div>
       <div className="p-4 bg-gradient-to-b from-slate-50 to-white">
         <div className="space-y-2">
@@ -138,8 +186,8 @@ window.EventTimelineGenerator = function EventTimelineGenerator({ timelineData, 
               {!isEditing ? (
                 <button onClick={() => setExpandedPhase(expandedPhase === idx ? -1 : idx)} className="w-full px-3 py-2 bg-slate-100 hover:bg-slate-200 transition flex items-center justify-between">
                   <div className="flex items-center gap-2">
-                    <div className="w-8 h-8 bg-purple-100 rounded flex items-center justify-center">
-                      <span className="text-xs font-bold text-purple-600">{idx + 1}</span>
+                    <div className="w-8 h-8 bg-slate-200 rounded flex items-center justify-center">
+                      <span className="text-xs font-bold text-slate-700">{idx + 1}</span>
                     </div>
                     <div className="text-left">
                       <p className="font-semibold text-slate-700 text-sm">{phase.phase}</p>
@@ -151,15 +199,16 @@ window.EventTimelineGenerator = function EventTimelineGenerator({ timelineData, 
               ) : (
                 <div className="px-3 py-2 bg-slate-100 flex items-center justify-between">
                   <div className="flex items-center gap-2 flex-1">
-                    <div className="w-8 h-8 bg-purple-100 rounded flex items-center justify-center">
-                      <span className="text-xs font-bold text-purple-600">{idx + 1}</span>
+                    <div className="w-8 h-8 bg-slate-100 rounded flex items-center justify-center">
+                      <span className="text-xs font-bold text-slate-700">{idx + 1}</span>
                     </div>
                     <div className="text-left flex-1">
                       <input
                         type="text"
                         value={phase.phase}
                         onChange={(e) => updatePhase(idx, 'phase', e.target.value)}
-                        className="w-full px-2 py-1 text-sm font-semibold text-slate-700 border border-slate-300 rounded mb-1"
+                        placeholder="Enter phase name (e.g., Registration, Opening Ceremony)"
+                        className="w-full px-2 py-1 text-sm font-semibold text-slate-700 border border-slate-300 rounded mb-1 placeholder:text-slate-400 placeholder:font-normal"
                       />
                       <div className="flex gap-2">
                         <input
@@ -167,12 +216,15 @@ window.EventTimelineGenerator = function EventTimelineGenerator({ timelineData, 
                           value={phase.startTime}
                           onChange={(e) => updatePhase(idx, 'startTime', e.target.value)}
                           className="px-2 py-1 text-xs border border-slate-300 rounded"
+                          title="Start time"
                         />
+                        <span className="text-xs text-slate-500 self-center">to</span>
                         <input
                           type="time"
                           value={phase.endTime}
                           onChange={(e) => updatePhase(idx, 'endTime', e.target.value)}
                           className="px-2 py-1 text-xs border border-slate-300 rounded"
+                          title="End time"
                         />
                       </div>
                     </div>
@@ -191,15 +243,15 @@ window.EventTimelineGenerator = function EventTimelineGenerator({ timelineData, 
                 <div className="p-3 bg-white border-t border-slate-200">
                   <p className="text-xs text-slate-700 mb-2">{phase.description}</p>
                   <div className="grid grid-cols-2 gap-2 text-xs">
-                    <div className="bg-purple-50 rounded p-2">
+                    <div className="bg-slate-50 rounded p-2">
                       <p className="text-slate-600">Duration</p>
-                      <p className="font-bold text-purple-700">
+                      <p className="font-bold text-slate-700">
                         {typeof phase.duration === 'number' ? `${phase.duration} min` : phase.duration}
                       </p>
                     </div>
-                    <div className="bg-purple-50 rounded p-2">
+                    <div className="bg-slate-50 rounded p-2">
                       <p className="text-slate-600">Time</p>
-                      <p className="font-bold text-purple-700">{formatTime12Hour(phase.startTime)}-{formatTime12Hour(phase.endTime)}</p>
+                      <p className="font-bold text-slate-700">{formatTime12Hour(phase.startTime)}-{formatTime12Hour(phase.endTime)}</p>
                     </div>
                   </div>
                 </div>
@@ -210,7 +262,8 @@ window.EventTimelineGenerator = function EventTimelineGenerator({ timelineData, 
                   <textarea
                     value={phase.description}
                     onChange={(e) => updatePhase(idx, 'description', e.target.value)}
-                    className="w-full px-2 py-1 text-xs text-slate-700 border border-slate-300 rounded mb-2"
+                    placeholder="Add a description for this phase (optional)"
+                    className="w-full px-2 py-1 text-xs text-slate-700 border border-slate-300 rounded mb-2 placeholder:text-slate-400"
                     rows="2"
                   />
 
@@ -219,6 +272,21 @@ window.EventTimelineGenerator = function EventTimelineGenerator({ timelineData, 
             </div>
           ))}
         </div>
+        
+        {/* Add Phase Button */}
+        {isEditing && (
+          <div className="mt-3">
+            <button 
+              onClick={addPhase}
+              className="w-full py-2.5 px-4 bg-white hover:bg-gray-50 border border-gray-300 hover:border-gray-400 rounded-lg text-gray-700 hover:text-gray-900 font-medium text-sm transition-all flex items-center justify-center gap-2"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4" />
+              </svg>
+              Add Another Phase
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );

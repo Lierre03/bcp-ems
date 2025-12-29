@@ -3,7 +3,6 @@ const { useState, useEffect, useRef } = React;
 
 window.SmartBudgetBreakdown = function SmartBudgetBreakdown({ budgetData, onUpdate, onBudgetUpdate }) {
   const [totalBudget, setTotalBudget] = useState(budgetData?.totalBudget || 0);
-  const [newCategoryName, setNewCategoryName] = useState('');
   const chartRef = useRef(null);
   const chartInstance = useRef(null);
 
@@ -21,8 +20,9 @@ window.SmartBudgetBreakdown = function SmartBudgetBreakdown({ budgetData, onUpda
     
     // Use gray for empty state, actual colors for data
     const isEmpty = budgetData.categories.length === 0;
+    const hasZeroTotal = budgetData.totalBudget === 0 || budgetData.totalBudget === null;
     const chartLabels = isEmpty ? ['Empty'] : budgetData.categories;
-    const chartData = isEmpty ? [100] : budgetData.percentages;
+    const chartData = isEmpty ? [100] : (hasZeroTotal ? budgetData.categories.map(() => 1) : budgetData.percentages);
     const chartColors = isEmpty ? ['#d1d5db'] : colors.slice(0, budgetData.categories.length);
     
     chartInstance.current = new Chart(ctx, {
@@ -47,10 +47,9 @@ window.SmartBudgetBreakdown = function SmartBudgetBreakdown({ budgetData, onUpda
                     label: function(context) {
                         if (isEmpty) return '';
                         const label = context.label || '';
-                        const value = context.raw || 0;
-                        const total = context.chart._metasets[context.datasetIndex].total;
-                        const percentage = Math.round((value / total) * 100) + '%';
-                        return `${label}: ${percentage}`;
+                        const value = budgetData.breakdown[label]?.amount || 0;
+                        const percentage = budgetData.breakdown[label]?.percentage || 0;
+                        return `${label}: ₱${value.toLocaleString()} (${percentage}%)`;
                     }
                 }
             }
@@ -58,7 +57,13 @@ window.SmartBudgetBreakdown = function SmartBudgetBreakdown({ budgetData, onUpda
         cutout: '75%',
       }
     });
-  }, [budgetData]);
+    
+    return () => {
+      if (chartInstance.current) {
+        chartInstance.current.destroy();
+      }
+    };
+  }, [budgetData, budgetData?.categories, budgetData?.percentages, budgetData?.totalBudget]);
 
   const handleTotalBudgetChange = (newTotal) => {
     const total = parseInt(newTotal) || budgetData.totalBudget;
@@ -115,19 +120,75 @@ window.SmartBudgetBreakdown = function SmartBudgetBreakdown({ budgetData, onUpda
     if (onBudgetUpdate) onBudgetUpdate(updatedData);
   };
 
-  const addCategory = () => {
-    if (!newCategoryName.trim()) return;
+  const updateCategory = (index, field, value) => {
+    const category = budgetData.categories[index];
+    const updatedBreakdown = {...budgetData.breakdown};
     
-    // Check if category already exists
-    if (budgetData.categories.includes(newCategoryName.trim())) {
-      alert('Category already exists!');
-      return;
+    if (field === 'name') {
+      // Rename category
+      const oldName = category;
+      const newName = value; // Keep the value as-is, no trim (allow empty for placeholder)
+      
+      if (oldName === newName) return; // No change
+      if (budgetData.categories.includes(newName) && newName !== oldName) {
+        alert('Category already exists!');
+        return;
+      }
+      
+      // Update category name in breakdown
+      updatedBreakdown[newName] = updatedBreakdown[oldName];
+      delete updatedBreakdown[oldName];
+      
+      const updatedCategories = [...budgetData.categories];
+      updatedCategories[index] = newName;
+      
+      const updatedData = {
+        ...budgetData,
+        categories: updatedCategories,
+        breakdown: updatedBreakdown
+      };
+      
+      onUpdate(updatedData);
+      if (onBudgetUpdate) onBudgetUpdate(updatedData);
+    } else if (field === 'amount') {
+      // Allow empty string, otherwise parse as integer
+      const amount = value === '' ? 0 : (parseInt(value) || 0);
+      updatedBreakdown[category].amount = amount;
+      
+      // Recalculate total and percentages
+      const newTotalBudget = Object.values(updatedBreakdown).reduce((sum, item) => sum + (item.amount || 0), 0);
+      Object.keys(updatedBreakdown).forEach(cat => {
+        updatedBreakdown[cat].percentage = newTotalBudget > 0 ? Math.round((updatedBreakdown[cat].amount / newTotalBudget) * 100) : 0;
+      });
+      
+      const newPercentages = budgetData.categories.map(cat => updatedBreakdown[cat].percentage);
+      
+      const updatedData = {
+        ...budgetData,
+        totalBudget: newTotalBudget,
+        breakdown: updatedBreakdown,
+        percentages: newPercentages
+      };
+      
+      setTotalBudget(newTotalBudget);
+      onUpdate(updatedData);
+      if (onBudgetUpdate) onBudgetUpdate(updatedData);
     }
+  };
 
-    const updatedCategories = [...budgetData.categories, newCategoryName.trim()];
+  const addCategory = () => {
+    // Find a unique empty key by checking existing keys
+    let newCategoryName = '';
+    let suffix = '';
+    while (budgetData.categories.includes(newCategoryName)) {
+      suffix = suffix === '' ? '1' : (parseInt(suffix) + 1).toString();
+      newCategoryName = suffix;
+    }
+    
+    const updatedCategories = [...budgetData.categories, newCategoryName];
     const updatedBreakdown = {
       ...budgetData.breakdown,
-      [newCategoryName.trim()]: { amount: 0, percentage: 0 }
+      [newCategoryName]: { amount: 0, percentage: 0 }
     };
     const updatedPercentages = [...budgetData.percentages, 0];
 
@@ -140,7 +201,6 @@ window.SmartBudgetBreakdown = function SmartBudgetBreakdown({ budgetData, onUpda
 
     onUpdate(updatedData);
     if (onBudgetUpdate) onBudgetUpdate(updatedData);
-    setNewCategoryName('');
   };
 
   const removeCategory = (category) => {
@@ -214,97 +274,71 @@ window.SmartBudgetBreakdown = function SmartBudgetBreakdown({ budgetData, onUpda
 
         {/* Right: Scrollable Inputs List (Compact Rows) */}
         <div className="overflow-y-auto pr-2 h-full">
-            {budgetData.categories.length === 0 ? (
-              <div className="flex flex-col gap-2">
-                {/* Template row showing input format */}
-                <div className="flex items-center justify-between py-1.5 border-b border-gray-50 hover:bg-gray-50 transition-colors rounded px-1">
-                    {/* Label Part - Category name input */}
-                    <div className="flex items-center gap-2 overflow-hidden flex-1">
-                        <div className="w-2 h-2 rounded-full flex-shrink-0 bg-gray-300"></div>
-                        <input 
-                          type="text" 
-                          value={newCategoryName}
-                          onChange={(e) => setNewCategoryName(e.target.value)}
-                          onKeyPress={(e) => {
-                            if (e.key === 'Enter') {
-                              addCategory();
-                            }
-                          }}
-                          placeholder="Category name"
-                          className="flex-1 px-2 py-0 text-xs border-0 bg-transparent outline-none placeholder-gray-400"
-                        />
-                        <span className="text-[10px] text-slate-400 ml-1">0%</span>
-                    </div>
+            <div className="flex flex-col gap-2">
+              {/* Existing categories */}
+              {budgetData.categories.map((cat, idx) => {
+                  const item = budgetData.breakdown[cat] || { amount: 0 };
+                  const percent = budgetData.percentages[idx] || 0;
+                  const color = colors[idx % colors.length];
 
-                    {/* Amount Input */}
-                    <div className="flex items-center gap-1">
-                      <div className="relative w-24 flex-shrink-0">
-                        <span className="absolute left-2 top-1/2 -translate-y-1/2 text-gray-400 text-[10px]">₱</span>
-                        <input 
-                          type="number" 
-                          placeholder="0"
-                          className="w-full pl-5 pr-2 py-1 bg-gray-50 border border-transparent hover:border-gray-200 focus:border-blue-400 focus:bg-white rounded text-xs font-medium text-right outline-none transition-all"
-                        />
-                      </div>
-                    </div>
-                </div>
-
-                {/* Add button */}
-                <button
-                  onClick={addCategory}
-                  className="w-full px-3 py-1 text-xs font-medium bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors flex items-center justify-center gap-1"
-                >
-                  <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4" />
-                  </svg>
-                  Add
-                </button>
-              </div>
-            ) : (
-              <div className="flex flex-col">
-                {budgetData.categories.map((cat, idx) => {
-                    const item = budgetData.breakdown[cat] || { amount: 0 };
-                    const percent = budgetData.percentages[idx] || 0;
-                    const color = colors[idx % colors.length];
-
-                    return (
-                      <div key={cat} className="group flex items-center justify-between py-1.5 border-b border-gray-50 last:border-0 hover:bg-gray-50 transition-colors rounded px-1">
-                          
-                          {/* Label Part */}
-                          <div className="flex items-center gap-2 overflow-hidden">
-                              <div className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: color }}></div>
-                              <div className="flex flex-col min-w-0">
-                                  <span className="text-xs font-semibold text-slate-700 truncate" title={cat}>{cat}</span>
-                                  <span className="text-[10px] text-slate-400">{percent}%</span>
-                              </div>
-                          </div>
-
-                          {/* Input Part with Delete Button */}
-                          <div className="flex items-center gap-1">
-                            <div className="relative w-24 flex-shrink-0">
-                              <span className="absolute left-2 top-1/2 -translate-y-1/2 text-gray-400 text-[10px]">₱</span>
-                              <input 
-                                type="number" 
-                                value={item.amount} 
-                                onChange={(e) => handleAmountChange(cat, e.target.value)}
-                                className="w-full pl-5 pr-2 py-1 bg-gray-50 border border-transparent hover:border-gray-200 focus:border-blue-400 focus:bg-white rounded text-xs font-medium text-right outline-none transition-all"
-                              />
+                  return (
+                    <div key={idx} className="group flex items-center justify-between py-1.5 border-b border-gray-50 hover:bg-gray-50 transition-colors rounded px-1">
+                        
+                        {/* Label Part - Editable */}
+                        <div className="flex items-center gap-2 overflow-hidden flex-1">
+                            <div className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: color }}></div>
+                            <div className="flex flex-col min-w-0 flex-1">
+                                <input
+                                  type="text"
+                                  value={cat}
+                                  onChange={(e) => updateCategory(idx, 'name', e.target.value)}
+                                  placeholder="Enter category name (e.g., Food, Venue)"
+                                  className="text-xs font-semibold text-slate-700 truncate bg-transparent border-0 outline-none px-0 py-0 w-full placeholder:text-slate-400 placeholder:font-normal"
+                                />
+                                <span className="text-[10px] text-slate-400">{percent}%</span>
                             </div>
-                            <button
-                              onClick={() => removeCategory(cat)}
-                              className="opacity-0 group-hover:opacity-100 p-1 text-red-500 hover:bg-red-50 rounded transition-all"
-                              title="Remove category"
-                            >
-                              <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                              </svg>
-                            </button>
+                        </div>
+
+                        {/* Input Part with Delete Button */}
+                        <div className="flex items-center gap-1">
+                          <div className="relative w-24 flex-shrink-0">
+                            <span className="absolute left-2 top-1/2 -translate-y-1/2 text-gray-400 text-[10px]">₱</span>
+                            <input 
+                              type="number" 
+                              value={item.amount || ''} 
+                              onChange={(e) => updateCategory(idx, 'amount', e.target.value)}
+                              placeholder="0"
+                              className="w-full pl-5 pr-2 py-1 bg-gray-50 border border-transparent hover:border-gray-200 focus:border-blue-400 focus:bg-white rounded text-xs font-medium text-right outline-none transition-all placeholder:text-slate-400"
+                            />
                           </div>
-                      </div>
-                    );
-                })}
-              </div>
-            )}
+                          <button
+                            onClick={() => removeCategory(cat)}
+                            disabled={budgetData.categories.length <= 1}
+                            className="opacity-0 group-hover:opacity-100 p-1 text-red-500 hover:bg-red-50 rounded transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                            title="Remove category"
+                          >
+                            <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                            </svg>
+                          </button>
+                        </div>
+                    </div>
+                  );
+              })}
+            </div>
+            
+            {/* Add Category Button */}
+            <div className="mt-3">
+              <button 
+                onClick={addCategory}
+                className="w-full py-2.5 px-4 bg-white hover:bg-gray-50 border border-gray-300 hover:border-gray-400 rounded-lg text-gray-700 hover:text-gray-900 font-medium text-sm transition-all flex items-center justify-center gap-2"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4" />
+                </svg>
+                Add Category
+              </button>
+            </div>
         </div>
       </div>
     </div>

@@ -14,6 +14,7 @@ from database.db import get_db
 from datetime import datetime
 import logging
 import traceback
+import json
 
 logger = logging.getLogger(__name__)
 
@@ -195,16 +196,58 @@ def get_events():
                    e.status,
                    e.description,
                    e.venue,
-                   COALESCE(b.total_budget, 0) as budget,
+                   e.budget,
+                   e.equipment,
+                   e.timeline,
+                   e.budget_breakdown,
+                   e.additional_resources,
+                   e.organizing_department,
                    COALESCE(e.organizer, CONCAT(u.first_name, ' ', u.last_name)) as organizer,
                    u.username as requestor_username,
                    e.requestor_id
             FROM events e
             JOIN users u ON e.requestor_id = u.id
-            LEFT JOIN budgets b ON e.id = b.event_id
             WHERE e.deleted_at IS NULL
         """
         params = []
+        
+        # Department-based filtering:
+        # - Admin: See only their department's events (department-specific)
+        # - Staff: See ALL events (they manage equipment/venues for everyone)
+        # - Super Admin: See ALL events (unrestricted access)
+        # - Requestor: See only their own events
+        # - Participant: See only their department's events (based on student course)
+        user_department = session.get('department')
+        user_role = session.get('role_name')
+        user_id = session.get('user_id')
+        
+        if user_role == 'Admin' and user_department:
+            # Admin is department-restricted
+            query += " AND e.organizing_department = %s"
+            params.append(user_department)
+            logger.info(f"Filtering events for Admin department: {user_department}")
+        elif user_role == 'Requestor':
+            # Requestors see only their own events
+            query += " AND e.requestor_id = %s"
+            params.append(user_id)
+            logger.info(f"Filtering events for requestor: {user_id}")
+        elif user_role == 'Participant':
+            # Students/Participants see only their department's events
+            # Get student's course from students table
+            student = db.execute_one(
+                "SELECT course FROM students WHERE user_id = %s",
+                (user_id,)
+            )
+            if student and student.get('course'):
+                query += " AND e.organizing_department = %s"
+                params.append(student['course'])
+                logger.info(f"Filtering events for Participant department: {student['course']}")
+            else:
+                # If student record not found, show only approved events as fallback
+                query += " AND e.status = 'Approved'"
+                logger.info(f"Participant has no department, showing only Approved events")
+            logger.info(f"Filtering events for requestor: {session['user_id']}")
+        # Super Admin and Staff - no filter, see all events
         
         # Apply filters
         if request.args.get('status'):
@@ -224,7 +267,7 @@ def get_events():
         
         events = db.execute_query(query, tuple(params))
         
-        # Convert Decimal types to float for JSON serialization
+        # Convert Decimal types to float and parse JSON columns
         for e in events:
             try:
                 if e.get('budget') is not None:
@@ -232,6 +275,58 @@ def get_events():
             except Exception as conversion_err:
                 logger.error(f"Error converting budget for event {e.get('id')}: {conversion_err}")
                 e['budget'] = 0.0
+            
+            # Parse JSON columns
+            try:
+                equipment_val = e.get('equipment')
+                if equipment_val is not None and equipment_val != '':
+                    e['equipment'] = json.loads(equipment_val) if isinstance(equipment_val, str) else equipment_val
+                else:
+                    e['equipment'] = []
+            except Exception as ex:
+                logger.error(f"Error parsing equipment for event {e.get('id')}: {ex}")
+                e['equipment'] = []
+            
+            try:
+                timeline_val = e.get('timeline')
+                if timeline_val is not None and timeline_val != '':
+                    timeline_data = json.loads(timeline_val) if isinstance(timeline_val, str) else timeline_val
+                    e['activities'] = timeline_data  # Map timeline to activities for frontend
+                    if 'timeline' in e:
+                        del e['timeline']  # Remove timeline key
+                else:
+                    e['activities'] = []
+            except Exception as ex:
+                logger.error(f"Error parsing timeline for event {e.get('id')}: {ex}")
+                e['activities'] = []
+            
+            try:
+                breakdown_val = e.get('budget_breakdown')
+                if breakdown_val is not None and breakdown_val != '':
+                    e['budget_breakdown'] = json.loads(breakdown_val) if isinstance(breakdown_val, str) else breakdown_val
+                else:
+                    e['budget_breakdown'] = {}
+            except Exception as ex:
+                logger.error(f"Error parsing budget_breakdown for event {e.get('id')}: {ex}")
+                e['budget_breakdown'] = {}
+            
+            try:
+                resources_val = e.get('additional_resources')
+                if resources_val is not None and resources_val != '':
+                    e['additional_resources'] = json.loads(resources_val) if isinstance(resources_val, str) else resources_val
+                else:
+                    e['additional_resources'] = []
+            except Exception as ex:
+                logger.error(f"Error parsing additional_resources for event {e.get('id')}: {ex}")
+                e['additional_resources'] = []
+        
+        # DEBUG: Log what we're returning for event 12
+        for e in events:
+            if e.get('id') == 12:
+                logger.info(f"DEBUG Event 12 data being returned:")
+                logger.info(f"  equipment: {e.get('equipment')}")
+                logger.info(f"  activities: {e.get('activities')}")
+                logger.info(f"  budget_breakdown: {e.get('budget_breakdown')}")
         
         return jsonify({
             'success': True,
@@ -281,10 +376,14 @@ def get_event(event_id):
         if event.get('prediction_confidence') is not None:
             event['prediction_confidence'] = float(event['prediction_confidence'])
         
-        # Get related data
-        event['equipment'] = get_event_equipment(db, event_id)
-        event['activities'] = get_event_activities(db, event_id)
-        event['budget_breakdown'] = get_budget_breakdown(db, event_id)
+        # Parse JSON columns (equipment, timeline, budget_breakdown are already in event)
+        import json
+        if event.get('equipment') and isinstance(event['equipment'], str):
+            event['equipment'] = json.loads(event['equipment'])
+        if event.get('timeline') and isinstance(event['timeline'], str):
+            event['activities'] = json.loads(event['timeline'])  # Map timeline to activities for frontend
+        if event.get('budget_breakdown') and isinstance(event['budget_breakdown'], str):
+            event['budget_breakdown'] = json.loads(event['budget_breakdown'])
         
         # Check for conflicts
         if event.get('venue') and event.get('start_datetime') and event.get('end_datetime'):
@@ -356,11 +455,42 @@ def create_event():
         
         # Insert event
         db = get_db()
+        
+        # Convert equipment and timeline to JSON
+        import json
+        equipment_json = json.dumps(data.get('equipment', [])) if data.get('equipment') else None
+        timeline_json = json.dumps(data.get('activities', [])) if data.get('activities') else None
+        budget_breakdown_json = json.dumps(data.get('budget_breakdown', {})) if data.get('budget_breakdown') else None
+        additional_resources_json = json.dumps(data.get('additional_resources', [])) if data.get('additional_resources') else None
+        
+        # Determine organizing department and status based on role
+        user_role = session.get('role_name')
+        user_department = session.get('department')
+        
+        # Get organizing_department from request or default to user's department
+        organizing_dept = data.get('organizing_department') or user_department
+        
+        # Role-based initial status:
+        # - Admin/Super Admin: Auto-approve (status='Approved')
+        # - Requestor: Needs approval (status='Pending')
+        if user_role in ['Super Admin', 'Admin']:
+            initial_status = 'Approved'
+        else:
+            initial_status = 'Pending'
+        
+        logger.info(f"Creating event with JSON data:")
+        logger.info(f"  Equipment: {equipment_json}")
+        logger.info(f"  Activities/Timeline: {timeline_json}")
+        logger.info(f"  Budget Breakdown: {budget_breakdown_json}")
+        logger.info(f"  Organizing Department: {organizing_dept}")
+        logger.info(f"  Initial Status: {initial_status} (Role: {user_role})")
+        
         query = """
             INSERT INTO events (
                 name, event_type, description, start_datetime, end_datetime,
-                venue, organizer, expected_attendees, status, requestor_id
-            ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                venue, organizer, expected_attendees, budget, equipment, timeline, budget_breakdown, additional_resources,
+                organizing_department, status, requestor_id
+            ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
         """
         event_id = db.execute_insert(query, (
             data['name'],
@@ -371,21 +501,18 @@ def create_event():
             data.get('venue', ''),
             data.get('organizer', ''),
             data.get('expected_attendees', 0),
-            data.get('status', 'Pending'),
+            data.get('budget', 0),
+            equipment_json,
+            timeline_json,
+            budget_breakdown_json,
+            additional_resources_json,
+            organizing_dept,
+            initial_status,
             session['user_id']
         ))
         
-        # Insert budget and related data
-        if data.get('budget'):
-            db.execute_insert(
-                "INSERT INTO budgets (event_id, total_budget, is_ai_predicted, prediction_confidence) VALUES (%s, %s, %s, %s)",
-                (event_id, data['budget'], data.get('is_ai_predicted', False), data.get('prediction_confidence'))
-            )
-            save_budget_breakdown(db, event_id, data.get('budget_breakdown', {}))
-        
-        # Save equipment, activities
-        save_event_equipment(db, event_id, data.get('equipment', []))
-        save_event_activities(db, event_id, data.get('activities', []))
+        # Note: No need to call save_budget_breakdown, save_event_equipment, save_event_activities
+        # Everything is stored as JSON in the events table
         
         # Log status history
         history_query = """
@@ -394,9 +521,9 @@ def create_event():
         """
         db.execute_insert(history_query, (
             event_id,
-            data.get('status', 'Pending'),
+            initial_status,
             session['user_id'],
-            'Event created'
+            f'Event created by {user_role}'
         ))
         
         logger.info(f"Event created: ID={event_id}, Name={data['name']}, User={session['username']}")
@@ -441,15 +568,42 @@ def update_event(event_id):
         update_fields = []
         params = []
         
+        import json
+        
         allowed_fields = [
             'name', 'event_type', 'description', 'start_datetime', 'end_datetime',
-            'venue', 'organizer', 'expected_attendees', 'status'
+            'venue', 'organizer', 'expected_attendees', 'budget', 'status', 'organizing_department'
         ]
         
         for field in allowed_fields:
             if field in data:
                 update_fields.append(f"{field} = %s")
                 params.append(data[field])
+        
+        # Handle JSON fields
+        if 'equipment' in data:
+            update_fields.append("equipment = %s")
+            equipment_json = json.dumps(data['equipment']) if data['equipment'] else None
+            params.append(equipment_json)
+            logger.info(f"Saving equipment: {equipment_json}")
+        
+        if 'activities' in data:
+            update_fields.append("timeline = %s")
+            activities_json = json.dumps(data['activities']) if data['activities'] else None
+            params.append(activities_json)
+            logger.info(f"Saving activities to timeline: {activities_json}")
+            
+        if 'budget_breakdown' in data:
+            update_fields.append("budget_breakdown = %s")
+            breakdown_json = json.dumps(data['budget_breakdown']) if data['budget_breakdown'] else None
+            params.append(breakdown_json)
+            logger.info(f"Saving budget_breakdown: {breakdown_json}")
+        
+        if 'additional_resources' in data:
+            update_fields.append("additional_resources = %s")
+            resources_json = json.dumps(data['additional_resources']) if data['additional_resources'] else None
+            params.append(resources_json)
+            logger.info(f"Saving additional_resources: {resources_json}")
         
         if not update_fields:
             return jsonify({'error': 'No fields to update'}), 400
@@ -460,28 +614,6 @@ def update_event(event_id):
         
         query = f"UPDATE events SET {', '.join(update_fields)} WHERE id = %s"
         db.execute_update(query, tuple(params))
-        
-        # Update budget if provided
-        if 'budget' in data:
-            budget_exists = db.execute_one(
-                "SELECT id FROM budgets WHERE event_id = %s",
-                (event_id,)
-            )
-            
-            if budget_exists:
-                db.execute_update(
-                    "UPDATE budgets SET total_budget = %s, updated_at = NOW() WHERE event_id = %s",
-                    (data['budget'], event_id)
-                )
-            else:
-                db.execute_insert(
-                    "INSERT INTO budgets (event_id, total_budget) VALUES (%s, %s)",
-                    (event_id, data['budget'])
-                )
-
-        # Update activities timeline if provided
-        if 'activities' in data:
-            save_event_activities(db, event_id, data.get('activities') or [])
         
         # Log status change if status updated
         if 'status' in data and data['status'] != event['status']:
@@ -773,3 +905,147 @@ def get_approved_events():
     except Exception as e:
         logger.error(f"Get approved events error: {e}")
         return jsonify({'error': 'Failed to fetch approved events'}), 500
+
+
+@events_bp.route('/<int:event_id>/acknowledge-equipment', methods=['POST'])
+@require_role(['Super Admin', 'Admin', 'Staff', 'Student'])
+def acknowledge_equipment(event_id):
+    """
+    Acknowledge equipment approval adjustments
+    POST /api/events/<event_id>/acknowledge-equipment
+    Body: { "action": "accept", "message": "..." }
+    """
+    try:
+        data = request.get_json()
+        action = data.get('action', 'accept')
+        message = data.get('message', '')
+        user_id = session.get('user_id')
+
+        if not user_id:
+            return jsonify({'error': 'Unauthorized'}), 401
+
+        db = get_db()
+
+        # Verify the event exists and user is the requestor
+        event = db.execute_query(
+            "SELECT e.*, u.username, u.first_name, u.last_name FROM events e JOIN users u ON e.requestor_id = u.id WHERE e.id = %s AND e.deleted_at IS NULL",
+            (event_id,)
+        )
+        
+        if not event:
+            return jsonify({'error': 'Event not found'}), 404
+
+        event = event[0]
+
+        # Mark all equipment_adjusted notifications for this event as read
+        db.execute_update(
+            """UPDATE notifications 
+               SET is_read = 1 
+               WHERE event_id = %s 
+               AND user_id = %s 
+               AND type = 'equipment_adjusted'""",
+            (event_id, user_id)
+        )
+
+        # Update event to add a note about acknowledgment
+        current_description = event.get('description') or ''
+        acknowledgment_note = f"\n\n--- Equipment Acknowledgment ---\nOrganizer has accepted the adjusted equipment quantities on {datetime.now().strftime('%Y-%m-%d %H:%M')}."
+        
+        db.execute_update(
+            "UPDATE events SET description = %s WHERE id = %s",
+            ((current_description + acknowledgment_note), event_id)
+        )
+
+        # Notify admins that organizer has accepted the equipment adjustments
+        admin_users = db.execute_query(
+            """SELECT u.id FROM users u
+               JOIN roles r ON u.role_id = r.id
+               WHERE r.name IN ('Super Admin', 'Admin', 'Staff') 
+               AND u.is_active = 1"""
+        )
+
+        organizer_name = f"{event.get('first_name', '')} {event.get('last_name', '')}".strip() or event.get('username', 'Organizer')
+        admin_notification_title = f"Equipment Acknowledged - {event['name']}"
+        admin_notification_msg = f"{organizer_name} has accepted the adjusted equipment for '{event['name']}'. The event will proceed with the approved equipment."
+
+        for admin in admin_users:
+            db.execute_insert(
+                """INSERT INTO notifications (user_id, event_id, type, title, message, created_at)
+                   VALUES (%s, %s, %s, %s, %s, NOW())""",
+                (admin['id'], event_id, 'status_update', admin_notification_title, admin_notification_msg)
+            )
+
+        logger.info(f"User {user_id} acknowledged equipment for event {event_id}: {action}")
+
+        return jsonify({
+            'success': True,
+            'message': 'Equipment adjustments acknowledged'
+        }), 200
+
+    except Exception as e:
+        logger.error(f"Acknowledge equipment error: {e}")
+        logger.error(traceback.format_exc())
+        return jsonify({'error': str(e)}), 500
+        return jsonify({'error': 'Failed to acknowledge equipment adjustments'}), 500
+
+
+@events_bp.route('/<int:event_id>/equipment-inquiry', methods=['POST'])
+@require_role(['Super Admin', 'Admin', 'Staff', 'Student'])
+def equipment_inquiry(event_id):
+    """
+    Send inquiry/request about equipment to administrators
+    POST /api/events/<event_id>/equipment-inquiry
+    Body: { "action": "request_alternatives", "message": "..." }
+    """
+    try:
+        data = request.get_json()
+        action = data.get('action', 'inquiry')
+        message = data.get('message', '')
+        user_id = session.get('user_id')
+
+        if not user_id:
+            return jsonify({'error': 'Unauthorized'}), 401
+
+        if not message.strip():
+            return jsonify({'error': 'Message is required'}), 400
+
+        db = get_db()
+
+        # Verify the event exists
+        event = db.execute_query(
+            "SELECT name, requestor_id FROM events WHERE id = %s AND deleted_at IS NULL",
+            (event_id,)
+        )
+        
+        if not event:
+            return jsonify({'error': 'Event not found'}), 404
+
+        event = event[0]
+
+        # Get admin users to send notification to
+        admins = db.execute_query(
+            """SELECT u.id FROM users u
+               JOIN roles r ON u.role_id = r.id
+               WHERE r.name IN ('Super Admin', 'Admin', 'Staff') 
+               AND u.is_active = 1"""
+        )
+
+        # Create notifications for all admins
+        notification_title = "Equipment Inquiry - " + event['name']
+        for admin in admins:
+            db.execute_insert(
+                """INSERT INTO notifications (user_id, event_id, type, title, message, created_at)
+                   VALUES (%s, %s, %s, %s, %s, NOW())""",
+                (admin['id'], event_id, 'general', notification_title, message)
+            )
+
+        logger.info(f"User {user_id} sent equipment inquiry for event {event_id}")
+
+        return jsonify({
+            'success': True,
+            'message': 'Your inquiry has been sent to administrators'
+        }), 200
+
+    except Exception as e:
+        logger.error(f"Equipment inquiry error: {e}")
+        return jsonify({'error': 'Failed to send inquiry'}), 500

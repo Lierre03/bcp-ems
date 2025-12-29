@@ -58,7 +58,7 @@ def get_users():
     try:
         db = get_db()
         users = db.execute_query('''
-            SELECT u.id, u.username, u.first_name, u.last_name, u.email, u.is_active, r.name as role_name
+            SELECT u.id, u.username, u.first_name, u.last_name, u.email, u.is_active, u.department, r.name as role_name
             FROM users u
             JOIN roles r ON u.role_id = r.id
             ORDER BY u.created_at DESC
@@ -73,7 +73,8 @@ def get_users():
                 'full_name': full_name,
                 'email': user['email'] or '',
                 'status': 'active' if user['is_active'] else 'inactive',
-                'role_name': user['role_name']
+                'role_name': user['role_name'],
+                'department': user.get('department') or None
             })
         
         return jsonify({'success': True, 'users': user_list})
@@ -94,6 +95,10 @@ def create_user():
         full_name = data.get('full_name', '')
         email = data.get('email', '')
         role = data.get('role', 'Requestor')
+        # Department handling: NULL for Super Admin/Staff, actual value for Admin/Requestor
+        department = data.get('department')
+        if not department or department.strip() == '':
+            department = None
         password = data.get('password')
         
         if not username or not password:
@@ -121,9 +126,9 @@ def create_user():
         
         # Insert user
         db.execute_insert('''
-            INSERT INTO users (username, password_hash, first_name, last_name, email, role_id, is_active)
-            VALUES (%s, %s, %s, %s, %s, %s, 1)
-        ''', (username, hashed_password, first_name, last_name, email, role_id))
+            INSERT INTO users (username, password_hash, first_name, last_name, email, role_id, department, is_active)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, 1)
+        ''', (username, hashed_password, first_name, last_name, email, role_id, department))
         
         return jsonify({'success': True, 'message': 'User created successfully'})
     except Exception as e:
@@ -142,6 +147,10 @@ def update_user(user_id):
         full_name = data.get('full_name', '')
         email = data.get('email', '')
         role = data.get('role')
+        # Department handling: NULL for Super Admin/Staff, actual value for Admin/Requestor
+        department = data.get('department')
+        if not department or department.strip() == '':
+            department = None
         password = data.get('password')
         
         if not role:
@@ -166,15 +175,15 @@ def update_user(user_id):
             hashed_password = hash_password(password)
             db.execute_update('''
                 UPDATE users 
-                SET first_name = %s, last_name = %s, email = %s, role_id = %s, password_hash = %s
+                SET first_name = %s, last_name = %s, email = %s, role_id = %s, department = %s, password_hash = %s
                 WHERE id = %s
-            ''', (first_name, last_name, email, role_id, hashed_password, user_id))
+            ''', (first_name, last_name, email, role_id, department, hashed_password, user_id))
         else:
             db.execute_update('''
                 UPDATE users 
-                SET first_name = %s, last_name = %s, email = %s, role_id = %s
+                SET first_name = %s, last_name = %s, email = %s, role_id = %s, department = %s
                 WHERE id = %s
-            ''', (first_name, last_name, email, role_id, user_id))
+            ''', (first_name, last_name, email, role_id, department, user_id))
         
         return jsonify({'success': True, 'message': 'User updated successfully'})
     except Exception as e:

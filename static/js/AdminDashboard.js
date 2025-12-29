@@ -1,17 +1,46 @@
 // AdminDashboard - Main dashboard component (Reusable)
 const { useState, useEffect } = React;
 const Sidebar = window.Sidebar;
+const NotificationBell = window.NotificationBell;
+const EquipmentApprovalReview = window.EquipmentApprovalReview;
 
 window.AdminDashboard = function AdminDashboard() {
   const [user, setUser] = useState(null);
-  const [activeView, setActiveView] = useState('events'); // 'events', 'resources', or 'users'
+  // Load last active view from localStorage, default to 'events'
+  const [activeView, setActiveView] = useState(() => {
+    return localStorage.getItem('adminActiveView') || 'events';
+  });
+  const [eventIdToOpen, setEventIdToOpen] = useState(null);
+  const [equipmentReviewEventId, setEquipmentReviewEventId] = useState(null);
 
   useEffect(() => {
     const userJson = localStorage.getItem('user');
     if (userJson) {
       setUser(JSON.parse(userJson));
     }
+    
+    // Set up global function for opening events from notifications
+    window.openEventForReview = (eventId) => {
+      setActiveView('events');
+      setEventIdToOpen(eventId);
+    };
+    
+    // Set up global function for opening equipment review
+    window.openEquipmentReview = (eventId) => {
+      setActiveView('equipment-review');
+      setEquipmentReviewEventId(eventId);
+    };
+    
+    return () => {
+      delete window.openEventForReview;
+      delete window.openEquipmentReview;
+    };
   }, []);
+
+  // Save active view to localStorage whenever it changes
+  useEffect(() => {
+    localStorage.setItem('adminActiveView', activeView);
+  }, [activeView]);
 
   const handleLogout = async () => {
     try {
@@ -62,25 +91,35 @@ window.AdminDashboard = function AdminDashboard() {
       />
 
       <div className="flex-1 flex flex-col overflow-hidden">
-        <header className="bg-white border-b border-gray-200 px-6 py-3 shadow-sm">
-          <p className="text-blue-600 text-xs font-medium mb-0.5">Admin Dashboard</p>
-          <h1 className="text-2xl font-bold text-gray-900">
-            {activeView === 'events' ? 'Events Manager' :
-             activeView === 'ai-training' ? 'AI Training Center' :
-             activeView === 'resources' ? 'Resource Management' : 'User Management'}
-          </h1>
-          <p className="text-gray-500 text-xs mt-1">
-            {activeView === 'events' ? 'Create, manage, and track all school events' :
-             activeView === 'ai-training' ? 'Train and optimize your event planning AI' :
-             activeView === 'resources' ? 'Manage venues, equipment, and view schedules' :
-             'Manage system users and permissions'}
-          </p>
+        <header className="bg-white border-b border-gray-200 px-6 py-3 shadow-sm relative">
+          <div className="flex justify-between items-start">
+            <div className="flex-1">
+              <p className="text-blue-600 text-xs font-medium mb-0.5">Admin Dashboard</p>
+              <h1 className="text-2xl font-bold text-gray-900">
+                {activeView === 'events' ? 'Events Manager' :
+                 activeView === 'ai-training' ? 'AI Training Center' :
+                 activeView === 'resources' ? 'Resource Management' :
+                 activeView === 'equipment-review' ? 'Equipment Approval Review' : 'User Management'}
+              </h1>
+              <p className="text-gray-500 text-xs mt-1">
+                {activeView === 'events' ? 'Create, manage, and track all school events' :
+                 activeView === 'ai-training' ? 'Train and optimize your event planning AI' :
+                 activeView === 'resources' ? 'Manage venues, equipment, and view schedules' :
+                 activeView === 'equipment-review' ? 'Review and respond to equipment approval adjustments' :
+                 'Manage system users and permissions'}
+              </p>
+            </div>
+            <div className="flex items-center">
+              <NotificationBell />
+            </div>
+          </div>
         </header>
 
         <main className="flex-1 overflow-y-auto p-4">
-          {activeView === 'events' && <AdminEventsManager />}
+          {activeView === 'events' && <AdminEventsManager eventIdToOpen={eventIdToOpen} />}
           {activeView === 'ai-training' && <AITrainingDashboard />}
           {activeView === 'resources' && <ResourceManagement userRole={user ? user.role_name : 'Admin'} />}
+          {activeView === 'equipment-review' && <EquipmentApprovalReview eventId={equipmentReviewEventId} onClose={() => setActiveView('events')} />}
           {activeView === 'users' && <UserManagement />}
         </main>
       </div>

@@ -1,7 +1,7 @@
 // AdminEventsManager - Main events management component (Reusable)
 const { useState, useEffect } = React;
 
-window.AdminEventsManager = function AdminEventsManager() {
+window.AdminEventsManager = function AdminEventsManager({ eventIdToOpen }) {
   const [events, setEvents] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
@@ -9,6 +9,7 @@ window.AdminEventsManager = function AdminEventsManager() {
   const [sortBy, setSortBy] = useState('date');
   const [filterStatus, setFilterStatus] = useState('All');
   const [filterType, setFilterType] = useState('All');
+  const [filterDepartment, setFilterDepartment] = useState('All');
   const [searchTerm, setSearchTerm] = useState('');
   const [aiSuggestions, setAiSuggestions] = useState(null);
   const [aiLoading, setAiLoading] = useState(false);
@@ -19,6 +20,7 @@ window.AdminEventsManager = function AdminEventsManager() {
   const [activeEquipmentTab, setActiveEquipmentTab] = useState('Audio & Visual');
   const [checkedActivities, setCheckedActivities] = useState([]);
   const [checkedResources, setCheckedResources] = useState([]);
+  const [activeModalTab, setActiveModalTab] = useState('details'); // Track which tab is active in modal
   const [formData, setFormData] = useState({
     name: '', type: 'Academic', date: '', endDate: '', startTime: '09:00', endTime: '17:00',
     venue: 'Auditorium', equipment: [], attendees: '', budget: '', organizer: '',
@@ -78,6 +80,16 @@ window.AdminEventsManager = function AdminEventsManager() {
     fetchEquipmentOptions(); // Load dynamic equipment on mount
     checkModelStatus(); // Check if AI models are ready
   }, [sortBy, filterStatus, filterType]);
+  
+  // Open event when triggered from notification
+  useEffect(() => {
+    if (eventIdToOpen && events.length > 0) {
+      const event = events.find(e => e.id === eventIdToOpen);
+      if (event) {
+        handleEditEvent(event);
+      }
+    }
+  }, [eventIdToOpen, events]);
 
   // Check AI model status on mount
   const checkModelStatus = async () => {
@@ -197,7 +209,13 @@ window.AdminEventsManager = function AdminEventsManager() {
       venue: 'Auditorium', equipment: [], attendees: '', budget: '', organizer: '',
       status: 'Pending', description: '', activities: [], additionalResources: []
     });
+    setCheckedResources([]);
+    setCheckedActivities([]);
+    setBudgetData(null);
+    setTimelineData(null);
+    setResourceData(null);
     setAiSuggestions(null);
+    setActiveModalTab('details');
     setShowModal(true);
   };
 
@@ -215,46 +233,102 @@ window.AdminEventsManager = function AdminEventsManager() {
       attendees: event.attendees || '',
       budget: event.budget || '',
       organizer: event.organizer || '',
+      organizing_department: event.organizing_department || '',
       status: event.status || 'Planning',
       description: event.description || '',
       activities: event.activities || [],
 
-      additionalResources: event.additionalResources || []
+      additionalResources: event.additional_resources || []
     });
+
+    // Load budget breakdown if exists
+    if (event.budget_breakdown) {
+      // Convert budget_breakdown object to the format expected by SmartBudgetBreakdown
+      const categories = Object.keys(event.budget_breakdown);
+      const breakdown = event.budget_breakdown;
+      const percentages = categories.map(cat => breakdown[cat]?.percentage || 0);
+      
+      setBudgetData({
+        totalBudget: event.budget || 0,
+        categories,
+        breakdown,
+        percentages
+      });
+    } else {
+      setBudgetData(null);
+    }
 
     // Generate timeline data from activities if they exist
     if (event.activities && event.activities.length > 0) {
       const timeline = event.activities.map((activity, index) => {
-        // Parse activity format: "09:00 - 10:00: Phase Name"
-        const timeMatch = activity.match(/^(\d{2}:\d{2})\s*-\s*(\d{2}:\d{2}):\s*(.+)$/);
-        if (timeMatch) {
-          const [, startTime, endTime, phase] = timeMatch;
-          const start = new Date(`2000-01-01T${startTime}`);
-          const end = new Date(`2000-01-01T${endTime}`);
-          const duration = Math.round((end - start) / (1000 * 60)); // minutes
-
+        // Check if activity is already in the correct timeline format (object with phase)
+        if (typeof activity === 'object' && activity.phase) {
+          return activity;
+        }
+        
+        // Check if activity is in the stored JSON format (object with activity_name, startTime, etc.)
+        if (typeof activity === 'object' && activity.activity_name) {
+          // Extract phase name from activity_name (format: "09:00 - 10:00: Phase Name")
+          const timeMatch = activity.activity_name.match(/^(\d{2}:\d{2})\s*-\s*(\d{2}:\d{2}):\s*(.+)$/);
+          const phaseName = timeMatch ? timeMatch[3].trim() : activity.activity_name;
+          
           return {
-            phase: phase.trim(),
-            startTime,
-            endTime,
-            duration,
-            description: `${phase.trim()} phase`
-          };
-        } else {
-          // Fallback for activities without time format
-          return {
-            phase: activity,
-            startTime: '09:00',
-            endTime: '10:00',
-            duration: 60,
-            description: activity
+            phase: phaseName,
+            startTime: activity.startTime || '09:00',
+            endTime: activity.endTime || '10:00',
+            duration: activity.duration || 60,
+            description: activity.description || phaseName
           };
         }
+        
+        // Handle string format: "09:00 - 10:00: Phase Name"
+        if (typeof activity === 'string') {
+          const timeMatch = activity.match(/^(\d{2}:\d{2})\s*-\s*(\d{2}:\d{2}):\s*(.+)$/);
+          if (timeMatch) {
+            const [, startTime, endTime, phase] = timeMatch;
+            const start = new Date(`2000-01-01T${startTime}`);
+            const end = new Date(`2000-01-01T${endTime}`);
+            const duration = Math.round((end - start) / (1000 * 60)); // minutes
+
+            return {
+              phase: phase.trim(),
+              startTime,
+              endTime,
+              duration,
+              description: `${phase.trim()} phase`
+            };
+          } else {
+            // Fallback for activities without time format
+            return {
+              phase: activity,
+              startTime: '09:00',
+              endTime: '10:00',
+              duration: 60,
+              description: activity
+            };
+          }
+        }
+        
+        // Final fallback
+        return {
+          phase: 'Unknown',
+          startTime: '09:00',
+          endTime: '10:00',
+          duration: 60,
+          description: 'Unknown activity'
+        };
       });
 
       setTimelineData({ timeline });
     } else {
       setTimelineData(null);
+    }
+
+    // Set checkedResources from event's additional_resources (backend uses snake_case)
+    if (event.additional_resources && Array.isArray(event.additional_resources)) {
+      setCheckedResources(event.additional_resources);
+    } else {
+      setCheckedResources([]);
     }
 
     setAiSuggestions(null);
@@ -272,6 +346,17 @@ window.AdminEventsManager = function AdminEventsManager() {
       const startDt = `${formData.date} ${formData.startTime}:00`;
       const endDt = `${formData.endDate || formData.date} ${formData.endTime}:00`;
 
+      // Filter out empty categories from budget breakdown
+      const filteredBudgetBreakdown = {};
+      if (budgetData?.breakdown) {
+        Object.entries(budgetData.breakdown).forEach(([category, details]) => {
+          // Only include categories with a name and non-zero amount
+          if (category.trim() && details.amount > 0) {
+            filteredBudgetBreakdown[category] = details;
+          }
+        });
+      }
+
       const eventData = {
         name: formData.name,
         event_type: formData.type,
@@ -279,16 +364,22 @@ window.AdminEventsManager = function AdminEventsManager() {
         end_datetime: endDt,
         venue: formData.venue || '',
         organizer: formData.organizer || '',
+        organizing_department: formData.organizing_department || '',
         description: formData.description || '',
         expected_attendees: parseInt(formData.attendees) || 0,
         budget: parseFloat(formData.budget) || 0,
         requestor_id: user.id || 1,
         equipment: formData.equipment || [],
         activities: formData.activities || [],
-        budget_breakdown: budgetData?.breakdown || {},
+        budget_breakdown: filteredBudgetBreakdown,
 
-        additional_resources: formData.additionalResources || []
+        additional_resources: checkedResources || []
       };
+
+      console.log('=== Saving Event Data ===');
+      console.log('formData.additionalResources (available options):', formData.additionalResources);
+      console.log('checkedResources (selected items):', checkedResources);
+      console.log('eventData.additional_resources:', eventData.additional_resources);
 
       const endpoint = editingId ? `/api/events/${editingId}` : '/api/events';
       const method = editingId ? 'PUT' : 'POST';
@@ -302,7 +393,7 @@ window.AdminEventsManager = function AdminEventsManager() {
 
       if (res.ok) {
         alert(`Event ${editingId ? 'updated' : 'created'} successfully`);
-        loadEvents();
+        fetchEvents();
         setShowModal(false);
         setAiSuggestions(null);
       } else {
@@ -397,6 +488,11 @@ window.AdminEventsManager = function AdminEventsManager() {
           updatedFormData = { ...updatedFormData, equipment: combinedEquipment };
         }
 
+        if (aiData.additionalResources && aiData.additionalResources.length > 0) {
+          // Set AI-suggested additional resources
+          updatedFormData = { ...updatedFormData, additionalResources: aiData.additionalResources };
+        }
+
         if (aiData.eventType && aiData.eventType !== formData.type) {
           updatedFormData = { ...updatedFormData, type: aiData.eventType };
         }
@@ -471,6 +567,9 @@ window.AdminEventsManager = function AdminEventsManager() {
 
         setFormData(updatedFormData);
 
+        // Switch to budget tab to show AI suggestions
+        setActiveModalTab('budget');
+
       } else {
         alert('AI analysis failed. Please try again.');
       }
@@ -490,9 +589,12 @@ window.AdminEventsManager = function AdminEventsManager() {
   };
 
   const toggleAdditionalResource = (item) => {
-    setCheckedResources(prev => 
-      prev.includes(item) ? prev.filter(r => r !== item) : [...prev, item]
-    );
+    console.log('toggleAdditionalResource called with:', item);
+    const newResources = checkedResources.includes(item)
+      ? checkedResources.filter(r => r !== item)
+      : [...checkedResources, item];
+    console.log('New checkedResources:', newResources);
+    setCheckedResources(newResources);
   };
 
   const handleDeleteEvent = async (id) => {
@@ -528,8 +630,9 @@ window.AdminEventsManager = function AdminEventsManager() {
   let filteredEvents = events.filter(e => {
     const matchStatus = filterStatus === 'All' || e.status === filterStatus;
     const matchType = filterType === 'All' || (e.event_type || e.type) === filterType;
+    const matchDepartment = filterDepartment === 'All' || e.organizing_department === filterDepartment;
     const matchSearch = e.name.toLowerCase().includes(searchTerm.toLowerCase());
-    return matchStatus && matchType && matchSearch;
+    return matchStatus && matchType && matchDepartment && matchSearch;
   });
 
   if (sortBy === 'date') filteredEvents.sort((a, b) => new Date(a.start_datetime || a.date) - new Date(b.start_datetime || b.date));
@@ -575,7 +678,7 @@ window.AdminEventsManager = function AdminEventsManager() {
           </button>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
           <input
             type="text"
             placeholder="Search events..."
@@ -606,6 +709,34 @@ window.AdminEventsManager = function AdminEventsManager() {
             <option>Cultural</option>
           </select>
           <select
+            value={filterDepartment}
+            onChange={(e) => setFilterDepartment(e.target.value)}
+            className="px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+          >
+            <option value="All">All Departments</option>
+            <optgroup label="IT & Engineering">
+              <option value="BSIT">BSIT</option>
+              <option value="BSCpE">BSCpE</option>
+              <option value="BSIS">BSIS</option>
+            </optgroup>
+            <optgroup label="Business & Management">
+              <option value="BSBA">BSBA</option>
+              <option value="BSOA">BSOA</option>
+              <option value="BSHRM">BSHRM</option>
+              <option value="BSTM">BSTM</option>
+              <option value="BSAct">BSAct</option>
+            </optgroup>
+            <optgroup label="Education & Arts">
+              <option value="BEEd">BEEd</option>
+              <option value="BSEd">BSEd</option>
+              <option value="BTTE">BTTE</option>
+              <option value="BLIS">BLIS</option>
+              <option value="BSPsych">BSPsych</option>
+              <option value="BSCrim">BSCrim</option>
+            </optgroup>
+            <option value="General">General/Cross-Dept</option>
+          </select>
+          <select
             value={sortBy}
             onChange={(e) => setSortBy(e.target.value)}
             className="px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
@@ -624,6 +755,7 @@ window.AdminEventsManager = function AdminEventsManager() {
             <tr>
               <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider">Event Name</th>
               <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider">Type</th>
+              <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider">Department</th>
               <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider">Schedule</th>
               <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider">Budget</th>
               <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider">Status</th>
@@ -657,6 +789,17 @@ window.AdminEventsManager = function AdminEventsManager() {
                     }`}>
                       {event.event_type || event.type}
                     </span>
+                  </td>
+                  <td className="px-4 py-3.5">
+                    <div className="text-xs text-slate-600 font-medium">
+                      {event.organizing_department ? (
+                        <span className="inline-flex items-center px-2 py-1 rounded-md bg-purple-50 text-purple-700 border border-purple-200">
+                          {event.organizing_department}
+                        </span>
+                      ) : (
+                        <span className="text-slate-400">—</span>
+                      )}
+                    </div>
                   </td>
                   <td className="px-4 py-3.5">
                     <div className="space-y-1">
@@ -756,6 +899,7 @@ window.AdminEventsManager = function AdminEventsManager() {
           toggleEquipment={toggleEquipment}
           toggleActivity={toggleActivity}
           toggleAdditionalResource={toggleAdditionalResource}
+          setCheckedResources={setCheckedResources}
           handleBudgetUpdate={handleBudgetUpdate}
           handleEquipmentUpdate={handleEquipmentUpdate}
           setAiSuggestions={setAiSuggestions}
@@ -765,6 +909,8 @@ window.AdminEventsManager = function AdminEventsManager() {
           budgetEstimate={budgetEstimate}
           lastAIRequest={lastAIRequest}
           hasEnoughData={hasEnoughData}
+          activeTab={activeModalTab}
+          onTabChange={setActiveModalTab}
         />
       )}
     </div>

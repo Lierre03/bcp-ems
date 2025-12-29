@@ -36,9 +36,14 @@ def save_event_activities(db, event_id, activities_list):
     if not activities_list or not isinstance(activities_list, list):
         return
     
+    # First, clear existing activities for this event (for updates)
+    db.execute_update("DELETE FROM event_activities WHERE event_id = %s", (event_id,))
+    
     query = "INSERT INTO event_activities (event_id, activity_name, sequence_order) VALUES (%s, %s, %s)"
     for idx, activity in enumerate(activities_list):
-        db.execute_insert(query, (event_id, activity, idx))
+        # Handle both string names and objects
+        name = activity['activity_name'] if isinstance(activity, dict) else activity
+        db.execute_insert(query, (event_id, name, idx))
 
 
 def save_budget_breakdown(db, event_id, breakdown):
@@ -46,8 +51,14 @@ def save_budget_breakdown(db, event_id, breakdown):
     if not breakdown or not isinstance(breakdown, dict):
         return
     
+    # First, clear existing breakdown for this event (for updates)
+    db.execute_update("DELETE FROM budget_breakdown WHERE event_id = %s", (event_id,))
+    
     query = "INSERT INTO budget_breakdown (event_id, category, amount, percentage) VALUES (%s, %s, %s, %s)"
     for category, details in breakdown.items():
+        # Skip empty categories with no amount
+        if not category and details.get('amount', 0) == 0:
+            continue
         db.execute_insert(query, (
             event_id,
             category,
@@ -71,8 +82,7 @@ def get_event_equipment(db, event_id):
         return []
     
     # Return objects with name and quantity to match frontend expectations
-    # Frontend expects: { equipment_name: "Projector", quantity: 1 }
-    return [{'equipment_name': row['equipment_name'], 'quantity': row['quantity']} for row in rows]
+    return [{'name': row['equipment_name'], 'quantity': row['quantity']} for row in rows]
 
 
 def get_event_activities(db, event_id):

@@ -69,7 +69,7 @@ def login():
         
         query = """
             SELECT u.id, u.username, u.email, u.password_hash, u.first_name, u.last_name,
-                   u.is_active, r.id as role_id, r.name as role_name
+                   u.is_active, u.department, r.id as role_id, r.name as role_name
             FROM users u
             JOIN roles r ON u.role_id = r.id
             WHERE u.username = %s
@@ -99,6 +99,7 @@ def login():
         session['username'] = user['username']
         session['role_id'] = user['role_id']
         session['role_name'] = user['role_name']
+        session['department'] = user.get('department')  # NULL for Super Admin
         session['full_name'] = f"{user['first_name']} {user['last_name']}"
         
         print(f"DEBUG: Session created successfully")

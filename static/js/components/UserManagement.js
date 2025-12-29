@@ -13,6 +13,7 @@ window.UserManagement = function UserManagement() {
     full_name: '',
     email: '',
     role: 'Requestor',
+    department: '',
     password: ''
   });
 
@@ -21,6 +22,13 @@ window.UserManagement = function UserManagement() {
   useEffect(() => {
     loadUsers();
   }, []);
+
+  // Auto-clear department when Super Admin or Staff is selected
+  useEffect(() => {
+    if (formData.role === 'Super Admin' || formData.role === 'Staff') {
+      setFormData(prev => ({ ...prev, department: '' }));
+    }
+  }, [formData.role]);
 
   const loadUsers = async () => {
     setLoading(true);
@@ -44,6 +52,7 @@ window.UserManagement = function UserManagement() {
       full_name: '',
       email: '',
       role: 'Requestor',
+      department: '',
       password: ''
     });
     setShowModal(true);
@@ -56,6 +65,7 @@ window.UserManagement = function UserManagement() {
       full_name: user.full_name,
       email: user.email || '',
       role: user.role_name,
+      department: user.department || '',
       password: ''
     });
     setShowModal(true);
@@ -64,6 +74,12 @@ window.UserManagement = function UserManagement() {
   const handleSaveUser = async () => {
     if (!formData.username || !formData.full_name || !formData.role) {
       alert('Please fill in all required fields');
+      return;
+    }
+
+    // Validate department for Admin role
+    if (formData.role === 'Admin' && !formData.department) {
+      alert('Please select a department for Admin users');
       return;
     }
 
@@ -191,6 +207,7 @@ window.UserManagement = function UserManagement() {
               <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider">User</th>
               <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider">Email</th>
               <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider">Role</th>
+              <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider">Department</th>
               <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider">Status</th>
               <th className="px-4 py-3 text-center text-xs font-semibold uppercase tracking-wider">Actions</th>
             </tr>
@@ -219,6 +236,15 @@ window.UserManagement = function UserManagement() {
                   }`}>
                     {user.role_name}
                   </span>
+                </td>
+                <td className="px-4 py-3.5">
+                  {user.department ? (
+                    <span className="inline-flex items-center px-2 py-1 rounded-md text-xs font-medium bg-purple-50 text-purple-700 border border-purple-200">
+                      {user.department}
+                    </span>
+                  ) : (
+                    <span className="text-xs text-slate-400">—</span>
+                  )}
                 </td>
                 <td className="px-4 py-3.5">
                   <span className={`inline-flex items-center px-2.5 py-1 rounded-md text-xs font-medium ${
@@ -337,6 +363,47 @@ window.UserManagement = function UserManagement() {
                     <option key={role} value={role}>{role}</option>
                   ))}
                 </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-semibold text-slate-700 mb-1">
+                  Department {formData.role === 'Admin' ? '*' : ''}
+                </label>
+                <select 
+                  value={formData.department}
+                  onChange={(e) => setFormData({...formData, department: e.target.value})}
+                  disabled={formData.role === 'Super Admin' || formData.role === 'Staff'}
+                  className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm disabled:bg-slate-100 disabled:text-slate-500"
+                >
+                  <option value="">{formData.role === 'Super Admin' ? 'All Departments (Unrestricted)' : formData.role === 'Staff' ? 'All Departments (Equipment/Venue Manager)' : 'Select Department'}</option>
+                  <optgroup label="Information Technology & Engineering">
+                    <option value="BSIT">BS Information Technology (BSIT)</option>
+                    <option value="BSCpE">BS Computer Engineering (BSCpE)</option>
+                    <option value="BSIS">BS Information Systems (BSIS)</option>
+                  </optgroup>
+                  <optgroup label="Business & Management">
+                    <option value="BSBA">BS Business Administration (BSBA)</option>
+                    <option value="BSOA">BS Office Administration (BSOA)</option>
+                    <option value="BSHRM">BS Hotel & Restaurant Mgt (BSHRM)</option>
+                    <option value="BSTM">BS Tourism Management (BSTM)</option>
+                    <option value="BSAct">BS Accounting Technology (BSAct)</option>
+                  </optgroup>
+                  <optgroup label="Education & Arts">
+                    <option value="BEEd">BS Elementary Education (BEEd)</option>
+                    <option value="BSEd">BS Secondary Education (BSEd)</option>
+                    <option value="BTTE">BS Technical Teacher Educ (BTTE)</option>
+                    <option value="BLIS">Bachelor of Library & Info Sci (BLIS)</option>
+                    <option value="BSPsych">BS Psychology (BSPsych)</option>
+                    <option value="BSCrim">BS Criminology (BSCrim)</option>
+                  </optgroup>
+                  <option value="General">General/Cross-Department</option>
+                </select>
+                <p className="mt-1 text-xs text-slate-500">
+                  {formData.role === 'Super Admin' && 'Super Admin has unrestricted access to all departments'}
+                  {formData.role === 'Admin' && 'Admin will only see events from their assigned department'}
+                  {formData.role === 'Staff' && 'Staff manages equipment/venues for ALL events (no department restriction)'}
+                  {formData.role === 'Requestor' && 'Optional: Assign department for organizational purposes'}
+                </p>
               </div>
 
               <div>

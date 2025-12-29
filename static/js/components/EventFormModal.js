@@ -6,20 +6,44 @@ window.EventFormModal = function EventFormModal({
   checkedActivities, checkedResources,
   equipmentCategories, venueOptions,
   handleAutoFill, handleSaveEvent, setShowModal, toggleEquipment,
-  toggleActivity, toggleAdditionalResource,
+  toggleActivity, toggleAdditionalResource, setCheckedResources,
   handleBudgetUpdate, handleEquipmentUpdate, setAiSuggestions, setBudgetData, setTimelineData,
-  modelStatus, budgetEstimate, lastAIRequest, hasEnoughData
+  modelStatus, budgetEstimate, lastAIRequest, hasEnoughData, activeTab: parentActiveTab, onTabChange
 }) {
   // Manual input states
   const [manualResources, setManualResources] = React.useState([]);
-  const [activeTab, setActiveTab] = React.useState('details');
+  const [activeTab, setActiveTab] = React.useState(parentActiveTab || 'details');
+  
+  // Sync activeTab with parent when parentActiveTab changes
+  React.useEffect(() => {
+    if (parentActiveTab) {
+      setActiveTab(parentActiveTab);
+    }
+  }, [parentActiveTab]);
+  
+  // Notify parent when activeTab changes
+  const handleTabChange = (tabId) => {
+    setActiveTab(tabId);
+    if (onTabChange) onTabChange(tabId);
+  };
+  
+  // Sync manualResources to parent checkedResources
+  React.useEffect(() => {
+    if (setCheckedResources && manualResources.length >= 0) {
+      // Extract just the names from manualResources and update checkedResources
+      const resourceNames = manualResources.map(r => r.name).filter(name => name && name.trim());
+      setCheckedResources(resourceNames);
+    }
+  }, [manualResources, setCheckedResources]);
   
   // LOCAL budget state - isolated from parent's AI data to prevent auto-fill in the form
   const [userBudgetData, setUserBudgetData] = React.useState({
     totalBudget: 0,
-    categories: [],
-    breakdown: {},
-    percentages: []
+    categories: [''],
+    breakdown: {
+      '': { amount: 0, percentage: 0 }
+    },
+    percentages: [0]
   });
   
   // LOCAL timeline state - isolated from parent's AI data to prevent auto-fill in the form
@@ -30,30 +54,83 @@ window.EventFormModal = function EventFormModal({
 
   // LOCAL equipment state - isolated from parent's AI data to prevent auto-fill in the form
   const [userEquipmentData, setUserEquipmentData] = React.useState({
-    equipment: []
+    equipment: [] // Array of {name: string, quantity: number}
   });
   
   // Initialize on component mount or when event ID changes
   React.useEffect(() => {
-    // Reset local user budget to empty on new event
-    setUserBudgetData({
-      totalBudget: formData.budget || 0,
-      categories: [],
-      breakdown: {},
-      percentages: []
+    // If we're editing and have budgetData, use it. Otherwise start fresh
+    if (budgetData && Object.keys(budgetData.breakdown || {}).length > 0) {
+      setUserBudgetData(budgetData);
+    } else {
+      // Reset local user budget to one empty category on new event
+      setUserBudgetData({
+        totalBudget: formData.budget || 0,
+        categories: [''],
+        breakdown: {
+          '': { amount: 0, percentage: 0 }
+        },
+        percentages: [0]
+      });
+    }
+    
+    // If we're editing and have timelineData, use it. Otherwise start fresh
+    if (timelineData && timelineData.timeline && timelineData.timeline.length > 0) {
+      setUserTimelineData(timelineData);
+    } else {
+      // Reset local user timeline to empty on new event
+      setUserTimelineData({
+        timeline: [],
+        totalDuration: 0
+      });
+    }
+
+    // Reset local user equipment to empty on new event (we don't have equipment data passed yet)
+    setUserEquipmentData({
+      equipment: formData.equipment || []
     });
     
-    // Reset local user timeline to empty on new event
-    setUserTimelineData({
-      timeline: [],
-      totalDuration: 0
-    });
-
-    // Reset local user equipment to empty on new event
-    setUserEquipmentData({
-      equipment: []
-    });
-  }, [editingId]); // Only re-initialize on new event
+    // Initialize manualResources from checkedResources when editing
+    if (checkedResources && checkedResources.length > 0) {
+      setManualResources(checkedResources.map(name => ({ name, description: '' })));
+    } else {
+      setManualResources([]);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [editingId]); // Only re-initialize when editing a different event
+  
+  // Sync userBudgetData to parent budgetData
+  React.useEffect(() => {
+    if (handleBudgetUpdate && userBudgetData) {
+      handleBudgetUpdate(userBudgetData);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [userBudgetData]); // Only depend on userBudgetData, not the callback
+  
+  // Sync userEquipmentData to parent formData.equipment
+  React.useEffect(() => {
+    if (handleEquipmentUpdate && userEquipmentData.equipment) {
+      handleEquipmentUpdate(userEquipmentData.equipment);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [userEquipmentData]); // Only depend on userEquipmentData, not the callback
+  
+  // Sync userTimelineData to parent formData.activities
+  React.useEffect(() => {
+    if (setFormData && userTimelineData.timeline) {
+      // Convert timeline phases to activity format for the backend
+      const activities = userTimelineData.timeline
+        .filter(phase => phase.phase && phase.phase.trim()) // Only include phases with names
+        .map(phase => ({
+          activity_name: `${phase.startTime || ''} - ${phase.endTime || ''}: ${phase.phase}`,
+          description: phase.description || '',
+          startTime: phase.startTime || '',
+          endTime: phase.endTime || '',
+          duration: phase.duration || 0
+        }));
+      setFormData(prev => ({ ...prev, activities }));
+    }
+  }, [userTimelineData, setFormData]);
   
   // We use ReactDOM.createPortal to render the modal at the document body level.
   const portalTarget = document.body;
@@ -110,7 +187,7 @@ window.EventFormModal = function EventFormModal({
       >
         
         {/* CREATE EVENT MODAL */}
-        <div className="bg-white rounded-xl overflow-hidden shadow-2xl flex flex-col flex-1 max-w-7xl h-[750px] max-h-[90vh]">
+        <div className="bg-white rounded-xl overflow-hidden shadow-2xl flex flex-col flex-1 max-w-5xl h-[750px] max-h-[90vh]">
           {/* Header */}
           <div className="bg-gradient-to-r from-blue-700 to-blue-600 px-6 py-4 flex-shrink-0 flex justify-between items-center">
             <h2 className="text-lg font-bold text-white tracking-wide">{editingId ? 'Edit Event' : 'Create New Event'}</h2>
@@ -124,7 +201,7 @@ window.EventFormModal = function EventFormModal({
             {tabs.map(tab => (
               <button
                 key={tab.id}
-                onClick={() => setActiveTab(tab.id)}
+                onClick={() => handleTabChange(tab.id)}
                 className={`flex-1 py-3 text-sm font-medium flex items-center justify-center gap-2 transition-colors relative ${
                   activeTab === tab.id 
                     ? 'text-blue-700 bg-white' 
@@ -266,7 +343,7 @@ window.EventFormModal = function EventFormModal({
                                   typeof item === 'string' ? item : item.name
                                 );
                                 const selectedCount = categoryItems.filter(itemName =>
-                                  userEquipmentData.equipment.includes(itemName)
+                                  userEquipmentData.equipment.some(eq => eq.name === itemName)
                                 ).length;
 
                                 return (
@@ -290,41 +367,76 @@ window.EventFormModal = function EventFormModal({
                               })}
                             </div>
 
-                            <div className="p-3 max-h-[150px] overflow-y-auto custom-scrollbar">
-                              <div className="flex flex-wrap gap-2">
+                            <div className="p-3 space-y-2">
+                              {/* Equipment category selection as buttons */}
+                              <div className="flex flex-wrap gap-2 pb-2 border-b border-gray-200">
                                 {equipmentCategories[currentTab].map(item => {
                                   const itemName = typeof item === 'string' ? item : item.name;
-                                  const isChecked = userEquipmentData.equipment.includes(itemName);
+                                  const existingEquipment = userEquipmentData.equipment.find(eq => eq.name === itemName);
                                   const isAISuggested = aiResourceNames.includes(itemName);
                                   return (
                                     <button
                                       key={itemName}
                                       onClick={() => {
-                                        if (isChecked) {
+                                        if (existingEquipment) {
                                           setUserEquipmentData({
-                                            equipment: userEquipmentData.equipment.filter(e => e !== itemName)
+                                            equipment: userEquipmentData.equipment.filter(e => e.name !== itemName)
                                           });
                                         } else {
                                           setUserEquipmentData({
-                                            equipment: [...userEquipmentData.equipment, itemName]
+                                            equipment: [...userEquipmentData.equipment, { name: itemName, quantity: 1 }]
                                           });
                                         }
                                       }}
                                       className={`px-3 py-1.5 rounded-md text-xs border font-medium transition flex items-center gap-1.5 ${
-                                        isChecked
+                                        existingEquipment
                                           ? 'bg-blue-600 text-white border-blue-600 shadow-sm'
                                           : isAISuggested
                                           ? 'bg-green-50 text-green-700 border-green-200 hover:bg-green-100 dashed-border'
                                           : 'bg-white border-gray-200 text-gray-600 hover:bg-gray-50 hover:border-gray-300'
                                       }`}
                                     >
-                                      {isChecked && <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M5 13l4 4L19 7" /></svg>}
-                                      {isAISuggested && !isChecked && <svg className="w-3 h-3 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>}
+                                      {existingEquipment && <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M5 13l4 4L19 7" /></svg>}
+                                      {isAISuggested && !existingEquipment && <svg className="w-3 h-3 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>}
                                       {itemName}
                                     </button>
                                   );
                                 })}
                               </div>
+                              
+                              {/* Selected equipment with quantity inputs */}
+                              {userEquipmentData.equipment.length > 0 && (
+                                <div className="space-y-2 max-h-[120px] overflow-y-auto custom-scrollbar">
+                                  <label className="block text-xs font-medium text-gray-600 mb-1">Selected Equipment</label>
+                                  {userEquipmentData.equipment.map((item, index) => (
+                                    <div key={index} className="flex gap-2 items-center bg-slate-50 p-2 rounded border border-slate-200">
+                                      <span className="flex-1 text-xs text-slate-700 font-medium">{item.name}</span>
+                                      <input
+                                        type="number"
+                                        placeholder="Qty"
+                                        min="1"
+                                        value={item.quantity}
+                                        onChange={(e) => {
+                                          const newEquipment = [...userEquipmentData.equipment];
+                                          newEquipment[index].quantity = parseInt(e.target.value) || 1;
+                                          setUserEquipmentData({ equipment: newEquipment });
+                                        }}
+                                        className="w-16 px-2 py-1 border border-gray-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-blue-500"
+                                      />
+                                      <button
+                                        type="button"
+                                        onClick={() => {
+                                          const newEquipment = userEquipmentData.equipment.filter((_, i) => i !== index);
+                                          setUserEquipmentData({ equipment: newEquipment });
+                                        }}
+                                        className="px-2 py-1 bg-red-500 text-white rounded text-xs hover:bg-red-600"
+                                      >
+                                        ✕
+                                      </button>
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
                             </div>
                           </div>
                         );
@@ -359,6 +471,37 @@ window.EventFormModal = function EventFormModal({
                         <div>
                           <label className="block text-xs font-medium text-gray-600 mb-1">Organizer</label>
                           <input type="text" value={formData.organizer} onChange={(e) => setFormData({...formData, organizer: e.target.value})} placeholder="Organizer name" className="w-full px-2 py-2 border border-gray-300 rounded text-sm text-gray-700 bg-gray-50 focus:bg-white" />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-medium text-gray-600 mb-1">Organizing Department</label>
+                          <select 
+                            value={formData.organizing_department || ''} 
+                            onChange={(e) => setFormData({...formData, organizing_department: e.target.value})} 
+                            className="w-full px-2 py-2 border border-gray-300 rounded text-sm text-gray-700 bg-gray-50 focus:bg-white transition-colors"
+                          >
+                            <option value="">Select Department</option>
+                            <optgroup label="Information Technology & Engineering">
+                              <option value="BSIT">BS Information Technology (BSIT)</option>
+                              <option value="BSCpE">BS Computer Engineering (BSCpE)</option>
+                              <option value="BSIS">BS Information Systems (BSIS)</option>
+                            </optgroup>
+                            <optgroup label="Business & Management">
+                              <option value="BSBA">BS Business Administration (BSBA)</option>
+                              <option value="BSOA">BS Office Administration (BSOA)</option>
+                              <option value="BSHRM">BS Hotel & Restaurant Mgt (BSHRM)</option>
+                              <option value="BSTM">BS Tourism Management (BSTM)</option>
+                              <option value="BSAct">BS Accounting Technology (BSAct)</option>
+                            </optgroup>
+                            <optgroup label="Education & Arts">
+                              <option value="BEEd">BS Elementary Education (BEEd)</option>
+                              <option value="BSEd">BS Secondary Education (BSEd)</option>
+                              <option value="BTTE">BS Technical Teacher Educ (BTTE)</option>
+                              <option value="BLIS">Bachelor of Library & Info Sci (BLIS)</option>
+                              <option value="BSPsych">BS Psychology (BSPsych)</option>
+                              <option value="BSCrim">BS Criminology (BSCrim)</option>
+                            </optgroup>
+                            <option value="General">General/Cross-Department</option>
+                          </select>
                         </div>
                         <div>
                           <label className="block text-xs font-medium text-gray-600 mb-1">Estimated Attendees</label>
@@ -468,7 +611,9 @@ window.EventFormModal = function EventFormModal({
 
                   <div className="flex-1">
                     <EventTimelineGenerator 
+                      key={JSON.stringify(userTimelineData.timeline)}
                       timelineData={userTimelineData} 
+                      initialEditMode={true}
                       onTimelineUpdate={(updatedTimeline) => {
                         setUserTimelineData(updatedTimeline);
                         const activities = updatedTimeline.timeline.map(phase =>
@@ -582,7 +727,10 @@ window.EventFormModal = function EventFormModal({
             <button onClick={() => setShowModal(false)} className="px-6 py-2.5 bg-white border border-gray-300 text-gray-700 rounded-lg text-sm font-semibold hover:bg-gray-50 transition shadow-sm">
               Cancel
             </button>
-            <button onClick={handleSaveEvent} className="px-8 py-2.5 bg-gray-900 text-white rounded-lg text-sm font-semibold hover:bg-black transition shadow-md">
+            <button onClick={handleSaveEvent} className="px-8 py-2.5 bg-gradient-to-r from-emerald-600 to-teal-600 text-white rounded-lg text-sm font-semibold hover:from-emerald-700 hover:to-teal-700 transition shadow-md flex items-center gap-2">
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
+              </svg>
               {editingId ? 'Update Event' : 'Create Event'}
             </button>
           </div>
@@ -704,15 +852,19 @@ window.EventFormModal = function EventFormModal({
                           key={category}
                           onClick={() => {
                             if (!isAlreadyAdded) {
-                              // Add this category to the user's budget
+                              // Add this category to the user's budget - create completely new objects
                               const newCategories = [...(userBudgetData.categories || []), category];
                               const newPercentages = [...(userBudgetData.percentages || []), data.percentage || 0];
+                              const newBreakdown = { ...(userBudgetData.breakdown || {}), [category]: { ...data } };
                               const updatedData = {
-                                ...userBudgetData,
+                                totalBudget: userBudgetData.totalBudget,
                                 categories: newCategories,
-                                percentages: newPercentages
+                                percentages: newPercentages,
+                                breakdown: newBreakdown
                               };
                               setUserBudgetData(updatedData);
+                              // Switch to budget tab after state updates
+                              setTimeout(() => handleTabChange('budget'), 10);
                             }
                           }}
                           className={`p-3 rounded-lg border-2 transition text-left ${
@@ -759,11 +911,19 @@ window.EventFormModal = function EventFormModal({
                     </h4>
                     <button
                       onClick={() => {
-                        setUserTimelineData({
-                          ...userTimelineData,
-                          timeline: [...userTimelineData.timeline, ...timelineData.timeline],
-                          totalDuration: (userTimelineData.totalDuration || 0) + (timelineData.totalDuration || 0)
+                        // Create new timeline array and sort by start time
+                        const newTimeline = [...userTimelineData.timeline, ...timelineData.timeline].sort((a, b) => {
+                          const timeA = a.startTime || '00:00';
+                          const timeB = b.startTime || '00:00';
+                          return timeA.localeCompare(timeB);
                         });
+                        const newTotalDuration = (userTimelineData.totalDuration || 0) + (timelineData.totalDuration || 0);
+                        setUserTimelineData({
+                          timeline: newTimeline,
+                          totalDuration: newTotalDuration
+                        });
+                        // Switch to timeline tab after state updates
+                        setTimeout(() => handleTabChange('timeline'), 10);
                       }}
                       className="text-xs font-bold text-purple-600 hover:text-purple-800 hover:bg-purple-50 px-2 py-1 rounded transition"
                     >
@@ -780,10 +940,18 @@ window.EventFormModal = function EventFormModal({
                           key={idx}
                           onClick={() => {
                             if (!isAlreadyAdded) {
-                              setUserTimelineData({
-                                ...userTimelineData,
-                                timeline: [...userTimelineData.timeline, phase]
+                              // Create a new timeline and sort by start time
+                              const newTimeline = [...userTimelineData.timeline, phase].sort((a, b) => {
+                                const timeA = a.startTime || '00:00';
+                                const timeB = b.startTime || '00:00';
+                                return timeA.localeCompare(timeB);
                               });
+                              setUserTimelineData({
+                                timeline: newTimeline,
+                                totalDuration: (userTimelineData.totalDuration || 0) + (phase.duration || 0)
+                              });
+                              // Switch to timeline tab after state updates
+                              setTimeout(() => handleTabChange('timeline'), 10);
                             }
                           }}
                           className={`p-3 rounded-lg border-2 transition text-left ${
@@ -826,10 +994,13 @@ window.EventFormModal = function EventFormModal({
                     </h4>
                     <button
                       onClick={() => {
-                        const aiEquipment = resourceData.checklist.Equipment.map(item => typeof item === 'string' ? item : (item.name || item));
-                        const uniqueEquipment = [...new Set([...userEquipmentData.equipment, ...aiEquipment])];
+                        const aiEquipment = resourceData.checklist.Equipment.map(item => {
+                          const itemName = typeof item === 'string' ? item : (item.name || item);
+                          const existingItem = userEquipmentData.equipment.find(eq => eq.name === itemName);
+                          return existingItem || { name: itemName, quantity: 1 };
+                        });
                         setUserEquipmentData({
-                          equipment: uniqueEquipment
+                          equipment: aiEquipment
                         });
                       }}
                       className="text-xs font-bold text-teal-600 hover:text-teal-800 hover:bg-teal-50 px-2 py-1 rounded transition"
@@ -842,14 +1013,14 @@ window.EventFormModal = function EventFormModal({
                   <div className="grid grid-cols-1 gap-2 max-h-64 overflow-y-auto custom-scrollbar">
                     {resourceData.checklist.Equipment.map((item, idx) => {
                       const itemName = typeof item === 'string' ? item : (item.name || item);
-                      const isAlreadyAdded = userEquipmentData.equipment.includes(itemName);
+                      const isAlreadyAdded = userEquipmentData.equipment.some(eq => eq.name === itemName);
                       return (
                         <button
                           key={idx}
                           onClick={() => {
                             if (!isAlreadyAdded) {
                               setUserEquipmentData({
-                                equipment: [...userEquipmentData.equipment, itemName]
+                                equipment: [...userEquipmentData.equipment, { name: itemName, quantity: 1 }]
                               });
                             }
                           }}

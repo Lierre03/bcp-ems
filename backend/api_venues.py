@@ -7,6 +7,7 @@ from flask import Blueprint, request, jsonify, session
 from backend.auth import require_role
 from database.db import get_db
 from datetime import datetime, timedelta
+import json
 import logging
 import traceback
 
@@ -380,45 +381,58 @@ def check_conflicts():
 @venues_bp.route('/requests', methods=['GET'])
 @require_role(['Super Admin', 'Admin', 'Staff'])
 def get_equipment_requests():
-    """Get all equipment requests grouped by event"""
+    """Get all equipment requests grouped by event - reads from events.equipment JSON column"""
     try:
         db = get_db()
         
-        # 1. Get all events that have equipment requests
+        # 1. Get all events that have equipment in their JSON column
         query = """
             SELECT 
-                e.id as event_id, e.name as event_name, e.start_datetime, e.created_at,
-                u.first_name, u.last_name,
-                ee.id as req_id, ee.equipment_name, ee.quantity, ee.status as req_status,
-                eq.category, eq.total_quantity
+                e.id as event_id, 
+                e.name as event_name, 
+                e.start_datetime, 
+                e.end_datetime,
+                e.created_at,
+                e.status as event_status,
+                e.equipment,
+                e.venue,
+                e.venue_approval_status,
+                e.equipment_approval_status,
+                u.first_name, 
+                u.last_name
             FROM events e
-            JOIN event_equipment ee ON e.id = ee.event_id
             JOIN users u ON e.requestor_id = u.id
-            LEFT JOIN equipment eq ON ee.equipment_name = eq.name
             WHERE e.deleted_at IS NULL
+            AND e.equipment IS NOT NULL
+            AND e.equipment != '[]'
+            AND e.equipment != 'null'
             ORDER BY e.start_datetime ASC
         """
         rows = db.execute_query(query)
         
-        # 2. Calculate availability for each item
-        # We need to know how many are used by OTHER approved/ongoing events at the SAME time
-        # For simplicity in MVP, we'll just check global usage or assume availability based on total - current usage
-        # A better approach is time-based availability, but that's complex.
-        # Let's stick to the "In Use" logic we used in get_equipment()
+        # 2. Get all equipment from the equipment table for availability calculation
+        equipment_query = "SELECT name, total_quantity, category FROM equipment"
+        equipment_rows = db.execute_query(equipment_query)
+        equipment_map = {row['name']: {'total': row['total_quantity'], 'category': row['category']} for row in equipment_rows}
         
-        usage_query = """
-            SELECT equipment_name, SUM(quantity) as used_qty
-            FROM event_equipment ee
-            JOIN events e ON ee.event_id = e.id
-            WHERE e.status IN ('Approved', 'Ongoing') 
-            AND e.deleted_at IS NULL
-            GROUP BY equipment_name
-        """
-        usage_rows = db.execute_query(usage_query)
-        usage_map = {row['equipment_name']: int(row['used_qty']) for row in usage_rows}
+        # 3. Calculate current usage across all approved/ongoing events
+        import json
+        usage_map = {}
+        for row in rows:
+            if row['event_status'] in ['Approved', 'Ongoing'] and row['equipment']:
+                try:
+                    equipment_list = json.loads(row['equipment']) if isinstance(row['equipment'], str) else row['equipment']
+                    if isinstance(equipment_list, list):
+                        for item in equipment_list:
+                            name = item.get('name')
+                            qty = item.get('quantity', 1)
+                            if name:
+                                usage_map[name] = usage_map.get(name, 0) + qty
+                except (json.JSONDecodeError, TypeError):
+                    pass
         
-        # 3. Group by Event
-        events_map = {}
+        # 4. Build response with events and their equipment
+        events_list = []
         stats = {
             'pending': 0,
             'approved': 0,
@@ -429,80 +443,85 @@ def get_equipment_requests():
         now = datetime.now()
         
         for row in rows:
-            evt_id = row['event_id']
-            if evt_id not in events_map:
-                # Calculate "Requested X days ago"
-                created_at = row['created_at']
-                days_ago = (now - created_at).days
-                time_ago = f"{days_ago} days ago" if days_ago > 0 else "Today"
+            # Parse equipment JSON
+            try:
+                equipment_list = json.loads(row['equipment']) if isinstance(row['equipment'], str) else row['equipment']
+                if not isinstance(equipment_list, list) or len(equipment_list) == 0:
+                    continue
+            except (json.JSONDecodeError, TypeError):
+                continue
+            
+            # Calculate "Requested X days ago"
+            created_at = row['created_at']
+            days_ago = (now - created_at).days
+            time_ago = f"{days_ago} days ago" if days_ago > 0 else "Today"
+            
+            # Build items list with availability
+            items = []
+            for item in equipment_list:
+                name = item.get('name')
+                requested_qty = item.get('quantity', 1)
                 
-                events_map[evt_id] = {
-                    'id': evt_id,
+                if name and name in equipment_map:
+                    total = equipment_map[name]['total']
+                    used = usage_map.get(name, 0)
+                    category = equipment_map[name]['category']
+                    
+                    # If this event is approved/under review, subtract its usage from the used count
+                    # to show the "available" correctly
+                    if row['event_status'] in ['Approved', 'Ongoing', 'Under Review']:
+                        available = total - (used - requested_qty)
+                    else:
+                        available = total - used
+                    
+                    # Determine item approval status based on event status
+                    # Pending = waiting for staff approval
+                    # Under Review or higher = staff has approved equipment
+                    item_status = 'Approved' if row['event_status'] in ['Approved', 'Ongoing', 'Under Review'] else 'Pending'
+                    
+                    items.append({
+                        'name': name,
+                        'category': category,
+                        'requested': requested_qty,
+                        'available': max(0, available),
+                        'status': item_status
+                    })
+            
+            if items:  # Only include events that have valid equipment items
+                event_obj = {
+                    'id': row['event_id'],
                     'name': row['event_name'],
                     'date': row['start_datetime'].isoformat(),
+                    'end_date': row['end_datetime'].isoformat() if row.get('end_datetime') else None,
+                    'venue': row.get('venue'),
+                    'venue_approval_status': row.get('venue_approval_status', 'Pending'),
+                    'equipment_approval_status': row.get('equipment_approval_status', 'Pending'),
                     'requestor': f"{row['first_name']} {row['last_name']}",
                     'requested_at': time_ago,
-                    'status': 'Pending', # Default, will update based on items
-                    'items': []
+                    'status': row['event_status'],  # Keep overall event status
+                    'items': items
                 }
+                
+                events_list.append(event_obj)
                 stats['total'] += 1
+                
+                # Count as approved if both venue and equipment are approved
+                venue_status = row.get('venue_approval_status', 'Pending')
+                equipment_status = row.get('equipment_approval_status', 'Pending')
+                
+                if venue_status == 'Approved' and equipment_status == 'Approved':
+                    stats['approved'] += 1
+                else:
+                    stats['pending'] += 1
                 
                 # Check if upcoming (next 7 days)
                 if 0 <= (row['start_datetime'] - now).days <= 7:
                     stats['upcoming'] += 1
             
-            # Calculate availability
-            # Available = Total - (Used by others)
-            # Note: If this event is already approved, its own usage is in usage_map.
-            # We should probably subtract it if we want "Available for THIS request"
-            # But for "Approval", we want to know if we CAN approve it.
-            
-            total = row['total_quantity'] or 0
-            used = usage_map.get(row['equipment_name'], 0)
-            
-            # If this request is NOT approved yet, 'used' doesn't include it.
-            # If it IS approved, 'used' includes it.
-            # We want to show how many are left.
-            
-            available = total - used
-            # If the request is already approved, we should add its quantity back to available 
-            # to show that "these are the ones you secured"
-            if row['req_status'] == 'Approved':
-                available += row['quantity']
-                
-            events_map[evt_id]['items'].append({
-                'id': row['req_id'],
-                'name': row['equipment_name'],
-                'category': row['category'] or 'General',
-                'requested': row['quantity'],
-                'available': max(0, available),
-                'status': row['req_status']
-            })
-            
-        # 4. Determine Event Request Status
-        # If ALL items are Approved -> Approved
-        # If ANY item is Rejected -> Rejected (or Partial)
-        # Else -> Pending
-        
-        final_events = []
-        for evt in events_map.values():
-            statuses = [item['status'] for item in evt['items']]
-            
-            if all(s == 'Approved' for s in statuses):
-                evt['status'] = 'Approved'
-                stats['approved'] += 1
-            elif any(s == 'Rejected' for s in statuses):
-                evt['status'] = 'Rejected'
-            else:
-                evt['status'] = 'Pending'
-                stats['pending'] += 1
-                
-            final_events.append(evt)
-            
         return jsonify({
             'success': True,
             'stats': stats,
-            'requests': final_events
+            'requests': events_list
         })
         
     except Exception as e:
@@ -515,49 +534,173 @@ def get_equipment_requests():
 @venues_bp.route('/requests/<int:event_id>/status', methods=['POST'])
 @require_role(['Super Admin', 'Admin', 'Staff'])
 def update_request_status(event_id):
-    """Update status of all equipment requests for an event"""
+    """Update venue or equipment approval status separately"""
     try:
         data = request.json
-        status = data.get('status') # 'Approved' or 'Rejected'
+        status = data.get('status')  # 'Approved' or 'Rejected'
+        approval_type = data.get('type')  # 'venue' or 'equipment'
         
         if status not in ['Approved', 'Rejected']:
             return jsonify({'error': 'Invalid status'}), 400
             
+        if approval_type not in ['venue', 'equipment']:
+            return jsonify({'error': 'Invalid type. Must be "venue" or "equipment"'}), 400
+            
         db = get_db()
         
-        # Update all items for this event
-        db.execute_update(
-            "UPDATE event_equipment SET status = %s WHERE event_id = %s",
-            (status, event_id)
+        # Get current event
+        event = db.execute_one(
+            "SELECT status, venue_approval_status, equipment_approval_status FROM events WHERE id = %s", 
+            (event_id,)
+        )
+        if not event:
+            return jsonify({'error': 'Event not found'}), 404
+        
+        old_event_status = event['status']
+        
+        # Update the specific approval status
+        if approval_type == 'venue':
+            db.execute_update(
+                "UPDATE events SET venue_approval_status = %s, updated_at = NOW() WHERE id = %s",
+                (status, event_id)
+            )
+            message = f'Venue {status.lower()} successfully'
+            log_reason = f'Venue {status.lower()} by Staff'
+        else:  # equipment
+            # If approving equipment, implement flexible approval (auto-adjust quantities)
+            if status == 'Approved':
+                # Get event's equipment JSON
+                event_full = db.execute_one(
+                    "SELECT equipment, requestor_id FROM events WHERE id = %s", 
+                    (event_id,)
+                )
+                
+                if event_full and event_full['equipment']:
+                    try:
+                        equipment_list = json.loads(event_full['equipment'])
+                        adjusted_equipment = []
+                        adjustments = []  # Track what was changed
+                        
+                        # Get all equipment from equipment table
+                        all_equipment = db.execute_query("SELECT name, total_quantity FROM equipment WHERE status = 'Available'")
+                        equipment_map = {eq['name']: eq['total_quantity'] for eq in all_equipment}
+                        
+                        # Calculate current usage (from Approved/Ongoing/Under Review events)
+                        usage_query = """
+                            SELECT equipment
+                            FROM events
+                            WHERE status IN ('Approved', 'Ongoing', 'Under Review')
+                            AND deleted_at IS NULL
+                            AND id != %s
+                        """
+                        usage_rows = db.execute_query(usage_query, (event_id,))
+                        
+                        usage_map = {}
+                        for row in usage_rows:
+                            try:
+                                eq_list = json.loads(row['equipment'] or '[]')
+                                for item in eq_list:
+                                    name = item.get('name')
+                                    qty = item.get('quantity', 0)
+                                    if name:
+                                        usage_map[name] = usage_map.get(name, 0) + qty
+                            except:
+                                continue
+                        
+                        # Process each equipment item
+                        for item in equipment_list:
+                            name = item.get('name')
+                            requested_qty = item.get('quantity', 0)
+                            
+                            if not name or requested_qty <= 0:
+                                continue
+                                
+                            # Calculate availability
+                            total_stock = equipment_map.get(name, 0)
+                            used_qty = usage_map.get(name, 0)
+                            available_qty = max(0, total_stock - used_qty)
+                            
+                            if available_qty >= requested_qty:
+                                # Fully available - approve as requested
+                                adjusted_equipment.append({'name': name, 'quantity': requested_qty})
+                            elif available_qty > 0:
+                                # Partially available - approve reduced quantity
+                                adjusted_equipment.append({'name': name, 'quantity': available_qty})
+                                adjustments.append(f"{name}: {available_qty}/{requested_qty} available")
+                            else:
+                                # Not available - skip this item
+                                adjustments.append(f"{name}: unavailable (requested {requested_qty})")
+                        
+                        # Update event with adjusted equipment
+                        if adjusted_equipment != equipment_list:
+                            db.execute_update(
+                                "UPDATE events SET equipment = %s WHERE id = %s",
+                                (json.dumps(adjusted_equipment), event_id)
+                            )
+                        
+                        # Create notification for requestor if adjustments were made
+                        if adjustments and event_full.get('requestor_id'):
+                            event_name = event_full.get('name', 'Your Event')
+                            notification_title = "Equipment Approval - Adjustments Made"
+                            notification_msg = (
+                                f"Your equipment request for '{event_name}' has been approved with adjustments:\n\n" +
+                                "\n".join(f"• {adj}" for adj in adjustments) +
+                                "\n\nPlease review the updated equipment list."
+                            )
+                            
+                            db.execute_insert(
+                                """INSERT INTO notifications (user_id, event_id, type, title, message, created_at)
+                                   VALUES (%s, %s, %s, %s, %s, NOW())""",
+                                (event_full['requestor_id'], event_id, 'equipment_adjusted', notification_title, notification_msg)
+                            )
+                        
+                    except (json.JSONDecodeError, Exception) as e:
+                        logger.error(f"Equipment adjustment error: {str(e)}")
+            
+            db.execute_update(
+                "UPDATE events SET equipment_approval_status = %s, updated_at = NOW() WHERE id = %s",
+                (status, event_id)
+            )
+            message = f'Equipment {status.lower()} successfully'
+            log_reason = f'Equipment {status.lower()} by Staff'
+        
+        # Get updated approval statuses
+        updated_event = db.execute_one(
+            "SELECT venue_approval_status, equipment_approval_status FROM events WHERE id = %s", 
+            (event_id,)
         )
         
-        # Update event status based on equipment approval
-        if status == 'Approved':
-            # Change event status to "Under Review" (Staff approved resources, awaiting Admin final approval)
-            db.execute_update(
-                "UPDATE events SET status = 'Under Review', updated_at = NOW() WHERE id = %s",
-                (event_id,)
-            )
-            # Log status history
-            db.execute_insert(
-                """INSERT INTO event_status_history (event_id, old_status, new_status, changed_by, reason)
-                   VALUES (%s, 'Pending', 'Under Review', %s, %s)""",
-                (event_id, session['user_id'], 'All equipment approved by Staff')
-            )
-        elif status == 'Rejected':
-            # Change event status to "Rejected" 
-            db.execute_update(
-                "UPDATE events SET status = 'Rejected', updated_at = NOW() WHERE id = %s",
-                (event_id,)
-            )
-            # Log status history
-            db.execute_insert(
-                """INSERT INTO event_status_history (event_id, old_status, new_status, changed_by, reason)
-                   VALUES (%s, 'Pending', 'Rejected', %s, %s)""",
-                (event_id, session['user_id'], 'Equipment request rejected by Staff')
-            )
+        # Update overall event status based on both approvals
+        new_event_status = old_event_status
         
-        return jsonify({'success': True, 'message': f'Requests {status}. Event status updated.'})
+        if status == 'Rejected':
+            # If either is rejected, reject the whole event
+            new_event_status = 'Rejected'
+            db.execute_update(
+                "UPDATE events SET status = %s WHERE id = %s",
+                (new_event_status, event_id)
+            )
+        elif updated_event['venue_approval_status'] == 'Approved' and updated_event['equipment_approval_status'] == 'Approved':
+            # Both approved - move to Under Review (awaiting admin final approval)
+            if old_event_status == 'Pending':
+                new_event_status = 'Under Review'
+                db.execute_update(
+                    "UPDATE events SET status = %s WHERE id = %s",
+                    (new_event_status, event_id)
+                )
+        
+        # Log status history if table exists and status changed
+        if new_event_status != old_event_status:
+            try:
+                db.execute_insert(
+                    """INSERT INTO event_status_history (event_id, old_status, new_status, changed_by, reason)
+                       VALUES (%s, %s, %s, %s, %s)""",
+                    (event_id, old_event_status, new_event_status, session.get('user_id'), log_reason)
+                )
+            except:
+                pass  # Table might not exist
+        
+        return jsonify({'success': True, 'message': message})
         
     except Exception as e:
         logger.error(f"Update status error: {str(e)}")

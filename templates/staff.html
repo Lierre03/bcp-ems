@@ -63,7 +63,7 @@
                 },
                 {
                     id: 'approvals',
-                    label: 'Equipment Approvals',
+                    label: 'Resource Approvals',
                     icon: <svg className="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
                 },
             ];
@@ -82,10 +82,10 @@
                         <header className="bg-white border-b border-gray-200 px-8 py-4 shadow-sm">
                             <p className="text-blue-600 text-sm font-medium mb-1">Staff Portal</p>
                             <p className="text-gray-500 text-sm mb-2">
-                                {activeView === 'scanner' ? 'Scan QR codes for attendance check-in' : activeView === 'approvals' ? 'Review and approve equipment requests for upcoming events' : 'Manage your staff operations'}
+                                {activeView === 'scanner' ? 'Scan QR codes for attendance check-in' : activeView === 'approvals' ? 'Review and approve venue & equipment requests for upcoming events' : 'Manage your staff operations'}
                             </p>
                             <h1 className="text-3xl font-bold text-gray-900">
-                                {activeView === 'scanner' ? 'QR Attendance Scanner' : activeView === 'approvals' ? 'Equipment Approvals' : 'Dashboard'}
+                                {activeView === 'scanner' ? 'QR Attendance Scanner' : activeView === 'approvals' ? 'Resource Approvals' : 'Dashboard'}
                             </h1>
                         </header>
 
