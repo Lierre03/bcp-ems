@@ -280,19 +280,31 @@ window.EventFormModal = function EventFormModal({
                           <option>Other</option>
                         </select>
                       </div>
-                      <div>
-                        <label className="block text-xs font-bold text-slate-700 mb-1.5">Status</label>
-                        <select 
-                          value={formData.status} 
-                          onChange={(e) => setFormData({...formData, status: e.target.value})} 
-                          className="w-full px-3 py-2.5 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white shadow-sm"
-                        >
-                          <option>Planning</option>
-                          <option>In Progress</option>
-                          <option>Completed</option>
-                          <option>Pending</option>
-                        </select>
-                      </div>
+                      {editingId ? (
+                        <div>
+                          <label className="block text-xs font-bold text-slate-700 mb-1.5">Current Status</label>
+                          <div className="w-full px-3 py-2.5 border border-slate-200 rounded-lg text-sm bg-slate-50 flex items-center gap-2">
+                            <div className={`w-2 h-2 rounded-full ${
+                              formData.status === 'Approved' ? 'bg-green-500' :
+                              formData.status === 'Pending' ? 'bg-yellow-500' :
+                              formData.status === 'Under Review' ? 'bg-blue-500' :
+                              formData.status === 'Ongoing' ? 'bg-purple-500' :
+                              formData.status === 'Completed' ? 'bg-teal-500' :
+                              formData.status === 'Rejected' ? 'bg-red-500' : 'bg-gray-400'
+                            }`}></div>
+                            <span className="font-medium text-slate-700">{formData.status}</span>
+                          </div>
+                          <p className="text-[10px] text-slate-500 mt-1">Status changes through approval workflow</p>
+                        </div>
+                      ) : (
+                        <div>
+                          <label className="block text-xs font-bold text-slate-700 mb-1.5">Submission Status</label>
+                          <div className="bg-blue-50 border border-blue-200 rounded-lg px-3 py-2">
+                            <p className="text-xs text-blue-900 font-medium">Auto-assigned on submission</p>
+                            <p className="text-[10px] text-blue-700 mt-0.5">Your event will be reviewed by the department</p>
+                          </div>
+                        </div>
+                      )}
                     </div>
 
                     {/* Date Fields */}
@@ -754,6 +766,26 @@ window.EventFormModal = function EventFormModal({
 
             {/* AI Content */}
             <div className="p-5 space-y-4 overflow-y-auto flex-1 custom-scrollbar bg-indigo-50/20">
+              {/* Low Confidence / Unknown Event Warning */}
+              {aiSuggestions && (aiSuggestions.confidence < 70 || !aiSuggestions.confidence) && (
+                <div className="bg-yellow-50 rounded-lg p-4 border border-yellow-300 flex items-start gap-3">
+                  <svg className="w-5 h-5 text-yellow-600 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  <div>
+                    <p className="text-sm font-bold text-yellow-900">
+                      {aiSuggestions.confidence < 30 ? '❓ Unknown Event Type' : '⚠️ Limited Training Data'}
+                    </p>
+                    <p className="text-xs text-yellow-800 mt-1 leading-relaxed">
+                      {aiSuggestions.confidence < 30 
+                        ? 'The AI does not recognize this event type or cannot find similar events in the training database. Suggestions are based on general patterns and may not be accurate. Please manually review all recommendations.'
+                        : 'This event type has limited training data, which may result in less accurate AI suggestions. Please review and adjust recommendations based on your specific needs.'
+                      }
+                    </p>
+                  </div>
+                </div>
+              )}
+
               {/* Stale Data Warning */}
               {isStale && (
                 <div className="bg-amber-50 rounded-lg p-3 border border-amber-200 flex items-start gap-3">

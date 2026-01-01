@@ -567,8 +567,8 @@ window.AdminEventsManager = function AdminEventsManager({ eventIdToOpen }) {
 
         setFormData(updatedFormData);
 
-        // Switch to budget tab to show AI suggestions
-        setActiveModalTab('budget');
+        // AI suggestions will be shown in side panel, no need to force tab switch
+        // User can navigate tabs freely while viewing AI suggestions
 
       } else {
         alert('AI analysis failed. Please try again.');

@@ -30,8 +30,8 @@ window.EventStatusTimeline = function EventStatusTimeline({ eventId }) {
         React.createElement('div', { className: 'w-2 h-2 mt-1.5 rounded-full bg-blue-500 flex-shrink-0' }),
         React.createElement('div', null,
           React.createElement('div', { className: 'flex gap-2 items-center' },
-            React.createElement(window.StatusBadge, { status: h.old_status || 'New' }),
-            React.createElement('span', { className: 'text-gray-400' }, '→'),
+            h.old_status && React.createElement(window.StatusBadge, { status: h.old_status }),
+            h.old_status && React.createElement('span', { className: 'text-gray-400' }, '→'),
             React.createElement(window.StatusBadge, { status: h.new_status })
           ),
           React.createElement('div', { className: 'text-gray-500 text-xs mt-1' },

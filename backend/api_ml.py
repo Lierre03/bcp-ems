@@ -79,11 +79,11 @@ def convert_to_24hour(time_str):
         return '09:00'
 
 def load_training_data():
-    """Load and preprocess training data from ai_training_data table"""
+    """Load and preprocess training data from ai_training_data table AND completed events"""
     conn = get_db()
     cursor = conn.cursor(dictionary=True)
 
-    # UPDATED QUERY: REMOVED CATERING
+    # Get dedicated training data
     cursor.execute("""
         SELECT event_name, event_type, attendees, total_budget,
                equipment, activities, additional_resources,
@@ -91,14 +91,38 @@ def load_training_data():
         FROM ai_training_data
         WHERE is_validated = 1 AND total_budget > 0
     """)
+    training_data = cursor.fetchall()
 
-    data = cursor.fetchall()
+    # ALSO get completed real events to learn from actual usage
+    cursor.execute("""
+        SELECT 
+            name as event_name,
+            event_type,
+            expected_attendees as attendees,
+            budget as total_budget,
+            equipment,
+            '' as activities,
+            additional_resources,
+            budget_breakdown,
+            venue,
+            organizer,
+            description
+        FROM events
+        WHERE status = 'Completed' 
+          AND budget > 0 
+          AND deleted_at IS NULL
+    """)
+    completed_events = cursor.fetchall()
+    
     conn.close()
 
-    if not data:
+    # Combine both sources
+    all_data = training_data + completed_events
+    
+    if not all_data:
         return pd.DataFrame()
 
-    df = pd.DataFrame(data)
+    df = pd.DataFrame(all_data)
 
     # Extract features
     df['event_type_encoded'] = pd.Categorical(df['event_type']).codes
@@ -238,10 +262,24 @@ def training_stats():
     try:
         conn = get_db()
         cursor = conn.cursor(dictionary=True)
+        
+        # Count dedicated training data
         cursor.execute("SELECT COUNT(*) as total FROM ai_training_data WHERE is_validated = 1")
-        total = cursor.fetchone()['total']
+        training_count = cursor.fetchone()['total']
+        
+        # Count completed events that can be used for training
+        cursor.execute("SELECT COUNT(*) as total FROM events WHERE status = 'Completed' AND budget > 0 AND deleted_at IS NULL")
+        completed_count = cursor.fetchone()['total']
+        
         conn.close()
-        return jsonify({'success': True, 'total_samples': total})
+        
+        return jsonify({
+            'success': True, 
+            'total_samples': training_count + completed_count,
+            'training_data': training_count,
+            'completed_events': completed_count,
+            'message': f'Learning from {training_count} training samples + {completed_count} completed events'
+        })
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)})
 
