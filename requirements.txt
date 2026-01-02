@@ -9,3 +9,4 @@ PyMySQL
 bcrypt
 qrcode
 Pillow
+reportlab

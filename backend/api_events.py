@@ -1049,3 +1049,349 @@ def equipment_inquiry(event_id):
     except Exception as e:
         logger.error(f"Equipment inquiry error: {e}")
         return jsonify({'error': 'Failed to send inquiry'}), 500
+
+# ============================================================================
+# EVENT PDF EXPORT
+# ============================================================================
+
+@events_bp.route('/<int:event_id>/export-pdf', methods=['GET'])
+@require_role(['Super Admin', 'Admin', 'Staff', 'Requestor'])
+def export_event_pdf(event_id):
+    """
+    Export event as PDF guideline and checklist
+    GET /api/events/<id>/export-pdf
+    """
+    try:
+        from reportlab.lib import colors
+        from reportlab.lib.pagesizes import letter, A4
+        from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+        from reportlab.lib.units import inch
+        from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, PageBreak, Image
+        from reportlab.lib.enums import TA_CENTER, TA_LEFT, TA_RIGHT
+        from reportlab.graphics.shapes import Drawing, Rect
+        from reportlab.graphics import renderPDF
+        from io import BytesIO
+        from flask import send_file
+        
+        # Create a custom checkbox drawing
+        def create_checkbox():
+            """Create a white-filled checkbox with black border"""
+            d = Drawing(10, 10)
+            # White filled rectangle with black border
+            checkbox = Rect(1, 1, 8, 8, fillColor=colors.white, strokeColor=colors.black, strokeWidth=1)
+            d.add(checkbox)
+            return d
+        
+        db = get_db()
+        
+        # Get event details with all related data
+        event = db.execute_one("""
+            SELECT e.*, 
+                   CONCAT(u.first_name, ' ', u.last_name) as requestor_name,
+                   u.email as requestor_email
+            FROM events e
+            LEFT JOIN users u ON e.requestor_id = u.id
+            WHERE e.id = %s AND e.deleted_at IS NULL
+        """, (event_id,))
+        
+        if not event:
+            return jsonify({'error': 'Event not found'}), 404
+        
+        # Parse JSON fields
+        import json
+        equipment = json.loads(event['equipment']) if event.get('equipment') else []
+        timeline = json.loads(event['timeline']) if event.get('timeline') else []
+        budget_breakdown_data = json.loads(event['budget_breakdown']) if event.get('budget_breakdown') else []
+        
+        # Convert budget_breakdown to list format for PDF
+        budget_breakdown = []
+        if isinstance(budget_breakdown_data, dict):
+            for category, details in budget_breakdown_data.items():
+                if isinstance(details, dict):
+                    budget_breakdown.append({
+                        'category': category,
+                        'amount': details.get('amount', 0)
+                    })
+        elif isinstance(budget_breakdown_data, list):
+            budget_breakdown = budget_breakdown_data
+        
+        # Use timeline as activities
+        activities = timeline
+        
+        # Create PDF in memory
+        buffer = BytesIO()
+        doc = SimpleDocTemplate(buffer, pagesize=letter,
+                               rightMargin=0.75*inch, leftMargin=0.75*inch,
+                               topMargin=0.75*inch, bottomMargin=0.75*inch)
+        
+        # Container for PDF elements
+        story = []
+        
+        # Styles
+        styles = getSampleStyleSheet()
+        title_style = ParagraphStyle(
+            'CustomTitle',
+            parent=styles['Heading1'],
+            fontSize=24,
+            textColor=colors.HexColor('#1e40af'),
+            spaceAfter=6,
+            alignment=TA_CENTER,
+            fontName='Helvetica-Bold'
+        )
+        
+        subtitle_style = ParagraphStyle(
+            'Subtitle',
+            parent=styles['Normal'],
+            fontSize=10,
+            textColor=colors.HexColor('#64748b'),
+            spaceAfter=20,
+            alignment=TA_CENTER
+        )
+        
+        heading_style = ParagraphStyle(
+            'CustomHeading',
+            parent=styles['Heading2'],
+            fontSize=14,
+            textColor=colors.HexColor('#1e40af'),
+            spaceAfter=8,
+            spaceBefore=12,
+            fontName='Helvetica-Bold'
+        )
+        
+        # Header
+        story.append(Paragraph("EVENT PLANNING GUIDELINE", title_style))
+        story.append(Paragraph("Comprehensive Checklist & Resource Guide", subtitle_style))
+        story.append(Spacer(1, 0.2*inch))
+        
+        # Event Information Section
+        story.append(Paragraph("📋 EVENT INFORMATION", heading_style))
+        
+        event_info = [
+            ['Event Name:', event['name']],
+            ['Event Type:', event['event_type']],
+            ['Date:', f"{event['start_datetime'].strftime('%B %d, %Y')}"],
+            ['Time:', f"{event['start_datetime'].strftime('%I:%M %p')} - {event['end_datetime'].strftime('%I:%M %p')}"],
+            ['Venue:', event['venue']],
+            ['Expected Attendees:', f"{event['expected_attendees']:,}"],
+            ['Status:', event['status']],
+            ['Organizer:', event['organizer'] or event['requestor_name']],
+            ['Contact:', event['requestor_email']],
+            ['Total Budget:', f"₱{event['budget']:,.2f}"]
+        ]
+        
+        t = Table(event_info, colWidths=[2*inch, 4.5*inch])
+        t.setStyle(TableStyle([
+            ('FONTNAME', (0, 0), (0, -1), 'Helvetica-Bold'),
+            ('FONTNAME', (1, 0), (1, -1), 'Helvetica'),
+            ('FONTSIZE', (0, 0), (-1, -1), 10),
+            ('TEXTCOLOR', (0, 0), (0, -1), colors.HexColor('#475569')),
+            ('TEXTCOLOR', (1, 0), (1, -1), colors.HexColor('#1e293b')),
+            ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 6),
+        ]))
+        story.append(t)
+        story.append(Spacer(1, 0.15*inch))
+        
+        # Description
+        if event.get('description'):
+            story.append(Paragraph("📝 EVENT DESCRIPTION", heading_style))
+            story.append(Paragraph(event['description'], styles['Normal']))
+            story.append(Spacer(1, 0.15*inch))
+        
+        # Budget Breakdown Checklist
+        if budget_breakdown:
+            story.append(Paragraph("💰 BUDGET BREAKDOWN CHECKLIST", heading_style))
+            budget_data = [[create_checkbox(), 'Category', 'Amount', 'Status']]
+            for item in budget_breakdown:
+                budget_data.append([
+                    create_checkbox(),
+                    item['category'],
+                    f"₱{item['amount']:,.2f}",
+                    '_______'
+                ])
+            budget_data.append([
+                '',
+                'TOTAL',
+                f"₱{event['budget']:,.2f}",
+                ''
+            ])
+            
+            t = Table(budget_data, colWidths=[0.4*inch, 2.5*inch, 1.5*inch, 2.1*inch])
+            t.setStyle(TableStyle([
+                ('FONTNAME', (1, 0), (-1, 0), 'Helvetica-Bold'),
+                ('FONTNAME', (0, -1), (-1, -1), 'Helvetica-Bold'),
+                ('FONTSIZE', (0, 0), (-1, -1), 9),
+                ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#e0e7ff')),
+                ('TEXTCOLOR', (0, 0), (-1, 0), colors.HexColor('#1e40af')),
+                ('ALIGN', (2, 0), (2, -1), 'RIGHT'),
+                ('ALIGN', (0, 0), (0, -1), 'CENTER'),
+                ('VALIGN', (0, 0), (0, -1), 'MIDDLE'),
+                ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#cbd5e1')),
+                ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+                ('BOTTOMPADDING', (0, 0), (-1, -1), 6),
+                ('TOPPADDING', (0, 0), (-1, -1), 6),
+                ('BACKGROUND', (0, -1), (-1, -1), colors.HexColor('#f1f5f9')),
+            ]))
+            story.append(t)
+            story.append(Spacer(1, 0.15*inch))
+        
+        # Equipment Checklist
+        if equipment:
+            story.append(Paragraph("📦 EQUIPMENT & RESOURCES CHECKLIST", heading_style))
+            equip_data = [[create_checkbox(), 'Item', 'Quantity', 'Status', 'Notes']]
+            for item in equipment:
+                equip_data.append([
+                    create_checkbox(),
+                    item['name'],
+                    str(item['quantity']),
+                    '_______',
+                    '__________________'
+                ])
+            
+            t = Table(equip_data, colWidths=[0.4*inch, 2.2*inch, 0.8*inch, 1.1*inch, 1.9*inch])
+            t.setStyle(TableStyle([
+                ('FONTNAME', (1, 0), (-1, 0), 'Helvetica-Bold'),
+                ('FONTSIZE', (0, 0), (-1, -1), 9),
+                ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#dbeafe')),
+                ('TEXTCOLOR', (0, 0), (-1, 0), colors.HexColor('#1e40af')),
+                ('ALIGN', (0, 0), (0, -1), 'CENTER'),
+                ('VALIGN', (0, 0), (0, -1), 'MIDDLE'),
+                ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#cbd5e1')),
+                ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+                ('BOTTOMPADDING', (0, 0), (-1, -1), 6),
+                ('TOPPADDING', (0, 0), (-1, -1), 6),
+            ]))
+            story.append(t)
+            story.append(Spacer(1, 0.15*inch))
+        
+        # Timeline/Schedule Checklist
+        if activities:
+            story.append(PageBreak())
+            story.append(Paragraph("📅 EVENT TIMELINE & ACTIVITY CHECKLIST", heading_style))
+            timeline_data = [[create_checkbox(), 'Time', 'Activity/Phase', 'Status']]
+            for activity in activities:
+                # Handle both timeline format (startTime, endTime, phase) and activity format
+                if isinstance(activity, dict):
+                    time_str = activity.get('startTime', '')
+                    if activity.get('endTime'):
+                        time_str += f" - {activity.get('endTime')}"
+                    phase = activity.get('phase', activity.get('activity_name', str(activity)))
+                else:
+                    time_str = ''
+                    phase = str(activity)
+                
+                timeline_data.append([
+                    create_checkbox(),
+                    time_str,
+                    phase,
+                    '_______'
+                ])
+            
+            t = Table(timeline_data, colWidths=[0.4*inch, 1.2*inch, 3.8*inch, 1.1*inch])
+            t.setStyle(TableStyle([
+                ('FONTNAME', (1, 0), (-1, 0), 'Helvetica-Bold'),
+                ('FONTSIZE', (0, 0), (-1, -1), 9),
+                ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#fef3c7')),
+                ('TEXTCOLOR', (0, 0), (-1, 0), colors.HexColor('#92400e')),
+                ('ALIGN', (0, 0), (0, -1), 'CENTER'),
+                ('VALIGN', (0, 0), (0, -1), 'MIDDLE'),
+                ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#cbd5e1')),
+                ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+                ('BOTTOMPADDING', (0, 0), (-1, -1), 6),
+                ('TOPPADDING', (0, 0), (-1, -1), 6),
+            ]))
+            story.append(t)
+            story.append(Spacer(1, 0.15*inch))
+        
+        # Pre-Event Checklist
+        story.append(Paragraph("✅ PRE-EVENT PREPARATION CHECKLIST", heading_style))
+        prep_items = [
+            'Venue booking confirmed',
+            'All equipment reserved and available',
+            'Budget approved and allocated',
+            'Participants/attendees notified',
+            'Marketing materials prepared',
+            'Staff/volunteers briefed',
+            'Emergency contact list prepared',
+            'Backup plans documented',
+            'Technical rehearsal completed',
+            'Final walkthrough done'
+        ]
+        
+        # Create table for pre-event checklist with drawn checkboxes
+        prep_data = [[create_checkbox(), item] for item in prep_items]
+        prep_table = Table(prep_data, colWidths=[0.3*inch, 6.2*inch])
+        prep_table.setStyle(TableStyle([
+            ('ALIGN', (0, 0), (0, -1), 'CENTER'),
+            ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+            ('LEFTPADDING', (1, 0), (1, -1), 10),
+            ('RIGHTPADDING', (1, 0), (1, -1), 0),
+            ('TOPPADDING', (0, 0), (-1, -1), 4),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
+        ]))
+        story.append(prep_table)
+        
+        story.append(Spacer(1, 0.2*inch))
+        
+        # Post-Event Checklist
+        story.append(Paragraph("📋 POST-EVENT CHECKLIST", heading_style))
+        post_items = [
+            'All equipment returned and accounted for',
+            'Venue cleaned and restored',
+            'Final attendance recorded',
+            'Feedback forms collected',
+            'Photos/documentation archived',
+            'Thank you notes sent',
+            'Final expense report submitted',
+            'Lessons learned documented',
+            'Event report completed',
+            'Event marked as completed in system'
+        ]
+        
+        # Create table for post-event checklist with drawn checkboxes
+        post_data = [[create_checkbox(), item] for item in post_items]
+        post_table = Table(post_data, colWidths=[0.3*inch, 6.2*inch])
+        post_table.setStyle(TableStyle([
+            ('ALIGN', (0, 0), (0, -1), 'CENTER'),
+            ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+            ('LEFTPADDING', (1, 0), (1, -1), 10),
+            ('RIGHTPADDING', (1, 0), (1, -1), 0),
+            ('TOPPADDING', (0, 0), (-1, -1), 4),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
+        ]))
+        story.append(post_table)
+        
+        # Footer
+        story.append(Spacer(1, 0.3*inch))
+        footer_style = ParagraphStyle(
+            'Footer',
+            parent=styles['Normal'],
+            fontSize=8,
+            textColor=colors.HexColor('#94a3b8'),
+            alignment=TA_CENTER
+        )
+        story.append(Paragraph(
+            f"Generated on {datetime.now().strftime('%B %d, %Y at %I:%M %p')} | School Event Management System",
+            footer_style
+        ))
+        
+        # Build PDF
+        doc.build(story)
+        
+        # Prepare file for download
+        buffer.seek(0)
+        filename = f"Event_Guideline_{event['name'].replace(' ', '_')}_{datetime.now().strftime('%Y%m%d')}.pdf"
+        
+        return send_file(
+            buffer,
+            mimetype='application/pdf',
+            as_attachment=True,
+            download_name=filename
+        )
+        
+    except Exception as e:
+        logger.error(f"PDF export error: {e}")
+        logger.error(f"Error type: {type(e).__name__}")
+        logger.error(f"Event ID: {event_id}")
+        traceback.print_exc()
+        return jsonify({'error': f'Failed to generate PDF: {str(e)}'}), 500

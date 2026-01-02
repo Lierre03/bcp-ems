@@ -617,6 +617,43 @@ window.AdminEventsManager = function AdminEventsManager({ eventIdToOpen }) {
     }
   };
 
+  const handleExportPDF = async (eventId) => {
+    try {
+      const response = await fetch(`/api/events/${eventId}/export-pdf`, {
+        method: 'GET',
+        credentials: 'include'
+      });
+      
+      if (!response.ok) {
+        throw new Error('Failed to generate PDF');
+      }
+      
+      // Get the filename from Content-Disposition header or use default
+      const contentDisposition = response.headers.get('Content-Disposition');
+      let filename = `Event_Guideline_${eventId}.pdf`;
+      if (contentDisposition) {
+        const filenameMatch = contentDisposition.match(/filename="?(.+)"?/);
+        if (filenameMatch) {
+          filename = filenameMatch[1];
+        }
+      }
+      
+      // Download the PDF
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+    } catch (error) {
+      console.error('PDF export error:', error);
+      alert('Failed to export PDF. Please try again.');
+    }
+  };
+
   const toggleEquipment = (item) => {
     setFormData(prev => ({
       ...prev,
@@ -834,6 +871,13 @@ window.AdminEventsManager = function AdminEventsManager({ eventIdToOpen }) {
                         title="Edit"
                       >
                         Edit
+                      </button>
+                      <button 
+                        onClick={() => handleExportPDF(event.id)} 
+                        className="px-2.5 py-1.5 text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors border border-transparent hover:border-indigo-200 text-xs font-medium" 
+                        title="Export PDF"
+                      >
+                        📄 PDF
                       </button>
                       <button 
                         onClick={() => setSelectedEventHistory(event.id)} 
