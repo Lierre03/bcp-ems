@@ -16,78 +16,50 @@ from config import Config
 DB_CONFIG = Config.DB_CONFIG
 
 def get_training_data():
-    """Fetch training data from database"""
+    """Fetch training data from database + use base samples for stable foundation"""
     try:
         conn = mysql.connector.connect(**DB_CONFIG)
         cursor = conn.cursor(dictionary=True)
 
-        # Get events with their types
+        # Get validated training data from ai_training_data table
         cursor.execute("""
-            SELECT name, description, event_type
-            FROM events
-            WHERE event_type IS NOT NULL AND name IS NOT NULL
-            ORDER BY created_at DESC
-            LIMIT 1000
+            SELECT 
+                event_name as name,
+                description,
+                event_type
+            FROM ai_training_data
+            WHERE is_validated = 1 
+            AND total_budget > 0
+            AND event_type IS NOT NULL
         """)
-
-        events = cursor.fetchall()
+        training_data = cursor.fetchall()
+        
+        # Get completed events from events table
+        cursor.execute("""
+            SELECT 
+                name,
+                description,
+                event_type
+            FROM events
+            WHERE status = 'Completed'
+            AND budget > 0
+            AND deleted_at IS NULL
+            AND event_type IS NOT NULL
+            AND name IS NOT NULL
+        """)
+        completed_events = cursor.fetchall()
+        
         cursor.close()
         conn.close()
 
-        # Always use balanced sample data for consistent training
-        # (database events may be biased or incomplete)
-        sample_data = [
-                # Academic Events
-                ("Science Fair 2025", "Academic competition showcasing student research projects", "Academic"),
-                ("Debate Competition", "Academic debate tournament between classes", "Academic"),
-                ("STEM Fair", "Science, Technology, Engineering, Math projects", "Academic"),
-                ("Research Symposium", "Academic presentations and paper discussions", "Academic"),
-                ("Math Olympiad", "Mathematics competition and problem solving", "Academic"),
-                ("Academic Conference", "Educational conference for students and faculty", "Academic"),
-                ("Quiz Competition", "Knowledge-based quiz competition", "Academic"),
-                ("Essay Contest", "Writing competition for academic excellence", "Academic"),
-                ("Science Olympiad", "Science-based academic competition", "Academic"),
-                ("Academic Awards Ceremony", "Recognition of academic achievements", "Academic"),
+        # Combine database training + completed events
+        all_events = training_data + completed_events
+        
+        print(f"📚 Loaded {len(training_data)} validated training samples from database")
+        print(f"✅ Loaded {len(completed_events)} completed events")
+        print(f"📊 Total: {len(all_events)} training samples")
 
-                # Sports Events
-                ("Basketball Tournament", "Inter-class basketball championship with teams", "Sports"),
-                ("Football Championship", "School football finals with cheering crowds", "Sports"),
-                ("Swimming Gala", "School swimming competition and awards", "Sports"),
-                ("Volleyball Tournament", "School volleyball league finals", "Sports"),
-                ("Track and Field Meet", "Athletics competition with multiple events", "Sports"),
-                ("Soccer Championship", "School soccer tournament and finals", "Sports"),
-                ("Tennis Tournament", "Tennis competition between school teams", "Sports"),
-                ("Badminton Championship", "Badminton tournament with multiple rounds", "Sports"),
-                ("Basketball League", "Regular basketball league matches", "Sports"),
-                ("Sports Day", "Annual sports day with various athletic events", "Sports"),
-
-                # Cultural Events
-                ("Cultural Dance Festival", "Traditional and modern dance performances", "Cultural"),
-                ("Art Exhibition", "Student artwork display and gallery opening", "Cultural"),
-                ("Music Concert", "Student band performances and talent show", "Cultural"),
-                ("Drama Play", "Theater performance by drama club", "Cultural"),
-                ("Film Festival", "Student-made short films screening", "Cultural"),
-                ("Fashion Show", "Student-designed clothing showcase", "Cultural"),
-                ("Cultural Night", "Evening of cultural performances and shows", "Cultural"),
-                ("Talent Show", "Student talent showcase with singing and dancing", "Cultural"),
-                ("Art Competition", "Competitive art display and judging", "Cultural"),
-                ("Music Festival", "Musical performances and concerts", "Cultural"),
-
-                # Workshop Events
-                ("Programming Workshop", "Hands-on coding session for beginners", "Workshop"),
-                ("Yoga Workshop", "Wellness and mindfulness session", "Workshop"),
-                ("Cooking Workshop", "Culinary arts and food preparation class", "Workshop"),
-                ("Photography Workshop", "Digital photography and editing techniques", "Workshop"),
-                ("Writing Workshop", "Creative writing and storytelling workshop", "Workshop"),
-                ("Leadership Workshop", "Team building and leadership development", "Workshop"),
-                ("Art Workshop", "Hands-on art creation and techniques", "Workshop"),
-                ("Music Workshop", "Instrument learning and music theory", "Workshop"),
-                ("Dance Workshop", "Dance instruction and choreography", "Workshop"),
-                ("STEM Workshop", "Science and technology hands-on activities", "Workshop"),
-        ]
-        events = [{"name": name, "description": desc, "event_type": typ} for name, desc, typ in sample_data]
-
-        return events
+        return all_events
 
     except Exception as e:
         print(f"Database error: {e}")

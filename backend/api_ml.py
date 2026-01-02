@@ -116,7 +116,7 @@ def load_training_data():
     
     conn.close()
 
-    # Combine both sources
+    # Combine database training + completed events
     all_data = training_data + completed_events
     
     if not all_data:
@@ -515,6 +515,21 @@ def predict_resources():
             return generate_fallback_predictions(event_type, attendees, duration)
 
         print(f"[ML] Loaded {len(df)} training samples for ML prediction")
+        
+        # ========================================================================
+        # STEP 0: EVENT TYPE CLASSIFICATION CONFIDENCE
+        # ========================================================================
+        try:
+            if event_name and os.path.exists(EVENT_CLASSIFIER_PATH) and os.path.exists(EVENT_VECTORIZER_PATH):
+                classifier = joblib.load(EVENT_CLASSIFIER_PATH)
+                vectorizer = joblib.load(EVENT_VECTORIZER_PATH)
+                text_vec = vectorizer.transform([event_name])
+                probs = classifier.predict_proba(text_vec)[0]
+                type_confidence = round(max(probs) * 100, 1)  # Round to 1 decimal place
+                predictions['confidence'] = type_confidence
+                print(f"[TYPE ML] Event type classification confidence: {type_confidence:.1f}%")
+        except Exception as e:
+            print(f"[TYPE ML] Could not get type confidence: {e}")
 
         # ========================================================================
         # STEP 1: BUDGET PREDICTION - Learn from ALL events using ML
@@ -537,7 +552,9 @@ def predict_resources():
             # Calculate confidence using cross-validation on training data
             scores = cross_val_score(budget_regressor, X_budget, y_budget, cv=min(3, len(df)), scoring='r2')
             budget_confidence = max(0.5, min(0.95, scores.mean()))
-            predictions['confidence'] = budget_confidence
+            # DON'T overwrite type confidence if already set
+            if 'confidence' not in predictions or predictions['confidence'] == 0.85:
+                predictions['confidence'] = budget_confidence
             
             print(f"[BUDGET ML] Predicted: ₱{predictions['estimatedBudget']:,} (confidence: {budget_confidence:.2%})")
             print(f"[BUDGET ML] Model trained on {len(df)} samples, R² score: {scores.mean():.3f}")
@@ -838,20 +855,27 @@ def classify_event_type():
         data = request.json
         text = data.get('text', '')
         
+        print(f'[CLASSIFY] Input text: "{text}"')
+        
         if not text or len(text) < 3:
             return jsonify({'success': False, 'error': 'Text too short'})
 
         if not os.path.exists(EVENT_CLASSIFIER_PATH) or not os.path.exists(EVENT_VECTORIZER_PATH):
+            print(f'[CLASSIFY] Models not found! Classifier: {os.path.exists(EVENT_CLASSIFIER_PATH)}, Vectorizer: {os.path.exists(EVENT_VECTORIZER_PATH)}')
             return jsonify({'success': False, 'message': 'Models not initialized'})
 
         classifier = joblib.load(EVENT_CLASSIFIER_PATH)
         vectorizer = joblib.load(EVENT_VECTORIZER_PATH)
+        
+        print(f'[CLASSIFY] Loaded models. Classes: {classifier.classes_}')
 
         text_vec = vectorizer.transform([text])
         prediction = classifier.predict(text_vec)[0]
         
         probs = classifier.predict_proba(text_vec)[0]
         confidence = max(probs) * 100
+        
+        print(f'[CLASSIFY] Prediction: {prediction}, Confidence: {confidence:.1f}%')
 
         return jsonify({
             'success': True,
