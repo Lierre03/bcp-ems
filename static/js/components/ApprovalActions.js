@@ -15,6 +15,7 @@ window.ApprovalActions = function ApprovalActions({ event, onSuccess }) {
   const [aiPlan, setAiPlan] = useState(null);
   const [rescheduleTimeline, setRescheduleTimeline] = useState([]);
   const [manualEnd, setManualEnd] = useState(false);
+  const [activeTab, setActiveTab] = useState('overview'); // Tab state for review modal
 
   // Timeline helpers
   const format12h = (timeStr) => {
@@ -330,16 +331,16 @@ window.ApprovalActions = function ApprovalActions({ event, onSuccess }) {
       return actions;
     }
 
-    // Admin: Approve at Under Review
-    if (isAdmin && status === 'Under Review') {
-      actions.push({ label: 'Approve Event', endpoint: 'approve', variant: 'success' });
+    // Admin (Dept Head): Approve concept at Pending → changes to Under Review
+    if (isAdmin && status === 'Pending') {
+      actions.push({ label: 'Approve Concept', endpoint: 'review', variant: 'success' });
       actions.push({ label: 'Reject', endpoint: 'reject', variant: 'danger' });
       return actions;
     }
 
-    // Staff: Approve & Forward at Pending
-    if (isStaffOnly && status === 'Pending') {
-      actions.push({ label: 'Approve & Forward', endpoint: 'approve-forward', variant: 'primary' });
+    // Staff (Facilities): Approve resources at Under Review → changes to Approved (triggers auto-reject)
+    if (isStaffOnly && status === 'Under Review') {
+      actions.push({ label: 'Approve Resources', endpoint: 'approve-forward', variant: 'primary' });
       actions.push({ label: 'Reject', endpoint: 'reject', variant: 'danger' });
       return actions;
     }
@@ -356,6 +357,11 @@ window.ApprovalActions = function ApprovalActions({ event, onSuccess }) {
         cache: 'no-store'
       });
       const data = await res.json();
+      console.log('📊 Full Event Data Received:', data.event);
+      console.log('  - Equipment:', data.event?.equipment);
+      console.log('  - Timeline:', data.event?.timeline);
+      console.log('  - Budget Breakdown:', data.event?.budget_breakdown);
+      console.log('  - Additional Resources:', data.event?.additional_resources);
       if (data.success) {
         setFullEventData(data.event);
         setShowReviewModal(true);
@@ -386,7 +392,8 @@ window.ApprovalActions = function ApprovalActions({ event, onSuccess }) {
       const res = await fetch(`/api/events/${event.id}/${endpoint}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        credentials: 'include'
+        credentials: 'include',
+        body: JSON.stringify({}) // Send empty JSON object
       });
       const data = await res.json();
       if (data.success) {
@@ -434,9 +441,26 @@ window.ApprovalActions = function ApprovalActions({ event, onSuccess }) {
       alert('Please select a rejection reason');
       return;
     }
-    const reason = selectedReason === 'Other (specify below)' ? customNote : selectedReason;
-    if (!reason.trim()) {
-      alert('Please provide rejection details');
+    
+    // Build the full reason
+    let reason;
+    if (selectedReason === 'Other (specify below)') {
+      // For "Other", custom note is required
+      if (!customNote.trim()) {
+        alert('Please provide rejection details');
+        return;
+      }
+      reason = customNote.trim();
+    } else {
+      // For predefined reasons, combine with custom note if provided
+      reason = customNote.trim() 
+        ? `${selectedReason}: ${customNote.trim()}` 
+        : selectedReason;
+    }
+    
+    // Validate minimum length
+    if (reason.length < 10) {
+      alert('Rejection reason must be at least 10 characters');
       return;
     }
 
@@ -538,157 +562,285 @@ window.ApprovalActions = function ApprovalActions({ event, onSuccess }) {
             {/* Main Content - Swappable Views */}
             <div className="p-4 bg-gray-50 flex-1 overflow-y-auto">
               {!isRescheduling ? (
-                  // STANDARD VIEW: 3-Column Grid Details
-                  <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 h-full">
-                    {/* COLUMN 1: Basic Info, Venue Status, & Equipment */}
-                    <div className="flex flex-col gap-4">
-                      {/* Basic Info */}
-                      <div className="bg-white rounded-lg border border-slate-200 shadow-sm overflow-hidden flex-shrink-0">
-                        <div className="bg-slate-100 px-3 py-2 border-b border-slate-200">
-                           <h3 className="text-xs font-bold text-slate-700 uppercase">Event Overview</h3>
-                        </div>
-                        <div className="p-3">
-                          <div className="space-y-3">
-                            <div><span className="text-[10px] text-slate-500 uppercase font-bold block">Event Name</span><p className="text-sm font-semibold text-slate-800">{fullEventData.name}</p></div>
-                            <div className="grid grid-cols-2 gap-2">
-                               <div><span className="text-[10px] text-slate-500 uppercase font-bold block">Type</span><p className="text-sm text-slate-800">{fullEventData.event_type || fullEventData.type}</p></div>
-                               <div><span className="text-[10px] text-slate-500 uppercase font-bold block">Venue</span><p className="text-sm text-slate-800">{fullEventData.venue}</p></div>
-                            </div>
-                            <div className="grid grid-cols-2 gap-2">
-                               <div><span className="text-[10px] text-slate-500 uppercase font-bold block">Date</span><p className="text-sm text-slate-800">{fullEventData.start_datetime ? new Date(fullEventData.start_datetime).toLocaleDateString() : fullEventData.date}</p></div>
-                               <div><span className="text-[10px] text-slate-500 uppercase font-bold block">Time</span><p className="text-sm text-slate-800">
-                                {formatTime12Hour(fullEventData.start_datetime)} - {formatTime12Hour(fullEventData.end_datetime)}
-                              </p></div>
-                            </div>
-                            {fullEventData.description && (
-                              <div className="pt-2 border-t border-slate-100">
-                                <span className="text-[10px] text-slate-500 uppercase font-bold block">Description</span>
-                                <p className="text-xs text-slate-600 leading-snug line-clamp-3">{fullEventData.description}</p>
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      </div>
+                  // STANDARD VIEW: Tabbed Interface
+                  <div className="flex flex-col h-full">
+                    {/* Tab Navigation */}
+                    <div className="flex gap-1 mb-6 bg-white rounded-lg p-1 shadow-sm border border-slate-200">
+                      <button
+                        onClick={() => setActiveTab('overview')}
+                        className={`flex items-center gap-2 px-4 py-2.5 text-sm font-medium rounded-md transition-all ${
+                          activeTab === 'overview' 
+                            ? 'bg-blue-600 text-white shadow-sm' 
+                            : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
+                        }`}
+                      >
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                        </svg>
+                        Overview
+                      </button>
+                      <button
+                        onClick={() => setActiveTab('budget')}
+                        className={`flex items-center gap-2 px-4 py-2.5 text-sm font-medium rounded-md transition-all ${
+                          activeTab === 'budget' 
+                            ? 'bg-blue-600 text-white shadow-sm' 
+                            : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
+                        }`}
+                      >
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                        Budget
+                      </button>
+                      <button
+                        onClick={() => setActiveTab('timeline')}
+                        className={`flex items-center gap-2 px-4 py-2.5 text-sm font-medium rounded-md transition-all ${
+                          activeTab === 'timeline' 
+                            ? 'bg-blue-600 text-white shadow-sm' 
+                            : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
+                        }`}
+                      >
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                        Timeline
+                      </button>
+                      <button
+                        onClick={() => setActiveTab('resources')}
+                        className={`flex items-center gap-2 px-4 py-2.5 text-sm font-medium rounded-md transition-all ${
+                          activeTab === 'resources' 
+                            ? 'bg-blue-600 text-white shadow-sm' 
+                            : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
+                        }`}
+                      >
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+                        </svg>
+                        Resources
+                      </button>
+                    </div>
 
-                      {/* Status Card */}
-                      <div className="flex-shrink-0">
-                      {fullEventData.has_conflicts ? (
-                        <div className="bg-white rounded-lg border border-red-200 shadow-sm overflow-hidden">
-                          <div className="bg-red-50 px-3 py-2 border-b border-red-100">
-                            <h3 className="text-xs font-bold text-red-700 flex items-center gap-2">
-                              <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
-                              Conflicts Detected
-                            </h3>
-                          </div>
-                          <div className="p-2 overflow-y-auto max-h-[150px]">
-                            <ul className="space-y-1">
-                              {fullEventData.conflicts.map(conflict => (
-                                <li key={conflict.id} className="text-xs bg-red-50 p-2 rounded border border-red-100 text-red-800">
-                                  <div className="font-bold">{conflict.name}</div>
-                                  <div>{formatTime12Hour(conflict.start_datetime)} - {formatTime12Hour(conflict.end_datetime)}</div>
-                                </li>
-                              ))}
-                            </ul>
-                          </div>
-                        </div>
-                      ) : (
-                         <div className="bg-white rounded-lg border border-green-200 shadow-sm overflow-hidden">
-                          <div className="bg-green-50 px-3 py-2 border-b border-green-100">
-                            <h3 className="text-xs font-bold text-green-700">Venue Status</h3>
-                          </div>
-                          <div className="p-3 bg-green-50/50 text-green-800 text-xs flex items-center gap-2">
-                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" /></svg>
-                            Venue is available.
+                    {/* Tab Content */}
+                    <div className="flex-1 overflow-y-auto">
+                      {/* OVERVIEW TAB */}
+                      {activeTab === 'overview' && (
+                        <div className="max-w-4xl mx-auto">
+                          {/* Basic Info */}
+                          <div className="bg-white rounded-xl border border-slate-200 shadow-md overflow-hidden hover:shadow-lg transition-shadow">
+                            <div className="p-6">
+                              <div className="space-y-5">
+                                <div>
+                                  <span className="text-xs text-slate-500 uppercase font-semibold block mb-1.5 tracking-wide">Event Name</span>
+                                  <p className="text-xl font-bold text-slate-900">{fullEventData.name}</p>
+                                </div>
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                  <div className="bg-slate-50 rounded-lg p-4">
+                                    <span className="text-xs text-slate-500 uppercase font-semibold block mb-1.5 tracking-wide">Type</span>
+                                    <p className="text-base font-medium text-slate-800">{fullEventData.event_type || fullEventData.type}</p>
+                                  </div>
+                                  <div className="bg-slate-50 rounded-lg p-4">
+                                    <span className="text-xs text-slate-500 uppercase font-semibold block mb-1.5 tracking-wide">Venue</span>
+                                    <p className="text-base font-medium text-slate-800">{fullEventData.venue}</p>
+                                  </div>
+                                </div>
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                  <div className="bg-slate-50 rounded-lg p-4">
+                                    <span className="text-xs text-slate-500 uppercase font-semibold block mb-1.5 tracking-wide">Date</span>
+                                    <p className="text-base font-medium text-slate-800">{fullEventData.start_datetime ? new Date(fullEventData.start_datetime).toLocaleDateString() : fullEventData.date}</p>
+                                  </div>
+                                  <div className="bg-slate-50 rounded-lg p-4">
+                                    <span className="text-xs text-slate-500 uppercase font-semibold block mb-1.5 tracking-wide">Time</span>
+                                    <p className="text-base font-medium text-slate-800">
+                                      {formatTime12Hour(fullEventData.start_datetime)} - {formatTime12Hour(fullEventData.end_datetime)}
+                                    </p>
+                                  </div>
+                                </div>
+                                {fullEventData.description && (
+                                  <div className="pt-4 mt-4 border-t border-slate-200">
+                                    <span className="text-xs text-slate-500 uppercase font-semibold block mb-2 tracking-wide">Description</span>
+                                    <p className="text-base text-slate-700 leading-relaxed">{fullEventData.description}</p>
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                            
+                            {/* Venue Status - Integrated */}
+                            <div className="px-6 pb-6">
+                              {fullEventData.has_conflicts ? (
+                                <div className="bg-gradient-to-r from-red-50 to-orange-50 rounded-lg border border-red-200 p-4">
+                                  <h4 className="text-sm font-bold text-red-700 flex items-center gap-2 mb-3">
+                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
+                                    Venue Conflicts Detected
+                                  </h4>
+                                  <ul className="space-y-2">
+                                    {fullEventData.conflicts.map(conflict => (
+                                      <li key={conflict.id} className="bg-white p-3 rounded-lg border border-red-200 shadow-sm">
+                                        <div className="font-bold text-sm text-red-900">{conflict.name}</div>
+                                        <div className="text-xs text-red-600 mt-1 flex items-center gap-1">
+                                          <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                                          {formatTime12Hour(conflict.start_datetime)} - {formatTime12Hour(conflict.end_datetime)}
+                                        </div>
+                                      </li>
+                                    ))}
+                                  </ul>
+                                </div>
+                              ) : (
+                                <div className="bg-gradient-to-r from-green-50 to-emerald-50 rounded-lg border border-green-200 p-4 flex items-center gap-3">
+                                  <div className="flex-shrink-0 w-10 h-10 bg-green-500 rounded-full flex items-center justify-center">
+                                    <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" /></svg>
+                                  </div>
+                                  <div>
+                                    <h4 className="text-sm font-bold text-green-700">Venue Available</h4>
+                                    <p className="text-xs text-green-600 mt-0.5">No scheduling conflicts detected</p>
+                                  </div>
+                                </div>
+                              )}
+                            </div>
                           </div>
                         </div>
                       )}
-                      </div>
 
-                      {/* Equipment */}
-                      <div className="bg-white rounded-lg border border-slate-200 shadow-sm overflow-hidden flex-1 flex flex-col">
-                        <div className="bg-slate-100 px-3 py-2 border-b border-slate-200">
-                           <h3 className="text-xs font-bold text-slate-700 uppercase">Equipment ({fullEventData.equipment ? fullEventData.equipment.length : 0})</h3>
+                      {/* BUDGET TAB */}
+                      {activeTab === 'budget' && (
+                        <div className="max-w-4xl mx-auto">
+                          {fullEventData.budget_breakdown && (() => {
+                            const breakdown = typeof fullEventData.budget_breakdown === 'string' 
+                              ? JSON.parse(fullEventData.budget_breakdown) 
+                              : fullEventData.budget_breakdown;
+                            
+                            if (breakdown && typeof breakdown === 'object') {
+                              return (
+                                <SmartBudgetBreakdown 
+                                  budgetData={{
+                                    totalBudget: fullEventData.budget || fullEventData.total_budget,
+                                    categories: Object.keys(breakdown),
+                                    breakdown: breakdown,
+                                    percentages: Object.values(breakdown).map(d => d.percentage)
+                                  }}
+                                  onUpdate={() => {}} 
+                                />
+                              );
+                            }
+                            
+                            return (
+                              <div className="text-center py-12">
+                                <p className="text-sm text-gray-400 italic">No budget breakdown available.</p>
+                              </div>
+                            );
+                          })()}
                         </div>
-                        <div className="p-3 bg-white flex-1 overflow-y-auto min-h-[100px]">
-                          {fullEventData.equipment && fullEventData.equipment.length > 0 ? (
-                            <div className="flex flex-wrap gap-1.5">
-                              {fullEventData.equipment.map((item, idx) => {
-                                // Handle both string format (from event creation) and object format
-                                const itemName = typeof item === 'string' ? item : (item.equipment_name || item.name || item);
-                                const quantity = typeof item === 'string' ? 1 : (item.quantity || 1);
-                                return (
-                                  <span key={idx} className="px-2 py-1 bg-orange-50 text-orange-700 border border-orange-200 rounded text-xs font-medium flex items-center gap-1">
-                                    {itemName}
-                                    {quantity > 1 && <span className="bg-orange-200 text-orange-800 text-[10px] px-1 rounded-full">x{quantity}</span>}
-                                  </span>
-                                );
-                              })}
+                      )}
+
+                      {/* TIMELINE TAB */}
+                      {activeTab === 'timeline' && (
+                        <div className="max-w-4xl mx-auto">
+                          <div className="bg-white rounded-xl border border-slate-200 shadow-md overflow-hidden hover:shadow-lg transition-shadow">
+                            <div className="bg-gradient-to-r from-indigo-50 to-purple-50 px-5 py-4 border-b border-slate-200">
+                              <h3 className="text-base font-bold text-slate-800 flex items-center gap-2">
+                                <svg className="w-5 h-5 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                </svg>
+                                EVENT SCHEDULE
+                              </h3>
                             </div>
-                          ) : <p className="text-xs text-gray-400 italic">No equipment requested.</p>}
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* COLUMN 2: Budget Breakdown (Full Height) */}
-                    <div className="bg-white rounded-lg border border-slate-200 shadow-sm overflow-hidden flex flex-col h-full">
-                         <div className="bg-slate-100 px-3 py-2 border-b border-slate-200 flex justify-between items-center">
-                           <h3 className="text-xs font-bold text-slate-700 uppercase">Budget Analysis</h3>
-                           <span className="text-xs font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-100">Total: ₱{fullEventData.budget || fullEventData.total_budget}</span>
-                        </div>
-                        <div className="p-3 flex-1 overflow-y-auto">
-                           {fullEventData.budget_breakdown && (
-                            <SmartBudgetBreakdown 
-                              budgetData={{
-                                totalBudget: fullEventData.budget || fullEventData.total_budget,
-                                categories: fullEventData.budget_breakdown.map(b => b.category),
-                                breakdown: fullEventData.budget_breakdown.reduce((acc, item) => {
-                                  acc[item.category] = { amount: item.amount, percentage: item.percentage };
-                                  return acc;
-                                }, {}),
-                                percentages: fullEventData.budget_breakdown.map(b => b.percentage)
-                              }}
-                              onUpdate={() => {}} 
-                            />
-                          )}
-                        </div>
-                    </div>
-
-                    {/* COLUMN 3: Timeline (Full Height) */}
-                    <div className="bg-white rounded-lg border border-slate-200 shadow-sm overflow-hidden flex flex-col h-full">
-                      <div className="bg-slate-100 px-3 py-2 border-b border-slate-200">
-                          <h3 className="text-xs font-bold text-slate-700 uppercase">Event Schedule</h3>
-                      </div>
-                      <div className="p-3 flex-1 overflow-y-auto">
-                        {fullEventData.activities && fullEventData.activities.length > 0 ? (
-                            <EventTimelineGenerator 
-                            timelineData={{
-                                timeline: fullEventData.activities.map(activity => {
-                                const name = activity.activity_name || '';
-                                const timeMatch = name.match(/^(\d{2}:\d{2})\s*-\s*(\d{2}:\d{2}):\s*(.*)$/);
-                                if (timeMatch) {
-                                    const start = timeMatch[1];
-                                    const end = timeMatch[2];
-                                    let duration = 'N/A';
-                                    try {
-                                    const [sH, sM] = start.split(':').map(Number);
-                                    const [eH, eM] = end.split(':').map(Number);
-                                    const diff = (eH * 60 + eM) - (sH * 60 + sM);
-                                    if (diff >= 0) {
-                                        const h = Math.floor(diff / 60);
-                                        const m = diff % 60;
-                                        if (h > 0 && m > 0) duration = `${h}h ${m}m`;
-                                        else if (h > 0) duration = `${h}h`;
-                                        else duration = `${m}m`;
-                                    }
-                                    } catch (e) {}
-                                    return { startTime: start, endTime: end, phase: timeMatch[3], description: 'Planned activity', duration: duration };
+                            <div className="p-6">
+                              {(() => {
+                                const timeline = fullEventData.timeline 
+                                  ? (typeof fullEventData.timeline === 'string' ? JSON.parse(fullEventData.timeline) : fullEventData.timeline)
+                                  : fullEventData.activities;
+                                
+                                if (timeline && timeline.length > 0) {
+                                  return (
+                                    <EventTimelineGenerator 
+                                      timelineData={{ timeline }}
+                                      onUpdate={() => {}}
+                                    />
+                                  );
                                 }
-                                return { startTime: 'TBD', endTime: 'TBD', phase: name, description: 'Planned activity', duration: 'N/A' };
-                                })
-                            }}
-                            />
-                        ) : <p className="text-xs text-gray-400 italic">No activities listed.</p>}
-                      </div>
+                                
+                                return (
+                                  <div className="text-center py-12">
+                                    <svg className="w-16 h-16 mx-auto text-gray-300 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                    </svg>
+                                    <p className="text-sm text-gray-400 italic">No timeline activities available.</p>
+                                  </div>
+                                );
+                              })()}
+                            </div>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* RESOURCES TAB */}
+                      {activeTab === 'resources' && (
+                        <div className="max-w-5xl mx-auto grid grid-cols-1 lg:grid-cols-2 gap-6">
+                          {/* Equipment */}
+                          <div className="bg-white rounded-xl border border-slate-200 shadow-md overflow-hidden">
+                            <div className="bg-gradient-to-r from-orange-50 to-amber-50 px-5 py-4 border-b border-slate-200">
+                              <h3 className="text-base font-bold text-slate-800 flex items-center gap-2">
+                                <svg className="w-5 h-5 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2zM9 9h6v6H9V9z" />
+                                </svg>
+                                EQUIPMENT ({fullEventData.equipment ? fullEventData.equipment.length : 0})
+                              </h3>
+                            </div>
+                            <div className="p-5">
+                              {fullEventData.equipment && fullEventData.equipment.length > 0 ? (
+                                <ul className="space-y-2">
+                                  {fullEventData.equipment.map((item, idx) => {
+                                    const itemName = typeof item === 'string' ? item : (item.equipment_name || item.name || item);
+                                    const quantity = typeof item === 'string' ? 1 : (item.quantity || 1);
+                                    return (
+                                      <li key={idx} className="flex items-center justify-between p-3 bg-orange-50 rounded-lg border border-orange-200 hover:bg-orange-100 transition-colors">
+                                        <span className="text-sm font-medium text-orange-900 flex items-center gap-2">
+                                          <svg className="w-4 h-4 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
+                                          </svg>
+                                          {itemName}
+                                        </span>
+                                        {quantity > 1 && (
+                                          <span className="bg-orange-600 text-white text-xs font-bold px-2.5 py-1 rounded-full">×{quantity}</span>
+                                        )}
+                                      </li>
+                                    );
+                                  })}
+                                </ul>
+                              ) : (
+                                <p className="text-sm text-gray-400 italic text-center py-8">No equipment requested.</p>
+                              )}
+                            </div>
+                          </div>
+
+                          {/* Additional Resources */}
+                          <div className="bg-white rounded-xl border border-slate-200 shadow-md overflow-hidden">
+                            <div className="bg-gradient-to-r from-purple-50 to-pink-50 px-5 py-4 border-b border-slate-200">
+                              <h3 className="text-base font-bold text-slate-800 flex items-center gap-2">
+                                <svg className="w-5 h-5 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                                </svg>
+                                ADDITIONAL RESOURCES ({fullEventData.additional_resources ? fullEventData.additional_resources.length : 0})
+                              </h3>
+                            </div>
+                            <div className="p-5">
+                              {fullEventData.additional_resources && fullEventData.additional_resources.length > 0 ? (
+                                <ul className="space-y-2">
+                                  {fullEventData.additional_resources.map((resource, idx) => (
+                                    <li key={idx} className="flex items-start gap-2 p-3 bg-purple-50 rounded-lg border border-purple-200 hover:bg-purple-100 transition-colors">
+                                      <svg className="w-4 h-4 text-purple-600 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7" />
+                                      </svg>
+                                      <span className="text-sm text-purple-900">{resource}</span>
+                                    </li>
+                                  ))}
+                                </ul>
+                              ) : (
+                                <p className="text-sm text-gray-400 italic text-center py-8">No additional resources requested.</p>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      )}
                     </div>
                   </div>
               ) : (
@@ -812,20 +964,9 @@ window.ApprovalActions = function ApprovalActions({ event, onSuccess }) {
               ) : (
                 <>
                   <button onClick={() => { setShowReviewModal(false); setFullEventData(null); setIsRescheduling(false); }} disabled={loading} className="px-4 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 text-sm font-semibold transition disabled:opacity-50">Cancel</button>
-                  {fullEventData.has_conflicts ? (
-                    <button onClick={() => { 
-                      setIsRescheduling(true); 
-                      // FIX: Ensure YYYY-MM-DD format strictly for input[type=date]
-                      const start = fullEventData.start_datetime ? fullEventData.start_datetime.substring(0, 10) : ''; 
-                      setRescheduleDates({ date: start, startTime: '', endTime: '' }); 
-                      fetchDaySchedule(start); 
-                    }} disabled={loading} className="px-4 py-2 bg-yellow-500 text-white rounded-lg hover:bg-yellow-600 text-sm font-semibold transition disabled:opacity-50 flex items-center gap-2 shadow-sm">
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-                      Suggest Reschedule
-                    </button>
-                  ) : (
-                    <button onClick={() => confirmApproval()} disabled={loading} className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 text-sm font-semibold transition disabled:opacity-50 shadow-sm">{loading ? 'Processing...' : 'Approve Event'}</button>
-                  )}
+                  <button onClick={() => confirmApproval()} disabled={loading} className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 text-sm font-semibold transition disabled:opacity-50 shadow-sm">
+                    {loading ? 'Processing...' : (fullEventData.has_conflicts ? 'Approve (Auto-reject Conflicts)' : 'Approve Event')}
+                  </button>
                 </>
               )}
             </div>
@@ -848,10 +989,12 @@ window.ApprovalActions = function ApprovalActions({ event, onSuccess }) {
                   {rejectReasons.map(r => <option key={r} value={r}>{r}</option>)}
                 </select>
               </div>
-              {selectedReason === 'Other (specify below)' && (
+              {selectedReason && (
                 <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-2">Additional Notes</label>
-                  <textarea value={customNote} onChange={(e) => setCustomNote(e.target.value)} placeholder="Provide details..." rows="3" className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 outline-none resize-none" />
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">
+                    {selectedReason === 'Other (specify below)' ? 'Specify Reason' : 'Additional Details (Optional)'}
+                  </label>
+                  <textarea value={customNote} onChange={(e) => setCustomNote(e.target.value)} placeholder={selectedReason === 'Other (specify below)' ? 'Provide details (required, min 10 characters)...' : 'Add more context or explanation...'} rows="3" className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 outline-none resize-none" />
                 </div>
               )}
             </div>

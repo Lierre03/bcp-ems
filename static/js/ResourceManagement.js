@@ -20,14 +20,6 @@ window.ResourceManagement = function ResourceManagement({ userRole }) {
           >
             Equipment Inventory
           </button>
-          {['Super Admin', 'Admin', 'Staff'].includes(userRole) && (
-            <button 
-              onClick={() => setActiveTab('conflicts')}
-              className={`px-2 md:px-4 py-1.5 md:py-2 rounded-md text-xs md:text-sm font-medium transition ${activeTab === 'conflicts' ? 'bg-blue-50 text-blue-700' : 'text-slate-600 hover:bg-slate-50'}`}
-            >
-              Conflict Resolution
-            </button>
-          )}
         </div>
       </div>
 
@@ -39,10 +31,6 @@ window.ResourceManagement = function ResourceManagement({ userRole }) {
 
         {activeTab === 'equipment' && (
           <EquipmentInventory />
-        )}
-
-        {activeTab === 'conflicts' && (
-          <ConflictResolutionPanel />
         )}
       </div>
     </div>

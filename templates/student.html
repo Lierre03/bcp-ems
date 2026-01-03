@@ -24,13 +24,15 @@
 
     <!-- Components -->                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         
     <script type="text/babel" src="/static/js/components/Sidebar.js"></script>
+    <script type="text/babel" src="/static/js/components/NotificationBell.js"></script>
     <script type="text/babel" src="/static/js/components/StudentEventCalendar.js"></script>
-    <script type="text/babel" src="/static/js/components/FeedbackModal.js"></script>
 
     <!-- Main Dashboard Script -->
     <script type="text/babel">
         const { useState, useEffect } = React;
         const Sidebar = window.Sidebar;
+        const NotificationBell = window.NotificationBell;
+        const StudentEventCalendar = window.StudentEventCalendar;
 
         function StudentDashboard() {
             const [user, setUser] = useState(null);
@@ -870,6 +872,7 @@
                                     </div>
                                 </div>
                                 <div className="flex items-center gap-4">
+                                    <NotificationBell />
                                     <span className="text-sm text-gray-600">{user?.full_name}</span>
                                     <button
                                         onClick={handleLogout}

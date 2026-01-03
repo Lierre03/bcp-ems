@@ -238,25 +238,31 @@ window.SmartBudgetBreakdown = function SmartBudgetBreakdown({ budgetData, onUpda
   if (!budgetData) return null;
 
   return (
-    <div className="h-full flex flex-col bg-white">
-      {/* Header with Add Category Input */}
-      <div className="flex-shrink-0 mb-3">
-        <div className="flex justify-between items-center border-b border-gray-100 pb-2 mb-2">
-          <span className="text-xs font-bold text-gray-500 uppercase tracking-wide">Budget Management</span>
-          <div className="flex flex-col items-end">
-            <span className="text-[10px] text-gray-400 font-bold uppercase">Total Budget</span>
+    <div className="bg-white rounded-lg border border-gray-200 shadow-sm overflow-hidden">
+      {/* Simple header matching Event Timeline */}
+      <div className="bg-slate-100 px-4 py-3 border-b border-slate-200">
+        <div className="flex justify-between items-center">
+          <h3 className="text-sm font-semibold text-slate-700 flex items-center gap-2">
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            Budget Breakdown
+          </h3>
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-slate-600">Total:</span>
             <div className="relative">
-              <span className="absolute left-0 top-1/2 -translate-y-1/2 text-emerald-600 font-bold text-sm">₱</span>
+              <span className="absolute left-2 top-1/2 -translate-y-1/2 text-emerald-700 font-semibold text-xs">₱</span>
               <input 
                 type="number" 
                 value={totalBudget} 
                 onChange={(e) => handleTotalBudgetChange(e.target.value)}
-                className="pl-4 w-24 text-right text-sm font-bold text-emerald-600 border-b border-emerald-200 focus:border-emerald-500 outline-none bg-transparent p-0"
+                className="pl-5 pr-2 w-24 text-right text-sm font-semibold text-emerald-700 border border-slate-300 rounded px-2 py-1 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-200 outline-none bg-white"
               />
             </div>
           </div>
         </div>
       </div>
+      <div className="p-4 bg-gradient-to-b from-slate-50 to-white">
 
       {/* Main Content: Split Grid */}
       <div className="flex-1 grid grid-cols-[35%_65%] gap-4 min-h-0 overflow-hidden">
@@ -340,6 +346,7 @@ window.SmartBudgetBreakdown = function SmartBudgetBreakdown({ budgetData, onUpda
               </button>
             </div>
         </div>
+      </div>
       </div>
     </div>
   );

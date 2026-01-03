@@ -59,6 +59,99 @@ STATUS_INFO = {
     'Archived': {'color': 'slate', 'icon': 'archive', 'label': 'Archived'}
 }
 
+def _auto_reject_soft_conflicts(db, approved_event_id):
+    """
+    Auto-reject pending events that conflict with the approved event.
+    Creates in-app notifications for affected students.
+    """
+    from backend.event_helpers import suggest_alternative_times
+    from datetime import datetime
+    
+    # Get approved event details
+    event = db.execute_one(
+        "SELECT name, venue, start_datetime, end_datetime, requestor_id FROM events WHERE id = %s",
+        (approved_event_id,)
+    )
+    
+    if not event:
+        return 0
+    
+    # Find soft conflicts (pending events at same venue/time)
+    start_str = event['start_datetime'].strftime('%Y-%m-%d %H:%M:%S')
+    end_str = event['end_datetime'].strftime('%Y-%m-%d %H:%M:%S')
+    
+    soft_conflicts = db.execute_query("""
+        SELECT id, name, requestor_id, start_datetime, end_datetime
+        FROM events 
+        WHERE venue = %s 
+        AND status = 'Pending'
+        AND id != %s
+        AND (
+            (start_datetime < %s AND end_datetime > %s) OR
+            (start_datetime < %s AND end_datetime >= %s) OR
+            (start_datetime >= %s AND start_datetime < %s)
+        )
+        AND deleted_at IS NULL
+    """, (event['venue'], approved_event_id, end_str, start_str, end_str, end_str, start_str, end_str))
+    
+    for conflict in soft_conflicts:
+        # Update to Conflict_Rejected status
+        db.execute_update("""
+            UPDATE events 
+            SET status = 'Conflict_Rejected',
+                conflict_resolution_note = %s,
+                conflicted_with_event_id = %s,
+                updated_at = NOW()
+            WHERE id = %s
+        """, (
+            f"Another event was approved for {event['venue']} at this time slot.",
+            approved_event_id,
+            conflict['id']
+        ))
+        
+        # Get alternative times
+        start_dt = datetime.strptime(str(conflict['start_datetime']), '%Y-%m-%d %H:%M:%S')
+        end_dt = datetime.strptime(str(conflict['end_datetime']), '%Y-%m-%d %H:%M:%S')
+        alternatives = suggest_alternative_times(db, event['venue'], start_dt, end_dt)
+        
+        # Format alternatives text
+        alt_text = ""
+        if alternatives:
+            alt_text = "\n\nSuggested times:"
+            for alt in alternatives:
+                alt_text += f"\n• {alt['day']}, {alt.get('time_display', '')} "
+        
+        # Create notification for affected student
+        db.execute_insert("""
+            INSERT INTO notifications (user_id, type, title, message, event_id, is_read, created_at)
+            VALUES (%s, %s, %s, %s, %s, FALSE, NOW())
+        """, (
+            conflict['requestor_id'],
+            'conflict_rejection',
+            f'⚠️ Action Required: "{conflict["name"]}" Needs Rescheduling',
+            f'Your event could not be approved due to a scheduling conflict.\n\n'
+            f'Another event ("{event["name"]}") was approved for:\n'
+            f'• Venue: {event["venue"]}\n'
+            f'• Time: {event["start_datetime"]}\n\n'
+            f'Please reschedule your event or cancel it.{alt_text}',
+            conflict['id']
+        ))
+        
+        # Log history
+        db.execute_insert("""
+            INSERT INTO event_status_history (event_id, old_status, new_status, changed_by, reason)
+            VALUES (%s, 'Pending', 'Conflict_Rejected', %s, %s)
+        """, (
+            conflict['id'],
+            session['user_id'],
+            f'Auto-rejected: conflicted with approved event #{approved_event_id}'
+        ))
+        
+        logger.info(f"Event {conflict['id']} auto-rejected due to conflict with {approved_event_id}")
+    
+    return len(soft_conflicts)
+
+
 def _handle_conflicts(db, event_id, action_on_conflict):
     """
     Handle conflicts based on the selected action.
@@ -148,7 +241,7 @@ def _change_event_status(event_id, action, reason=None, action_on_conflict=None)
     if new_status == 'Approved' and action_on_conflict:
         _handle_conflicts(db, event_id, action_on_conflict)
 
-    # Update status
+    # Update status (auto-rejection now happens at Staff approval stage, not here)
     db.execute_update(
         "UPDATE events SET status = %s, updated_at = NOW() WHERE id = %s",
         (new_status, event_id)
@@ -164,6 +257,71 @@ def _change_event_status(event_id, action, reason=None, action_on_conflict=None)
     logger.info(f"Event {event_id} status: {current_status} → {new_status} by {session['username']}")
     
     return True, f'Event {action}ed successfully', 200
+
+
+# ============================================================================
+# REAL-TIME AVAILABILITY CHECK (Protected Hours + FCFS)
+# ============================================================================
+
+@events_bp.route('/check-availability', methods=['GET'])
+@require_role(['Super Admin', 'Admin', 'Staff', 'Requestor'])
+def check_availability():
+    """
+    Real-time venue availability check (hard and soft conflicts).
+    
+    GET /api/events/check-availability?venue=Auditorium&start=2026-02-15T08:00&end=2026-02-15T17:00
+    
+    Returns: {can_submit, conflict_type, conflicts, message, alternatives}
+    """
+    from backend.event_helpers import validate_event_booking
+    from datetime import datetime
+    
+    try:
+        venue = request.args.get('venue')
+        start_str = request.args.get('start')
+        end_str = request.args.get('end')
+        exclude_event_id = request.args.get('exclude_event_id', type=int)
+        
+        if not all([venue, start_str, end_str]):
+            return jsonify({
+                'can_submit': False,
+                'message': 'Missing required parameters: venue, start, end',
+                'conflicts': [],
+                'alternatives': []
+            }), 400
+        
+        # Parse datetime (support ISO and datetime-local formats)
+        try:
+            start_datetime = datetime.fromisoformat(start_str.replace('Z', '+00:00').replace('T', ' '))
+        except:
+            try:
+                start_datetime = datetime.strptime(start_str, '%Y-%m-%dT%H:%M')
+            except:
+                start_datetime = datetime.strptime(start_str, '%Y-%m-%d %H:%M')
+        
+        try:
+            end_datetime = datetime.fromisoformat(end_str.replace('Z', '+00:00').replace('T', ' '))
+        except:
+            try:
+                end_datetime = datetime.strptime(end_str, '%Y-%m-%dT%H:%M')
+            except:
+                end_datetime = datetime.strptime(end_str, '%Y-%m-%d %H:%M')
+        
+        db = get_db()
+        result = validate_event_booking(db, venue, start_datetime, end_datetime, exclude_event_id)
+        
+        logger.info(f"Availability check: {venue} {start_str}-{end_str} → {result['conflict_type'] or 'available'}")
+        return jsonify(result), 200
+        
+    except Exception as e:
+        logger.error(f"Error checking availability: {e}")
+        traceback.print_exc()
+        return jsonify({
+            'can_submit': False,
+            'message': f'Error: {str(e)}',
+            'conflicts': [],
+            'alternatives': []
+        }), 500
 
 
 # ============================================================================
@@ -352,13 +510,12 @@ def get_event(event_id):
     """Get single event by ID with all details"""
     try:
         db = get_db()
+        # All data is in events table as JSON - no need for joins to old tables
         query = """
             SELECT e.*, u.username as requestor_username,
-                   CONCAT(u.first_name, ' ', u.last_name) as requestor_name,
-                   b.total_budget, b.is_ai_predicted, b.prediction_confidence
+                   CONCAT(u.first_name, ' ', u.last_name) as requestor_name
             FROM events e
             JOIN users u ON e.requestor_id = u.id
-            LEFT JOIN budgets b ON e.id = b.event_id
             WHERE e.id = %s AND e.deleted_at IS NULL
         """
         event = db.execute_one(query, (event_id,))
@@ -367,23 +524,22 @@ def get_event(event_id):
             return jsonify({'error': 'Event not found'}), 404
             
         # Convert Decimal types
-        if event.get('total_budget') is not None:
-            event['total_budget'] = float(event['total_budget'])
         if event.get('budget') is not None:
             event['budget'] = float(event['budget'])
         if event.get('spent') is not None:
             event['spent'] = float(event['spent'])
-        if event.get('prediction_confidence') is not None:
-            event['prediction_confidence'] = float(event['prediction_confidence'])
         
-        # Parse JSON columns (equipment, timeline, budget_breakdown are already in event)
+        # Parse JSON columns from events table
         import json
         if event.get('equipment') and isinstance(event['equipment'], str):
             event['equipment'] = json.loads(event['equipment'])
         if event.get('timeline') and isinstance(event['timeline'], str):
-            event['activities'] = json.loads(event['timeline'])  # Map timeline to activities for frontend
+            event['timeline'] = json.loads(event['timeline'])
+            event['activities'] = event['timeline']  # Map timeline to activities for frontend compatibility
         if event.get('budget_breakdown') and isinstance(event['budget_breakdown'], str):
             event['budget_breakdown'] = json.loads(event['budget_breakdown'])
+        if event.get('additional_resources') and isinstance(event['additional_resources'], str):
+            event['additional_resources'] = json.loads(event['additional_resources'])
         
         # Check for conflicts
         if event.get('venue') and event.get('start_datetime') and event.get('end_datetime'):
@@ -783,6 +939,9 @@ def superadmin_approve_event(event_id):
         if action_on_conflict:
             _handle_conflicts(db, event_id, action_on_conflict)
 
+        # Auto-reject soft conflicts when approving
+        _auto_reject_soft_conflicts(db, event_id)
+
         # Update status
         db.execute_update(
             "UPDATE events SET status = %s, updated_at = NOW() WHERE id = %s",
@@ -1070,8 +1229,17 @@ def export_event_pdf(event_id):
         from reportlab.lib.enums import TA_CENTER, TA_LEFT, TA_RIGHT
         from reportlab.graphics.shapes import Drawing, Rect
         from reportlab.graphics import renderPDF
+        from reportlab.pdfbase import pdfmetrics
+        from reportlab.pdfbase.ttfonts import TTFont
         from io import BytesIO
         from flask import send_file
+        
+        # Register font that supports Philippine Peso symbol (₱)
+        try:
+            pdfmetrics.registerFont(TTFont('DejaVuSans', '/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf'))
+            peso_font = 'DejaVuSans'
+        except:
+            peso_font = 'Helvetica'  # Fallback if font not found
         
         # Create a custom checkbox drawing
         def create_checkbox():
@@ -1207,7 +1375,7 @@ def export_event_pdf(event_id):
                     create_checkbox(),
                     item['category'],
                     f"₱{item['amount']:,.2f}",
-                    '_______'
+                    ''
                 ])
             budget_data.append([
                 '',
@@ -1220,6 +1388,7 @@ def export_event_pdf(event_id):
             t.setStyle(TableStyle([
                 ('FONTNAME', (1, 0), (-1, 0), 'Helvetica-Bold'),
                 ('FONTNAME', (0, -1), (-1, -1), 'Helvetica-Bold'),
+                ('FONTNAME', (2, 1), (2, -1), peso_font),
                 ('FONTSIZE', (0, 0), (-1, -1), 9),
                 ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#e0e7ff')),
                 ('TEXTCOLOR', (0, 0), (-1, 0), colors.HexColor('#1e40af')),
@@ -1244,8 +1413,8 @@ def export_event_pdf(event_id):
                     create_checkbox(),
                     item['name'],
                     str(item['quantity']),
-                    '_______',
-                    '__________________'
+                    '',
+                    ''
                 ])
             
             t = Table(equip_data, colWidths=[0.4*inch, 2.2*inch, 0.8*inch, 1.1*inch, 1.9*inch])
@@ -1284,7 +1453,7 @@ def export_event_pdf(event_id):
                     create_checkbox(),
                     time_str,
                     phase,
-                    '_______'
+                    ''
                 ])
             
             t = Table(timeline_data, colWidths=[0.4*inch, 1.2*inch, 3.8*inch, 1.1*inch])

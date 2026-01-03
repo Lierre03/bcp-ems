@@ -6,7 +6,12 @@
 from flask import Blueprint, request, jsonify, session
 from functools import wraps
 from database.db import get_db
+from backend.auth import require_role
+from backend.email_service import send_approval_email
 import bcrypt
+import logging
+
+logger = logging.getLogger(__name__)
 
 users_bp = Blueprint('users', __name__, url_prefix='/api/users')
 
@@ -58,7 +63,7 @@ def get_users():
     try:
         db = get_db()
         users = db.execute_query('''
-            SELECT u.id, u.username, u.first_name, u.last_name, u.email, u.is_active, u.department, r.name as role_name
+            SELECT u.id, u.username, u.first_name, u.last_name, u.email, u.is_active, u.department, u.account_status, r.name as role_name
             FROM users u
             JOIN roles r ON u.role_id = r.id
             ORDER BY u.created_at DESC
@@ -74,7 +79,8 @@ def get_users():
                 'email': user['email'] or '',
                 'status': 'active' if user['is_active'] else 'inactive',
                 'role_name': user['role_name'],
-                'department': user.get('department') or None
+                'department': user.get('department') or None,
+                'account_status': user.get('account_status', 'Approved')
             })
         
         return jsonify({'success': True, 'users': user_list})
@@ -237,6 +243,130 @@ def reset_password(user_id):
         return jsonify({'success': True, 'message': 'Password reset successfully'})
     except Exception as e:
         print(f"Error resetting password: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({'success': False, 'message': str(e)}), 500
+
+
+@users_bp.route('/<int:user_id>/approve', methods=['POST'])
+@require_role(['Super Admin', 'Admin'])
+def approve_user(user_id):
+    """Approve or reject a pending user account"""
+    try:
+        data = request.json or {}
+        action = data.get('action', 'approve')
+        
+        if action not in ['approve', 'reject']:
+            return jsonify({'success': False, 'message': 'Invalid action'}), 400
+        
+        db = get_db()
+        user = db.execute_one('''
+            SELECT id, email, first_name, last_name, account_status
+            FROM users WHERE id = %s
+        ''', (user_id,))
+        
+        if not user:
+            return jsonify({'success': False, 'message': 'User not found'}), 404
+        
+        if user['account_status'] != 'Pending':
+            return jsonify({'success': False, 'message': f'User is already {user["account_status"]}'}), 400
+        
+        admin_id = session.get('user_id')
+        
+        if action == 'approve':
+            db.execute_update('''
+                UPDATE users 
+                SET account_status = 'Approved', is_active = 1, approved_by = %s, approved_at = NOW()
+                WHERE id = %s
+            ''', (admin_id, user_id))
+            
+            # Send email notification - don't fail approval if email fails
+            name = f"{user['first_name']} {user['last_name']}".strip() or 'User'
+            email_sent = False
+            try:
+                send_approval_email(user['email'], name)
+                email_sent = True
+                logger.info(f"Approval email sent to {user['email']}")
+            except Exception as email_error:
+                logger.error(f"Failed to send approval email to {user['email']}: {email_error}")
+                # Don't fail the approval - email is non-critical
+            
+            logger.info(f"User {user_id} approved by admin {admin_id}")
+            return jsonify({
+                'success': True, 
+                'message': 'User approved successfully',
+                'email_sent': email_sent
+            })
+        else:
+            db.execute_update('''
+                UPDATE users 
+                SET account_status = 'Rejected', approved_by = %s, approved_at = NOW()
+                WHERE id = %s
+            ''', (admin_id, user_id))
+            
+            logger.info(f"User {user_id} rejected by admin {admin_id}")
+            return jsonify({'success': True, 'message': 'User rejected'})
+    
+    except Exception as e:
+        logger.error(f"Error approving user: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({'success': False, 'message': str(e)}), 500
+
+
+@users_bp.route('/pending', methods=['GET'])
+@require_role(['Super Admin', 'Admin'])
+def get_pending_users():
+    """Get users pending approval (filtered by department for Admin)"""
+    try:
+        user_role = session.get('role_name')
+        user_dept = session.get('department')
+        
+        db = get_db()
+        
+        # Department filter for Admin role
+        dept_filter = ""
+        params = []
+        if user_role == 'Admin' and user_dept:
+            # Admin sees only pending students from their department
+            dept_filter = """
+                AND EXISTS (
+                    SELECT 1 FROM students s 
+                    WHERE s.user_id = u.id AND s.course = %s
+                )
+            """
+            params.append(user_dept)
+        # Super Admin sees all pending users
+        
+        query = f'''
+            SELECT u.id, u.username, u.first_name, u.last_name, u.email, u.created_at, 
+                   r.name as role_name, s.course as department
+            FROM users u
+            JOIN roles r ON u.role_id = r.id
+            LEFT JOIN students s ON s.user_id = u.id
+            WHERE u.account_status = 'Pending'
+            {dept_filter}
+            ORDER BY u.created_at DESC
+        '''
+        
+        users = db.execute_query(query, tuple(params) if params else ())
+        
+        user_list = []
+        for user in users:
+            full_name = f"{user['first_name'] or ''} {user['last_name'] or ''}".strip() or user['username']
+            user_list.append({
+                'id': user['id'],
+                'username': user['username'],
+                'full_name': full_name,
+                'email': user['email'] or '',
+                'role_name': user['role_name'],
+                'department': user['department'] or 'N/A',
+                'created_at': user['created_at'].isoformat() if user['created_at'] else None
+            })
+        
+        return jsonify({'success': True, 'users': user_list})
+    except Exception as e:
+        logger.error(f"Error getting pending users: {e}")
         import traceback
         traceback.print_exc()
         return jsonify({'success': False, 'message': str(e)}), 500

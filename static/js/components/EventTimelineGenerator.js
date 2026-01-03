@@ -241,19 +241,7 @@ window.EventTimelineGenerator = function EventTimelineGenerator({ timelineData, 
 
               {expandedPhase === idx && !isEditing && (
                 <div className="p-3 bg-white border-t border-slate-200">
-                  <p className="text-xs text-slate-700 mb-2">{phase.description}</p>
-                  <div className="grid grid-cols-2 gap-2 text-xs">
-                    <div className="bg-slate-50 rounded p-2">
-                      <p className="text-slate-600">Duration</p>
-                      <p className="font-bold text-slate-700">
-                        {typeof phase.duration === 'number' ? `${phase.duration} min` : phase.duration}
-                      </p>
-                    </div>
-                    <div className="bg-slate-50 rounded p-2">
-                      <p className="text-slate-600">Time</p>
-                      <p className="font-bold text-slate-700">{formatTime12Hour(phase.startTime)}-{formatTime12Hour(phase.endTime)}</p>
-                    </div>
-                  </div>
+                  <p className="text-sm text-slate-700 leading-relaxed">{phase.description}</p>
                 </div>
               )}
 

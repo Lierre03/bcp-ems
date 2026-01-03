@@ -680,17 +680,6 @@ window.EventFormModal = function EventFormModal({
                                 placeholder="Item name (e.g., Security Personnel)"
                                 className="w-full px-3 py-1.5 border border-gray-300 rounded text-sm focus:border-teal-500 focus:ring-1 focus:ring-teal-500 outline-none"
                               />
-                              <textarea
-                                value={resource.description}
-                                onChange={(e) => {
-                                  const updated = [...manualResources];
-                                  updated[index].description = e.target.value;
-                                  setManualResources(updated);
-                                }}
-                                placeholder="Details or Quantity..."
-                                rows="1"
-                                className="w-full px-3 py-1.5 border border-gray-300 rounded text-xs text-gray-600 focus:border-teal-500 focus:ring-1 focus:ring-teal-500 outline-none resize-none"
-                              />
                             </div>
                             <button
                               type="button"

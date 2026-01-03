@@ -42,31 +42,59 @@ def get_equipment():
     try:
         db = get_db()
         print("Database connection obtained")
-        # Fetch equipment with calculated in_use count and usage details
-        # We only count equipment for events that are Approved or Ongoing
-        query = """
-            SELECT 
-                e.id, e.name, e.category, e.total_quantity, e.status,
-                COALESCE(SUM(CASE 
-                    WHEN ev.status IN ('Approved', 'Ongoing') AND ev.deleted_at IS NULL 
-                    THEN ee.quantity ELSE 0 END), 0) as in_use,
-                GROUP_CONCAT(DISTINCT CASE 
-                    WHEN ev.status IN ('Approved', 'Ongoing') AND ev.deleted_at IS NULL 
-                    THEN ev.name END SEPARATOR ', ') as used_by_events
-            FROM equipment e
-            LEFT JOIN event_equipment ee ON e.name = ee.equipment_name
-            LEFT JOIN events ev ON ee.event_id = ev.id
-            GROUP BY e.id
-            ORDER BY e.category, e.name
-        """
-        equipment = db.execute_query(query)
+        
+        # First, get all equipment from the equipment table
+        equipment_list = db.execute_query("""
+            SELECT id, name, category, total_quantity, status
+            FROM equipment
+            ORDER BY category, name
+        """)
+        
+        # Then, get all approved/ongoing events with equipment JSON
+        events_with_equipment = db.execute_query("""
+            SELECT id, name, equipment
+            FROM events
+            WHERE status IN ('Approved', 'Ongoing') 
+            AND deleted_at IS NULL
+            AND equipment IS NOT NULL
+            AND equipment != ''
+            AND equipment != 'null'
+        """)
+        
+        # Calculate in_use for each equipment item
+        import json
+        equipment_usage = {}  # {equipment_name: {'quantity': X, 'events': [...]}}
+        
+        for event in events_with_equipment:
+            try:
+                if event['equipment']:
+                    equipment_data = json.loads(event['equipment'])
+                    if isinstance(equipment_data, list):
+                        for item in equipment_data:
+                            if isinstance(item, dict) and 'name' in item and 'quantity' in item:
+                                eq_name = item['name']
+                                qty = int(item.get('quantity', 0))
+                                
+                                if eq_name not in equipment_usage:
+                                    equipment_usage[eq_name] = {'quantity': 0, 'events': []}
+                                
+                                equipment_usage[eq_name]['quantity'] += qty
+                                if event['name'] not in equipment_usage[eq_name]['events']:
+                                    equipment_usage[eq_name]['events'].append(event['name'])
+            except (json.JSONDecodeError, ValueError, TypeError) as e:
+                logger.error(f"Error parsing equipment JSON for event {event.get('id')}: {e}")
+                continue
         
         # Process the results to match frontend expectations
-        for item in equipment:
+        equipment = []
+        for item in equipment_list:
             try:
-                item['in_use'] = int(item['in_use']) if item['in_use'] is not None else 0
+                eq_name = item['name']
+                usage = equipment_usage.get(eq_name, {'quantity': 0, 'events': []})
+                
+                item['in_use'] = usage['quantity']
                 item['available'] = item['total_quantity'] - item['in_use']
-                item['used_by'] = item['used_by_events'] if item['used_by_events'] else '—'
+                item['used_by'] = ', '.join(usage['events']) if usage['events'] else '—'
                 
                 # Update status based on availability
                 if item['available'] <= 0:
@@ -75,9 +103,14 @@ def get_equipment():
                     item['status'] = 'In Use'
                 else:
                     item['status'] = 'In Stock'
+                
+                equipment.append(item)
             except Exception as e:
                 logger.error(f"Error processing equipment item {item.get('id')}: {e}")
                 item['in_use'] = 0
+                item['available'] = item['total_quantity']
+                item['used_by'] = '—'
+                equipment.append(item)
                 item['available'] = 0
                 item['status'] = 'Error'
 
@@ -139,14 +172,14 @@ def add_equipment():
 @venues_bp.route('/conflicts', methods=['GET'])
 def get_conflicts():
     """
-    Detect overlapping bookings for venues
-    Returns a list of conflict groups
+    Detect soft conflicts (Pending events competing for same venue/time)
+    Staff resolves these by approving the best event in Account Approvals
     """
     try:
         db = get_db()
         
-        # Find events that overlap in time and use the same venue
-        # We look for events that are NOT rejected and NOT deleted
+        # Find PENDING events that overlap - these are soft conflicts staff needs to resolve
+        # Only show Pending status since those are actionable (staff approves best one)
         query = """
             SELECT 
                 e1.id as id1, e1.name as name1, e1.venue as venue1, 
@@ -165,7 +198,7 @@ def get_conflicts():
             JOIN users u2 ON e2.requestor_id = u2.id
             WHERE 
                 e1.deleted_at IS NULL AND e2.deleted_at IS NULL
-                AND e1.status != 'Rejected' AND e2.status != 'Rejected'
+                AND e1.status = 'Pending' AND e2.status = 'Pending'
                 AND e1.start_datetime < e2.end_datetime 
                 AND e1.end_datetime > e2.start_datetime
             ORDER BY e1.start_datetime ASC
@@ -195,7 +228,7 @@ def get_conflicts():
                     'type': c['type2'],
                     'requestor': f"{c['fn2']} {c['ln2']}"
                 },
-                'severity': 'High' if c['status1'] == 'Approved' and c['status2'] == 'Approved' else 'Medium'
+                'severity': 'Medium'  # All soft conflicts are same priority - staff picks best
             })
             
         return jsonify({'success': True, 'conflicts': conflicts})
@@ -386,6 +419,8 @@ def get_equipment_requests():
         db = get_db()
         
         # 1. Get all events that have equipment in their JSON column
+        # IMPORTANT: Only show events that department head already approved (Under Review or Approved status)
+        # This enforces approval hierarchy: Dept Head → Equipment/Venue Staff
         query = """
             SELECT 
                 e.id as event_id, 
@@ -403,6 +438,7 @@ def get_equipment_requests():
             FROM events e
             JOIN users u ON e.requestor_id = u.id
             WHERE e.deleted_at IS NULL
+            AND e.status IN ('Under Review', 'Approved')
             AND e.equipment IS NOT NULL
             AND e.equipment != '[]'
             AND e.equipment != 'null'
@@ -681,9 +717,15 @@ def update_request_status(event_id):
                 (new_event_status, event_id)
             )
         elif updated_event['venue_approval_status'] == 'Approved' and updated_event['equipment_approval_status'] == 'Approved':
-            # Both approved - move to Under Review (awaiting admin final approval)
-            if old_event_status == 'Pending':
-                new_event_status = 'Under Review'
+            # Both resources approved - finalize event and reject conflicts
+            if old_event_status == 'Under Review':
+                # Auto-reject soft conflicts BEFORE finalizing
+                from backend.api_events import _auto_reject_soft_conflicts
+                rejected_count = _auto_reject_soft_conflicts(db, event_id)
+                logger.info(f"Auto-rejected {rejected_count} conflicting events")
+                
+                new_event_status = 'Approved'
+                log_reason = 'Resources approved by Staff (auto-rejected conflicts)'
                 db.execute_update(
                     "UPDATE events SET status = %s WHERE id = %s",
                     (new_event_status, event_id)

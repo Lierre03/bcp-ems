@@ -1,6 +1,154 @@
 # ============================================================================
-# EVENT DETAILS HELPERS
-# Reusable functions for managing event equipment, activities, and budget
+# SIMPLE CONFLICT MANAGEMENT HELPERS
+# For capstone project - clean, straightforward FCFS model
+# ============================================================================
+
+from datetime import datetime, timedelta, time as time_type
+import logging
+
+logger = logging.getLogger(__name__)
+
+
+def suggest_alternative_times(db, venue, requested_start, requested_end, exclude_event_id=None):
+    """
+    Find next available time slots for the same venue.
+    Simple algorithm: tries common time blocks over next 2 weeks.
+    
+    Args:
+        db: Database connection
+        venue: Venue name
+        requested_start: Requested start datetime
+        requested_end: Requested end datetime
+        exclude_event_id: Event ID to exclude from conflict checking
+    
+    Returns:
+        list: Array of up to 5 alternative slot dictionaries
+    """
+    from backend.api_venues import get_venue_conflicts
+    
+    duration_seconds = (requested_end - requested_start).total_seconds()
+    alternatives = []
+    search_date = requested_start.date()
+    
+    # Search next 14 days
+    for day_offset in range(14):
+        current_date = search_date + timedelta(days=day_offset)
+        
+        # Try common time slots: 8AM, 1PM, 6PM
+        for start_hour in [8, 13, 18]:
+            slot_start = datetime.combine(current_date, time_type(start_hour, 0))
+            slot_end = slot_start + timedelta(seconds=duration_seconds)
+            
+            # Skip if in the past
+            if slot_start < datetime.now():
+                continue
+            
+            # Check existing conflicts
+            conflicts = get_venue_conflicts(
+                db, venue,
+                slot_start.strftime('%Y-%m-%d %H:%M:%S'),
+                slot_end.strftime('%Y-%m-%d %H:%M:%S'),
+                exclude_event_id
+            )
+            
+            if not conflicts:
+                alternatives.append({
+                    'start': slot_start.strftime('%Y-%m-%d %H:%M'),
+                    'end': slot_end.strftime('%Y-%m-%d %H:%M'),
+                    'day': slot_start.strftime('%A, %B %d'),
+                    'time_display': f"{slot_start.strftime('%I:%M %p')} - {slot_end.strftime('%I:%M %p')}"
+                })
+            
+            # Return first 5 alternatives
+            if len(alternatives) >= 5:
+                return alternatives
+    
+    return alternatives
+
+
+def validate_event_booking(db, venue, start_datetime, end_datetime, exclude_event_id=None):
+    """
+    Check for both hard conflicts (approved events) and soft conflicts (pending requests).
+    
+    Args:
+        db: Database connection
+        venue: Venue name
+        start_datetime: Event start (datetime object)
+        end_datetime: Event end (datetime object)
+        exclude_event_id: Event ID to exclude (for updates/reschedules)
+    
+    Returns:
+        dict: {
+            'can_submit': bool,
+            'conflict_type': 'hard'|'soft'|None,
+            'conflicts': list,
+            'message': str,
+            'alternatives': list
+        }
+    """
+    start_str = start_datetime.strftime('%Y-%m-%d %H:%M:%S')
+    end_str = end_datetime.strftime('%Y-%m-%d %H:%M:%S')
+    exclude_id = exclude_event_id or 0
+    
+    # Hard conflicts: Already approved/under review events (blocks submission)
+    hard_conflicts = db.execute_all("""
+        SELECT id, name as event_name, start_datetime, end_datetime, status, requestor_id as created_by
+        FROM events 
+        WHERE venue = %s 
+        AND status IN ('Approved', 'Under Review')
+        AND id != %s
+        AND (
+            (start_datetime < %s AND end_datetime > %s) OR
+            (start_datetime < %s AND end_datetime >= %s) OR
+            (start_datetime >= %s AND start_datetime < %s)
+        )
+        AND deleted_at IS NULL
+    """, (venue, exclude_id, end_str, start_str, end_str, end_str, start_str, end_str))
+    
+    if hard_conflicts:
+        alternatives = suggest_alternative_times(db, venue, start_datetime, end_datetime, exclude_event_id)
+        return {
+            'can_submit': False,
+            'conflict_type': 'hard',
+            'conflicts': hard_conflicts,
+            'message': 'This time slot is already booked',
+            'alternatives': alternatives
+        }
+    
+    # Soft conflicts: Pending requests (allows submission with warning)
+    soft_conflicts = db.execute_all("""
+        SELECT id, name as event_name, start_datetime, end_datetime, requestor_id as created_by, created_at
+        FROM events 
+        WHERE venue = %s 
+        AND status = 'Pending'
+        AND id != %s
+        AND (
+            (start_datetime < %s AND end_datetime > %s) OR
+            (start_datetime < %s AND end_datetime >= %s) OR
+            (start_datetime >= %s AND start_datetime < %s)
+        )
+        AND deleted_at IS NULL
+    """, (venue, exclude_id, end_str, start_str, end_str, end_str, start_str, end_str))
+    
+    if soft_conflicts:
+        alternatives = suggest_alternative_times(db, venue, start_datetime, end_datetime, exclude_event_id)
+        return {
+            'can_submit': True,
+            'conflict_type': 'soft',
+            'conflicts': soft_conflicts,
+            'message': f'{len(soft_conflicts)} pending request(s) for this time. Staff will review all and approve the best fit.',
+            'alternatives': alternatives
+        }
+    
+    # All clear
+    return {
+        'can_submit': True,
+        'conflict_type': None,
+        'conflicts': [],
+        'message': 'Venue available',
+        'alternatives': []
+    }
+# EVENT EQUIPMENT/ACTIVITIES/BUDGET HELPERS
 # ============================================================================
 
 def save_event_equipment(db, event_id, equipment_list):

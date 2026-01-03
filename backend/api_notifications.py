@@ -14,7 +14,7 @@ notifications_bp = Blueprint('notifications', __name__, url_prefix='/api/notific
 
 
 @notifications_bp.route('', methods=['GET'])
-@require_role(['Super Admin', 'Admin', 'Staff', 'Student'])
+@require_role(['Super Admin', 'Admin', 'Staff', 'Student', 'Participant'])
 def get_notifications():
     """Get notifications for current user"""
     try:
@@ -103,7 +103,7 @@ def get_notifications():
 
 
 @notifications_bp.route('/<int:notification_id>/mark-read', methods=['POST'])
-@require_role(['Super Admin', 'Admin', 'Staff', 'Student'])
+@require_role(['Super Admin', 'Admin', 'Staff', 'Student', 'Participant'])
 def mark_notification_read(notification_id):
     """Mark a notification as read"""
     try:
@@ -136,7 +136,7 @@ def mark_notification_read(notification_id):
 
 
 @notifications_bp.route('/mark-all-read', methods=['POST'])
-@require_role(['Super Admin', 'Admin', 'Staff', 'Student'])
+@require_role(['Super Admin', 'Admin', 'Staff', 'Student', 'Participant'])
 def mark_all_read():
     """Mark all notifications as read for current user"""
     try:
@@ -159,7 +159,7 @@ def mark_all_read():
 
 
 @notifications_bp.route('/<int:notification_id>', methods=['DELETE'])
-@require_role(['Super Admin', 'Admin', 'Staff', 'Student'])
+@require_role(['Super Admin', 'Admin', 'Staff', 'Student', 'Participant'])
 def delete_notification(notification_id):
     """Delete a notification"""
     try:

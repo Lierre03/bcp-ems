@@ -228,10 +228,6 @@
                             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
                             <span id="errorText">Error message</span>
                         </div>
-                        <div id="successMessage" class="hidden flex items-center justify-center gap-2 text-green-600 text-sm font-medium bg-green-50 py-2 px-4 rounded-lg">
-                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
-                            <span id="successText">Success message</span>
-                        </div>
                     </div>
 
                     <!-- Action Buttons -->
@@ -318,9 +314,7 @@
             const confirmPassword = document.getElementById('confirmPassword').value;
 
             const errorDiv = document.getElementById('errorMessage');
-            const successDiv = document.getElementById('successMessage');
             errorDiv.classList.add('hidden');
-            successDiv.classList.add('hidden');
 
             if (!firstName || !lastName || !email || !username || !password || !course || !section) {
                 showError('All fields are required');
@@ -366,9 +360,8 @@
                 const data = await response.json();
 
                 if (data.success) {
-                    document.getElementById('successText').textContent = 'Account created successfully! Redirecting...';
-                    successDiv.classList.remove('hidden');
-                    setTimeout(() => { window.location.href = '/login'; }, 2000);
+                    // Show success overlay
+                    document.getElementById('successOverlay').classList.remove('hidden');
                 } else {
                     showError(data.message || 'Registration failed');
                     btn.disabled = false;
@@ -387,5 +380,28 @@
             errorDiv.classList.remove('hidden');
         }
     </script>
+    
+    <!-- Success Overlay (Full Screen) -->
+    <div id="successOverlay" class="hidden fixed top-0 left-0 w-full h-full bg-white z-[9999] flex items-center justify-center p-6" style="position: fixed;">
+        <div class="max-w-md w-full text-center">
+            <div class="mb-6">
+                <svg class="w-20 h-20 mx-auto text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                </svg>
+            </div>
+            <h2 class="text-3xl font-bold text-gray-900 mb-4">Registration Successful!</h2>
+            <p class="text-lg text-gray-600 mb-3">Your account has been created and is <strong class="text-blue-600">pending admin approval</strong>.</p>
+            <p class="text-sm text-gray-500 mb-6">You will receive an email notification once your account is approved by the administrator.</p>
+            <div class="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
+                <p class="text-sm text-blue-800">
+                    <strong>What happens next?</strong><br>
+                    An administrator will review your registration and approve your account. This usually takes 24-48 hours.
+                </p>
+            </div>
+            <a href="/" class="inline-block w-full px-6 py-3 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 transition-colors">
+                Return to Login
+            </a>
+        </div>
+    </div>
 </body>
 </html>

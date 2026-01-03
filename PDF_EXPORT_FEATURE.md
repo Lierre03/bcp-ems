@@ -29,7 +29,7 @@ Added professional PDF export functionality that generates event planning guidel
 #### Budget Breakdown Checklist ✅
 - Checkbox for each budget category
 - Category name
-- Amount (₱ formatted)
+- Amount (PHP formatted for universal compatibility)
 - Status field for tracking
 - Total budget summary
 

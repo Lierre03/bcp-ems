@@ -69,7 +69,7 @@ def login():
         
         query = """
             SELECT u.id, u.username, u.email, u.password_hash, u.first_name, u.last_name,
-                   u.is_active, u.department, r.id as role_id, r.name as role_name
+                   u.is_active, u.department, u.account_status, r.id as role_id, r.name as role_name
             FROM users u
             JOIN roles r ON u.role_id = r.id
             WHERE u.username = %s
@@ -85,6 +85,12 @@ def login():
         if not user['is_active']:
             print(f"DEBUG: User inactive")
             return jsonify({'error': 'Account is inactive'}), 403
+        
+        # Check account approval status (for participants)
+        if user.get('account_status') == 'Pending':
+            return jsonify({'error': 'Your account is pending admin approval. Please wait.'}), 403
+        if user.get('account_status') == 'Rejected':
+            return jsonify({'error': 'Your account has been rejected.'}), 403
         
         print(f"DEBUG: About to verify password")
         # Verify password
@@ -227,29 +233,33 @@ def register():
         # Hash password using bcrypt
         hashed_password = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt(rounds=12)).decode('utf-8')
 
-        # Insert new user
-        user_id = db.execute_insert('''
-            INSERT INTO users (username, email, password_hash, first_name, last_name, role_id, is_active)
-            VALUES (%s, %s, %s, %s, %s, %s, 1)
-        ''', (username, email, hashed_password, first_name, last_name, role_id))
+        # Use transaction to ensure both user and student records are created atomically
+        try:
+            with db.get_transaction() as cursor:
+                # Insert new user (pending admin approval)
+                cursor.execute('''
+                    INSERT INTO users (username, email, password_hash, first_name, last_name, role_id, is_active, account_status)
+                    VALUES (%s, %s, %s, %s, %s, %s, 0, 'Pending')
+                ''', (username, email, hashed_password, first_name, last_name, role_id))
+                user_id = cursor.lastrowid
 
-        # Insert into students table
-        if user_id:
-            db.execute_insert('''
-                INSERT INTO students (user_id, course, section)
-                VALUES (%s, %s, %s)
-            ''', (user_id, course, section))
+                # Insert into students table
+                cursor.execute('''
+                    INSERT INTO students (user_id, course, section)
+                    VALUES (%s, %s, %s)
+                ''', (user_id, course, section))
             
             logger.info(f"New student registered: {username} ({email}) - {course} {section}")
 
             return jsonify({
                 'success': True,
-                'message': 'Account created successfully. Please log in.'
+                'message': 'Account created successfully! Please wait for admin approval before logging in.'
             }), 201
-        else:
-             return jsonify({
+        except Exception as e:
+            logger.error(f"Registration transaction failed: {e}")
+            return jsonify({
                 'success': False,
-                'message': 'Failed to create user record.'
+                'message': 'Failed to create user account. Please try again.'
             }), 500
 
     except Exception as e:

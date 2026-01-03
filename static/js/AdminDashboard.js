@@ -3,6 +3,7 @@ const { useState, useEffect } = React;
 const Sidebar = window.Sidebar;
 const NotificationBell = window.NotificationBell;
 const EquipmentApprovalReview = window.EquipmentApprovalReview;
+const AccountApprovalPanel = window.AccountApprovalPanel;
 
 window.AdminDashboard = function AdminDashboard() {
   const [user, setUser] = useState(null);
@@ -56,6 +57,7 @@ window.AdminDashboard = function AdminDashboard() {
   };
 
   const isSuperAdmin = user && user.role_name === 'Super Admin';
+  const isAdmin = user && (user.role_name === 'Admin' || user.role_name === 'Super Admin');
 
   const menuItems = [
     {
@@ -63,6 +65,11 @@ window.AdminDashboard = function AdminDashboard() {
       label: 'Events Manager',
       icon: <svg className="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
     },
+    ...(isAdmin ? [{
+      id: 'approvals',
+      label: 'Account Approvals',
+      icon: <svg className="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+    }] : []),
     {
       id: 'analytics',
       label: 'Analytics Dashboard',
@@ -102,6 +109,7 @@ window.AdminDashboard = function AdminDashboard() {
               <p className="text-blue-600 text-xs font-medium mb-0.5">Admin Dashboard</p>
               <h1 className="text-2xl font-bold text-gray-900">
                 {activeView === 'events' ? 'Events Manager' :
+                 activeView === 'approvals' ? 'Account Approvals' :
                  activeView === 'analytics' ? 'Analytics Dashboard' :
                  activeView === 'ai-training' ? 'AI Training Center' :
                  activeView === 'resources' ? 'Resource Management' :
@@ -109,6 +117,7 @@ window.AdminDashboard = function AdminDashboard() {
               </h1>
               <p className="text-gray-500 text-xs mt-1">
                 {activeView === 'events' ? 'Create, manage, and track all school events' :
+                 activeView === 'approvals' ? 'Review and approve student registration requests' :
                  activeView === 'analytics' ? 'Visualize event metrics, attendance, and performance data' :
                  activeView === 'ai-training' ? 'Train and optimize your event planning AI' :
                  activeView === 'resources' ? 'Manage venues, equipment, and view schedules' :
@@ -124,6 +133,7 @@ window.AdminDashboard = function AdminDashboard() {
 
         <main className="flex-1 overflow-y-auto p-4">
           {activeView === 'events' && <AdminEventsManager eventIdToOpen={eventIdToOpen} />}
+          {activeView === 'approvals' && <AccountApprovalPanel />}
           {activeView === 'analytics' && <AnalyticsDashboard />}
           {activeView === 'ai-training' && <AITrainingDashboard />}
           {activeView === 'resources' && <ResourceManagement userRole={user ? user.role_name : 'Admin'} />}
