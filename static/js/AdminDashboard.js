@@ -13,6 +13,27 @@ window.AdminDashboard = function AdminDashboard() {
   });
   const [eventIdToOpen, setEventIdToOpen] = useState(null);
   const [equipmentReviewEventId, setEquipmentReviewEventId] = useState(null);
+  const [rescheduleEventId, setRescheduleEventId] = useState(null);
+
+  // Handle hash-based routing
+  useEffect(() => {
+    const handleHashChange = () => {
+      const hash = window.location.hash;
+      if (hash.startsWith('#/reschedule/')) {
+        const eventId = hash.split('/')[2];
+        setRescheduleEventId(eventId);
+        setActiveView('reschedule');
+      } else if (hash === '#/admin') {
+        setActiveView('events');
+        setRescheduleEventId(null);
+      }
+    };
+
+    handleHashChange(); // Initial check
+    window.addEventListener('hashchange', handleHashChange);
+    
+    return () => window.removeEventListener('hashchange', handleHashChange);
+  }, []);
 
   useEffect(() => {
     const userJson = localStorage.getItem('user');
@@ -58,6 +79,11 @@ window.AdminDashboard = function AdminDashboard() {
 
   const isSuperAdmin = user && user.role_name === 'Super Admin';
   const isAdmin = user && (user.role_name === 'Admin' || user.role_name === 'Super Admin');
+
+  // Don't render sidebar/header for reschedule view
+  if (activeView === 'reschedule') {
+    return React.createElement(RescheduleEvent, null);
+  }
 
   const menuItems = [
     {

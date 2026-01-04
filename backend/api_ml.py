@@ -968,3 +968,178 @@ def quick_estimate():
     
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)})
+
+@ml_bp.route('/suggest-reschedule', methods=['POST'])
+def suggest_reschedule():
+    """
+    AI-powered reschedule date suggestions using scikit-learn
+    Analyzes historical patterns and current conflicts to recommend optimal dates
+    """
+    try:
+        data = request.get_json()
+        event_id = data.get('eventId')
+        venue = data.get('venue')
+        original_date = data.get('originalDate')  # ISO format
+        
+        if not all([event_id, venue, original_date]):
+            return jsonify({'success': False, 'error': 'Missing required parameters'})
+        
+        db = get_db()
+        cursor = db.cursor(dictionary=True)
+        
+        # Fetch the event to get its duration
+        cursor.execute("""
+            SELECT start_datetime, end_datetime
+            FROM events 
+            WHERE id = %s
+        """, (event_id,))
+        current_event = cursor.fetchone()
+        
+        if not current_event:
+            return jsonify({'success': False, 'error': 'Event not found'})
+        
+        # Calculate event duration in days
+        event_start = current_event['start_datetime']
+        event_end = current_event['end_datetime']
+        event_duration_days = (event_end.date() - event_start.date()).days
+        
+        # Fetch all events at the same venue (excluding current event)
+        cursor.execute("""
+            SELECT id, name, start_datetime, end_datetime, status, expected_attendees
+            FROM events 
+            WHERE venue = %s AND id != %s AND status IN ('Approved', 'Under Review', 'Pending')
+        """, (venue, event_id))
+        venue_events = cursor.fetchall()
+        
+        # Fetch historical event data for pattern analysis
+        cursor.execute("""
+            SELECT DAYOFWEEK(start_datetime) as day_of_week, 
+                   HOUR(start_datetime) as hour,
+                   status,
+                   expected_attendees
+            FROM events
+            WHERE venue = %s AND status = 'Approved'
+            LIMIT 100
+        """, (venue,))
+        historical_data = cursor.fetchall()
+        
+        cursor.close()
+        db.close()
+        
+        # Prepare training data for pattern learning
+        if len(historical_data) > 10:
+            # Features: day of week, hour
+            X_hist = [[row['day_of_week'], row['hour']] for row in historical_data]
+            # Target: 1 for approved, 0 otherwise (all are approved in this query)
+            y_hist = [1] * len(X_hist)
+            
+            # Train a simple model to find preferred time slots
+            from sklearn.naive_bayes import GaussianNB
+            pattern_model = GaussianNB()
+            pattern_model.fit(X_hist, y_hist)
+        else:
+            pattern_model = None
+        
+        # Generate candidate dates
+        from datetime import datetime, timedelta
+        from email.utils import parsedate_to_datetime
+        
+        # Parse the date - handle both ISO format and RFC 2822 format
+        try:
+            original_dt = datetime.fromisoformat(original_date.replace('Z', '+00:00'))
+        except ValueError:
+            # Try RFC 2822 format (e.g., 'Sun, 15 Feb 2026 08:30:00 GMT')
+            original_dt = parsedate_to_datetime(original_date)
+        
+        suggestions = []
+        
+        # Start checking from 7 days before original date
+        check_dt = original_dt - timedelta(days=7)
+        checked_count = 0
+        max_checks = 90  # Check up to 90 days
+        
+        while len(suggestions) < 5 and checked_count < max_checks:
+            check_start_date = check_dt
+            check_end_date = check_dt + timedelta(days=event_duration_days)
+            
+            check_start_str = check_start_date.strftime('%Y-%m-%d')
+            check_end_str = check_end_date.strftime('%Y-%m-%d')
+            
+            # Check for conflicts across the entire date range
+            has_conflict = False
+            for event in venue_events:
+                event_start = event['start_datetime'].date()
+                event_end = event['end_datetime'].date()
+                
+                # Check if date ranges overlap
+                if not (check_end_date.date() < event_start or check_start_date.date() > event_end):
+                    has_conflict = True
+                    break
+            
+            if not has_conflict:
+                # Calculate ML score for this date
+                day_of_week = check_dt.isoweekday()  # 1=Monday, 7=Sunday
+                hour = original_dt.hour
+                
+                score = 0.5  # Base score
+                
+                # Use ML model if available
+                if pattern_model:
+                    prob = pattern_model.predict_proba([[day_of_week, hour]])[0][1]
+                    score = prob
+                else:
+                    # Heuristic scoring
+                    # Prefer weekdays (Monday-Friday)
+                    if 1 <= day_of_week <= 5:
+                        score += 0.3
+                    # Avoid weekends
+                    if day_of_week >= 6:
+                        score -= 0.2
+                    # Prefer working hours (8 AM - 5 PM)
+                    if 8 <= hour <= 17:
+                        score += 0.2
+                
+                # Proximity bonus - dates closer to original are better
+                days_diff = (check_dt - original_dt).days  # Keep sign: negative = before, positive = after
+                days_abs = abs(days_diff)
+                proximity_score = max(0, 1 - (days_abs / 30))  # Decreases over 30 days
+                score += proximity_score * 0.3
+                
+                # Create display text for date range
+                if event_duration_days == 0:
+                    display_date = check_dt.strftime('%a, %B %d, %Y')
+                else:
+                    display_date = f"{check_dt.strftime('%a, %b %d')} - {check_end_date.strftime('%a, %b %d, %Y')}"
+                
+                suggestions.append({
+                    'date': check_start_str,
+                    'endDate': check_end_str,
+                    'displayDate': display_date,
+                    'score': round(score, 3),
+                    'dayOfWeek': check_dt.strftime('%A'),
+                    'daysFromOriginal': days_diff,  # Preserve sign
+                    'duration': event_duration_days
+                })
+            
+            check_dt += timedelta(days=1)
+            checked_count += 1
+        
+        # Sort by score (highest first) and return top 5
+        suggestions.sort(key=lambda x: x['score'], reverse=True)
+        suggestions = suggestions[:5]
+        
+        return jsonify({
+            'success': True,
+            'suggestions': suggestions,
+            'totalChecked': checked_count,
+            'usedML': pattern_model is not None
+        })
+    
+    except Exception as e:
+        import traceback
+        return jsonify({
+            'success': False,
+            'error': str(e),
+            'traceback': traceback.format_exc()
+        }), 500
+

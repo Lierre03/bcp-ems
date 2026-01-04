@@ -226,7 +226,7 @@
                     const role = data.user.role_name;
                     if (role === 'Staff') {
                         window.location.href = '/staff';
-                    } else if (role === 'Participant') {
+                    } else if (role === 'Participant' || role === 'Student Organization Officer') {
                         window.location.href = '/student';
                     } else {
                         window.location.href = '/admin';
@@ -270,7 +270,7 @@
                     const role = user.role_name;
                     if (role === 'Staff') {
                         window.location.href = '/staff';
-                    } else if (role === 'Participant') {
+                    } else if (role === 'Participant' || role === 'Student Organization Officer') {
                         window.location.href = '/student';
                     } else {
                         window.location.href = '/admin';

@@ -71,7 +71,11 @@ const NotificationBell = () => {
         setIsOpen(false);
         
         // Route based on notification type
-        if (notification.type === 'equipment_adjusted' && notification.eventId && window.openEquipmentReview) {
+        if (notification.type === 'conflict_rejection' && notification.eventId) {
+            // For conflict rejections, navigate to dedicated reschedule page
+            sessionStorage.setItem('rescheduleEventId', notification.eventId);
+            window.location.hash = `#/reschedule/${notification.eventId}`;
+        } else if (notification.type === 'equipment_adjusted' && notification.eventId && window.openEquipmentReview) {
             // For equipment adjustments, open the dedicated review interface
             window.openEquipmentReview(notification.eventId);
         } else if (notification.eventId && window.openEventForReview) {
@@ -242,13 +246,13 @@ const NotificationBell = () => {
                             <div style={{padding: '20px', textAlign: 'center', color: '#666'}}>
                                 Loading...
                             </div>
-                        ) : notifications.filter(n => !n.isRead).length === 0 ? (
+                        ) : notifications.length === 0 ? (
                             <div style={{padding: '40px 20px', textAlign: 'center', color: '#999'}}>
                                 <div style={{fontSize: '48px', marginBottom: '12px'}}>🔕</div>
-                                <p style={{margin: 0}}>No unread notifications</p>
+                                <p style={{margin: 0}}>No notifications</p>
                             </div>
                         ) : (
-                            notifications.filter(n => !n.isRead).map(notification => (
+                            notifications.map(notification => (
                                 <div
                                     key={notification.id}
                                     className="notification-item"
@@ -258,10 +262,7 @@ const NotificationBell = () => {
                                         borderBottom: '1px solid #f0f0f0',
                                         cursor: 'pointer',
                                         background: notification.isRead ? 'white' : '#f0f7ff',
-                                        transition: 'background 0.2s',
-                                        '&:hover': {
-                                            background: '#e8f4ff'
-                                        }
+                                        transition: 'background 0.2s'
                                     }}
                                     onMouseEnter={(e) => e.currentTarget.style.background = '#e8f4ff'}
                                     onMouseLeave={(e) => e.currentTarget.style.background = notification.isRead ? 'white' : '#f0f7ff'}

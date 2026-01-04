@@ -79,6 +79,18 @@ window.AdminEventsManager = function AdminEventsManager({ eventIdToOpen }) {
     loadVenues();
     fetchEquipmentOptions(); // Load dynamic equipment on mount
     checkModelStatus(); // Check if AI models are ready
+    
+    // Check if there's an event to open from notification
+    const eventIdToOpen = sessionStorage.getItem('openEventId');
+    if (eventIdToOpen) {
+      sessionStorage.removeItem('openEventId');
+      // Wait a bit for events to load, then open
+      setTimeout(() => {
+        if (window.openEventEditor) {
+          window.openEventEditor(parseInt(eventIdToOpen));
+        }
+      }, 500);
+    }
   }, [sortBy, filterStatus, filterType]);
   
   // Open event when triggered from notification
@@ -332,8 +344,61 @@ window.AdminEventsManager = function AdminEventsManager({ eventIdToOpen }) {
     }
 
     setAiSuggestions(null);
+    
+    // Check if this is a conflict-rejected event and set the active tab
+    const isConflictRejected = event.status === 'Conflict_Rejected';
+    if (isConflictRejected) {
+      setActiveModalTab('ai');
+    } else {
+      setActiveModalTab('details');
+    }
+    
     setShowModal(true);
   };
+  
+  // Auto-trigger AI for conflict-rejected events
+  useEffect(() => {
+    if (showModal && editingId && formData.name && activeModalTab === 'ai') {
+      // Find the event to check if it's conflict rejected
+      const event = events.find(e => e.id === editingId);
+      if (event && event.status === 'Conflict_Rejected') {
+        // Trigger AI after a short delay to ensure modal is rendered
+        setTimeout(() => {
+          handleAutoFill();
+        }, 300);
+      }
+    }
+  }, [showModal, editingId, activeModalTab]);
+
+  // Expose function globally for notifications to trigger event editing
+  useEffect(() => {
+    window.openEventEditor = async (eventId) => {
+      // Fetch event data if not already loaded
+      let event = events.find(e => e.id === eventId);
+      
+      if (!event) {
+        // Fetch the event from API
+        try {
+          const response = await fetch(`/api/events/${eventId}`);
+          if (response.ok) {
+            const data = await response.json();
+            event = data.event;
+          }
+        } catch (error) {
+          console.error('Failed to fetch event:', error);
+          return;
+        }
+      }
+      
+      if (event) {
+        handleEditEvent(event);
+      }
+    };
+    
+    return () => {
+      delete window.openEventEditor;
+    };
+  }, [events]);
 
   const handleSaveEvent = async () => {
     if (!formData.name.trim() || !formData.date) {

@@ -81,10 +81,10 @@ def _auto_reject_soft_conflicts(db, approved_event_id):
     end_str = event['end_datetime'].strftime('%Y-%m-%d %H:%M:%S')
     
     soft_conflicts = db.execute_query("""
-        SELECT id, name, requestor_id, start_datetime, end_datetime
+        SELECT id, name, requestor_id, start_datetime, end_datetime, status
         FROM events 
         WHERE venue = %s 
-        AND status = 'Pending'
+        AND status IN ('Pending', 'Under Review')
         AND id != %s
         AND (
             (start_datetime < %s AND end_datetime > %s) OR
@@ -95,10 +95,15 @@ def _auto_reject_soft_conflicts(db, approved_event_id):
     """, (event['venue'], approved_event_id, end_str, start_str, end_str, end_str, start_str, end_str))
     
     for conflict in soft_conflicts:
-        # Update to Conflict_Rejected status
+        # Get current status for history logging
+        current_status = conflict.get('status', 'Under Review')
+        
+        # Update to Conflict_Rejected status AND set venue/equipment approvals to Rejected
         db.execute_update("""
             UPDATE events 
             SET status = 'Conflict_Rejected',
+                venue_approval_status = 'Rejected',
+                equipment_approval_status = 'Rejected',
                 conflict_resolution_note = %s,
                 conflicted_with_event_id = %s,
                 updated_at = NOW()
@@ -140,9 +145,10 @@ def _auto_reject_soft_conflicts(db, approved_event_id):
         # Log history
         db.execute_insert("""
             INSERT INTO event_status_history (event_id, old_status, new_status, changed_by, reason)
-            VALUES (%s, 'Pending', 'Conflict_Rejected', %s, %s)
+            VALUES (%s, %s, 'Conflict_Rejected', %s, %s)
         """, (
             conflict['id'],
+            current_status,
             session['user_id'],
             f'Auto-rejected: conflicted with approved event #{approved_event_id}'
         ))
@@ -728,7 +734,8 @@ def update_event(event_id):
         
         allowed_fields = [
             'name', 'event_type', 'description', 'start_datetime', 'end_datetime',
-            'venue', 'organizer', 'expected_attendees', 'budget', 'status', 'organizing_department'
+            'venue', 'organizer', 'expected_attendees', 'budget', 'status', 'organizing_department',
+            'venue_approval_status', 'equipment_approval_status'
         ]
         
         for field in allowed_fields:

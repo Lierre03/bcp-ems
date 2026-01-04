@@ -169,12 +169,32 @@ def update_user(user_id):
         
         db = get_db()
         
-        # Get role ID
+        # Get current user info to detect role changes
+        current_user = db.execute_one('''
+            SELECT u.email, u.first_name, u.last_name, r.name as user_role, 
+                   u.account_status, u.is_active
+            FROM users u
+            JOIN roles r ON u.role_id = r.id
+            WHERE u.id = %s
+        ''', (user_id,))
+        
+        if not current_user:
+            return jsonify({'success': False, 'message': 'User not found'}), 404
+        
+        # Get role ID for the new role
         role_row = db.execute_one('SELECT id FROM roles WHERE name = %s', (role,))
         if not role_row:
-            return jsonify({'success': False, 'message': 'Invalid role'}), 400
+            return jsonify({'success': False, 'message': f'Invalid role: {role}'}), 400
         
         role_id = role_row['id']
+        
+        # Detect role upgrade from Participant to Student Organization Officer
+        is_participant_to_org_officer = (
+            current_user['user_role'] == 'Participant' and 
+            role == 'Student Organization Officer' and
+            current_user['account_status'] == 'Approved' and
+            current_user['is_active'] == 1
+        )
         
         # Update user
         if password:
@@ -191,7 +211,26 @@ def update_user(user_id):
                 WHERE id = %s
             ''', (first_name, last_name, email, role_id, department, user_id))
         
-        return jsonify({'success': True, 'message': 'User updated successfully'})
+        # Send email notification if student was upgraded to Student Organization Officer
+        email_sent = False
+        if is_participant_to_org_officer:
+            name = f"{first_name} {last_name}".strip() or current_user['first_name'] + ' ' + current_user['last_name']
+            user_email = email or current_user['email']
+            try:
+                from backend.email_service import send_role_upgrade_email
+                send_role_upgrade_email(user_email, name, role)
+                email_sent = True
+                logger.info(f"Role upgrade email sent to {user_email}")
+            except Exception as email_error:
+                logger.error(f"Failed to send role upgrade email to {user_email}: {email_error}")
+                # Don't fail the update - email is non-critical
+        
+        return jsonify({
+            'success': True, 
+            'message': 'User updated successfully',
+            'email_sent': email_sent,
+            'role_upgraded': is_participant_to_org_officer
+        })
     except Exception as e:
         print(f"Error updating user: {e}")
         import traceback

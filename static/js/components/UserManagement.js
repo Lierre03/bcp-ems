@@ -12,12 +12,12 @@ window.UserManagement = function UserManagement() {
     username: '',
     full_name: '',
     email: '',
-    role: 'Requestor',
+    role: 'Participant',
     department: '',
     password: ''
   });
 
-  const roles = ['Super Admin', 'Admin', 'Staff', 'Requestor'];
+  const roles = ['Super Admin', 'Admin', 'Staff', 'Student Organization Officer', 'Participant'];
 
   useEffect(() => {
     loadUsers();
@@ -51,7 +51,7 @@ window.UserManagement = function UserManagement() {
       username: '',
       full_name: '',
       email: '',
-      role: 'Requestor',
+      role: 'Participant',
       department: '',
       password: ''
     });
@@ -402,7 +402,8 @@ window.UserManagement = function UserManagement() {
                   {formData.role === 'Super Admin' && 'Super Admin has unrestricted access to all departments'}
                   {formData.role === 'Admin' && 'Admin will only see events from their assigned department'}
                   {formData.role === 'Staff' && 'Staff manages equipment/venues for ALL events (no department restriction)'}
-                  {formData.role === 'Requestor' && 'Optional: Assign department for organizational purposes'}
+                  {formData.role === 'Student Organization Officer' && 'Student org leaders can create and manage events for their organizations'}
+                  {formData.role === 'Participant' && 'Participants can view, register, and attend events'}
                 </p>
               </div>
 

@@ -438,7 +438,7 @@ def get_equipment_requests():
             FROM events e
             JOIN users u ON e.requestor_id = u.id
             WHERE e.deleted_at IS NULL
-            AND e.status IN ('Under Review', 'Approved')
+            AND e.status IN ('Under Review', 'Approved', 'Rejected', 'Conflict_Rejected')
             AND e.equipment IS NOT NULL
             AND e.equipment != '[]'
             AND e.equipment != 'null'
@@ -487,10 +487,21 @@ def get_equipment_requests():
             except (json.JSONDecodeError, TypeError):
                 continue
             
-            # Calculate "Requested X days ago"
+            # Calculate precise "Requested X time ago"
             created_at = row['created_at']
-            days_ago = (now - created_at).days
-            time_ago = f"{days_ago} days ago" if days_ago > 0 else "Today"
+            time_diff = now - created_at
+            days = time_diff.days
+            hours = time_diff.seconds // 3600
+            minutes = (time_diff.seconds % 3600) // 60
+            
+            if days > 0:
+                time_ago = f"{days} day{'s' if days != 1 else ''} ago"
+            elif hours > 0:
+                time_ago = f"{hours} hour{'s' if hours != 1 else ''} ago"
+            elif minutes > 0:
+                time_ago = f"{minutes} minute{'s' if minutes != 1 else ''} ago"
+            else:
+                time_ago = "Just now"
             
             # Build items list with availability
             items = []
@@ -524,6 +535,31 @@ def get_equipment_requests():
                     })
             
             if items:  # Only include events that have valid equipment items
+                # Check for venue/time conflicts with other Under Review/Approved events
+                has_conflict = False
+                conflicting_event = None
+                if row.get('venue'):
+                    conflict_check = db.execute_query("""
+                        SELECT id, name FROM events 
+                        WHERE id != %s 
+                        AND deleted_at IS NULL
+                        AND status IN ('Under Review', 'Approved')
+                        AND venue = %s
+                        AND (
+                            (start_datetime <= %s AND end_datetime > %s) OR
+                            (start_datetime < %s AND end_datetime >= %s) OR
+                            (start_datetime >= %s AND end_datetime <= %s)
+                        )
+                        ORDER BY created_at ASC
+                        LIMIT 1
+                    """, (row['event_id'], row['venue'], 
+                           row['start_datetime'], row['start_datetime'],
+                           row['end_datetime'], row['end_datetime'],
+                           row['start_datetime'], row['end_datetime']))
+                    if conflict_check:
+                        has_conflict = True
+                        conflicting_event = conflict_check[0]['name']
+                
                 event_obj = {
                     'id': row['event_id'],
                     'name': row['event_name'],
@@ -534,7 +570,10 @@ def get_equipment_requests():
                     'equipment_approval_status': row.get('equipment_approval_status', 'Pending'),
                     'requestor': f"{row['first_name']} {row['last_name']}",
                     'requested_at': time_ago,
+                    'created_at': row['created_at'].isoformat(),  # Exact timestamp for sorting
                     'status': row['event_status'],  # Keep overall event status
+                    'has_conflict': has_conflict,
+                    'conflict_with': conflicting_event,
                     'items': items
                 }
                 

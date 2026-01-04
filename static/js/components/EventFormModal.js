@@ -8,7 +8,8 @@ window.EventFormModal = function EventFormModal({
   handleAutoFill, handleSaveEvent, setShowModal, toggleEquipment,
   toggleActivity, toggleAdditionalResource, setCheckedResources,
   handleBudgetUpdate, handleEquipmentUpdate, setAiSuggestions, setBudgetData, setTimelineData,
-  modelStatus, budgetEstimate, lastAIRequest, hasEnoughData, activeTab: parentActiveTab, onTabChange
+  modelStatus, budgetEstimate, lastAIRequest, hasEnoughData, activeTab: parentActiveTab, onTabChange,
+  isConflictRejected
 }) {
   // Manual input states
   const [manualResources, setManualResources] = React.useState([]);
@@ -31,7 +32,9 @@ window.EventFormModal = function EventFormModal({
   React.useEffect(() => {
     if (setCheckedResources && manualResources.length >= 0) {
       // Extract just the names from manualResources and update checkedResources
-      const resourceNames = manualResources.map(r => r.name).filter(name => name && name.trim());
+      const resourceNames = manualResources
+        .map(r => r && r.name)
+        .filter(name => name && typeof name === 'string' && name.trim());
       setCheckedResources(resourceNames);
     }
   }, [manualResources, setCheckedResources]);
@@ -92,20 +95,25 @@ window.EventFormModal = function EventFormModal({
     
     // Initialize manualResources from checkedResources when editing
     if (checkedResources && checkedResources.length > 0) {
-      setManualResources(checkedResources.map(name => ({ name, description: '' })));
+      setManualResources(
+        checkedResources
+          .filter(name => typeof name === 'string')
+          .map(name => ({ name, description: '' }))
+      );
     } else {
       setManualResources([]);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [editingId]); // Only re-initialize when editing a different event
   
-  // Sync userBudgetData to parent budgetData
+  // Sync userBudgetData total to parent formData.budget (but don't overwrite budgetData which contains AI suggestions)
   React.useEffect(() => {
-    if (handleBudgetUpdate && userBudgetData) {
-      handleBudgetUpdate(userBudgetData);
+    if (userBudgetData && userBudgetData.totalBudget) {
+      // Only update the form's budget field, not the budgetData (which holds AI suggestions)
+      setFormData(prev => ({ ...prev, budget: userBudgetData.totalBudget }));
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [userBudgetData]); // Only depend on userBudgetData, not the callback
+  }, [userBudgetData?.totalBudget]); // Only sync total budget changes
   
   // Sync userEquipmentData to parent formData.equipment
   React.useEffect(() => {
@@ -306,7 +314,6 @@ window.EventFormModal = function EventFormModal({
                         </div>
                       )}
                     </div>
-
                     {/* Date Fields */}
                     <div className="grid grid-cols-2 gap-4">
                       <div>
@@ -821,18 +828,20 @@ window.EventFormModal = function EventFormModal({
                     Suggested Extras
                   </h4>
                   <div className="flex flex-wrap gap-2">
-                    {formData.additionalResources.map(r => {
-                      const isChecked = checkedResources.includes(r); 
+                    {formData.additionalResources.map((r, idx) => {
+                      // Handle both string and object formats
+                      const resourceName = typeof r === 'string' ? r : (r && r.name ? r.name : '');
+                      const isChecked = checkedResources.includes(resourceName); 
                       return (
                         <button 
-                          key={r} 
-                          onClick={() => toggleAdditionalResource(r)} 
+                          key={resourceName || idx} 
+                          onClick={() => toggleAdditionalResource(resourceName)} 
                           className={`px-2.5 py-1.5 rounded text-xs border font-medium transition flex items-center gap-1.5 ${
                             isChecked ? 'bg-teal-50 text-teal-700 border-teal-200 shadow-inner' : 'bg-gray-50 text-gray-600 border-gray-200 hover:bg-white hover:shadow-sm'
                           }`}
                         >
                           {isChecked ? <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" /></svg> : null}
-                          {r}
+                          {resourceName}
                         </button>
                       );
                     })}
@@ -852,10 +861,19 @@ window.EventFormModal = function EventFormModal({
                     </h4>
                     <button
                       onClick={() => {
-                        // Apply all suggestions
+                        // Apply all suggestions - remove empty categories first
                         const allCats = Object.keys(budgetData.breakdown);
                         if (allCats.length > 0) {
-                          setBudgetData(budgetData);
+                          // Create fresh budget data without empty categories
+                          const newPercentages = allCats.map(cat => budgetData.breakdown[cat]?.percentage || 0);
+                          const updatedData = {
+                            totalBudget: budgetData.totalBudget,
+                            categories: allCats,
+                            percentages: newPercentages,
+                            breakdown: { ...budgetData.breakdown }
+                          };
+                          setUserBudgetData(updatedData);
+                          setTimeout(() => handleTabChange('budget'), 10);
                         }
                       }}
                       className="text-xs font-bold text-blue-600 hover:text-blue-800 hover:bg-blue-50 px-2 py-1 rounded transition"
@@ -874,9 +892,19 @@ window.EventFormModal = function EventFormModal({
                           onClick={() => {
                             if (!isAlreadyAdded) {
                               // Add this category to the user's budget - create completely new objects
-                              const newCategories = [...(userBudgetData.categories || []), category];
-                              const newPercentages = [...(userBudgetData.percentages || []), data.percentage || 0];
-                              const newBreakdown = { ...(userBudgetData.breakdown || {}), [category]: { ...data } };
+                              // Remove empty categories (ones with empty string names)
+                              const existingCategories = (userBudgetData.categories || []).filter(cat => cat !== '');
+                              const existingPercentages = existingCategories.map(cat => userBudgetData.breakdown[cat]?.percentage || 0);
+                              const existingBreakdown = {};
+                              existingCategories.forEach(cat => {
+                                if (userBudgetData.breakdown[cat]) {
+                                  existingBreakdown[cat] = { ...userBudgetData.breakdown[cat] };
+                                }
+                              });
+                              
+                              const newCategories = [...existingCategories, category];
+                              const newPercentages = [...existingPercentages, data.percentage || 0];
+                              const newBreakdown = { ...existingBreakdown, [category]: { ...data } };
                               const updatedData = {
                                 totalBudget: userBudgetData.totalBudget,
                                 categories: newCategories,
@@ -886,11 +914,30 @@ window.EventFormModal = function EventFormModal({
                               setUserBudgetData(updatedData);
                               // Switch to budget tab after state updates
                               setTimeout(() => handleTabChange('budget'), 10);
+                            } else {
+                              // Remove this category from the user's budget
+                              const filteredCategories = userBudgetData.categories.filter(cat => cat !== category);
+                              const filteredPercentages = filteredCategories.map(cat => userBudgetData.breakdown[cat]?.percentage || 0);
+                              const filteredBreakdown = {};
+                              filteredCategories.forEach(cat => {
+                                if (userBudgetData.breakdown[cat]) {
+                                  filteredBreakdown[cat] = { ...userBudgetData.breakdown[cat] };
+                                }
+                              });
+                              
+                              const updatedData = {
+                                totalBudget: userBudgetData.totalBudget,
+                                categories: filteredCategories,
+                                percentages: filteredPercentages,
+                                breakdown: filteredBreakdown
+                              };
+                              setUserBudgetData(updatedData);
+                              setTimeout(() => handleTabChange('budget'), 10);
                             }
                           }}
                           className={`p-3 rounded-lg border-2 transition text-left ${
                             isAlreadyAdded
-                              ? 'bg-emerald-50 border-emerald-300 opacity-50 cursor-default'
+                              ? 'bg-emerald-50 border-emerald-300 hover:border-red-400 hover:bg-red-50 cursor-pointer active:scale-95'
                               : 'bg-blue-50 border-blue-200 hover:border-blue-400 hover:bg-blue-100 cursor-pointer active:scale-95'
                           }`}
                         >
