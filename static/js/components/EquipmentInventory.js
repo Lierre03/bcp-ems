@@ -71,9 +71,9 @@ window.EquipmentInventory = function EquipmentInventory() {
                     category: categoryToSend
                 })
             });
-            
+
             const data = await response.json();
-            
+
             if (data.success) {
                 setShowModal(false);
                 setNewEquipment({ name: '', category: '', customCategory: '', total_quantity: 0 });
@@ -99,8 +99,8 @@ window.EquipmentInventory = function EquipmentInventory() {
 
     // Group by category
     const groupedEquipment = React.useMemo(() => {
-        return equipment.filter(item => 
-            item.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
+        return equipment.filter(item =>
+            item.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
             item.category.toLowerCase().includes(searchTerm.toLowerCase())
         ).reduce((acc, item) => {
             if (!acc[item.category]) acc[item.category] = [];
@@ -117,7 +117,7 @@ window.EquipmentInventory = function EquipmentInventory() {
             {/* Header */}
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
                 <h2 className="text-sm md:text-base font-semibold text-slate-800">Equipment Inventory</h2>
-                <button 
+                <button
                     onClick={() => setShowModal(true)}
                     className="bg-blue-900 hover:bg-blue-800 text-white px-3 py-1.5 rounded-lg text-xs font-medium flex items-center gap-2 transition shadow-sm"
                 >
@@ -187,10 +187,10 @@ window.EquipmentInventory = function EquipmentInventory() {
                     <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                         <svg className="h-5 w-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
                     </div>
-                    <input 
-                        type="text" 
-                        className="block w-full pl-10 pr-3 py-2 border-none rounded-md leading-5 bg-transparent placeholder-slate-400 focus:outline-none focus:ring-0 sm:text-sm" 
-                        placeholder="Search equipment..." 
+                    <input
+                        type="text"
+                        className="block w-full pl-10 pr-3 py-2 border-none rounded-md leading-5 bg-transparent placeholder-slate-400 focus:outline-none focus:ring-0 sm:text-sm"
+                        placeholder="Search equipment..."
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
                     />
@@ -203,7 +203,7 @@ window.EquipmentInventory = function EquipmentInventory() {
             </div>
 
             {/* Inventory Lists */}
-            <div className="space-y-3">
+            <div className="space-y-4">
                 {Object.entries(groupedEquipment).map(([category, items]) => {
                     // Calculate category stats
                     const catTotal = items.reduce((acc, i) => acc + i.total_quantity, 0);
@@ -225,27 +225,27 @@ window.EquipmentInventory = function EquipmentInventory() {
                     return (
                         <div key={category} className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
                             {/* Category Header */}
-                            <div className="bg-slate-50 px-3 md:px-4 py-3 border-b border-slate-200 flex items-center justify-between gap-2">
-                                <div className="flex items-center gap-2 md:gap-3">
-                                    <div className={`p-1.5 md:p-2 rounded-lg ${category.includes('AV') ? 'bg-blue-100 text-blue-600' : 'bg-purple-100 text-purple-600'}`}>
+                            <div className="bg-slate-50 px-4 py-3 border-b border-slate-200 flex items-center justify-between gap-2">
+                                <div className="flex items-center gap-3">
+                                    <div className={`p-2 rounded-lg ${category.includes('AV') ? 'bg-blue-100 text-blue-600' : 'bg-purple-100 text-purple-600'}`}>
                                         {Icon}
                                     </div>
                                     <div>
-                                        <h3 className="font-bold text-slate-800 text-sm md:text-base">{category}</h3>
-                                        <p className="text-xs text-slate-500">{items.length} items</p>
+                                        <h3 className="font-bold text-slate-900 text-lg">{category}</h3>
+                                        <p className="text-sm text-slate-500">{items.length} items</p>
                                     </div>
                                 </div>
-                                <div className="flex gap-2 text-xs">
-                                    <div className="px-2 py-1 bg-white rounded border border-slate-200 shadow-sm">
-                                        <span className="text-slate-500 mr-1">Total:</span>
+                                <div className="flex gap-3 text-sm">
+                                    <div className="px-3 py-1 bg-white rounded border border-slate-200 shadow-sm">
+                                        <span className="text-slate-500 mr-2">Total:</span>
                                         <span className="font-bold text-slate-800">{catTotal}</span>
                                     </div>
-                                    <div className="px-2 py-1 bg-green-50 rounded border border-green-100 shadow-sm">
-                                        <span className="text-green-600 mr-1">Avail:</span>
+                                    <div className="px-3 py-1 bg-green-50 rounded border border-green-100 shadow-sm">
+                                        <span className="text-green-600 mr-2">Avail:</span>
                                         <span className="font-bold text-green-700">{catAvailable}</span>
                                     </div>
-                                    <div className="px-2 py-1 bg-orange-50 rounded border border-orange-100 shadow-sm">
-                                        <span className="text-orange-600 mr-1">In Use:</span>
+                                    <div className="px-3 py-1 bg-orange-50 rounded border border-orange-100 shadow-sm">
+                                        <span className="text-orange-600 mr-2">In Use:</span>
                                         <span className="font-bold text-orange-700">{catInUse}</span>
                                     </div>
                                 </div>
@@ -254,32 +254,41 @@ window.EquipmentInventory = function EquipmentInventory() {
                             {/* Items - Mobile: Cards, Desktop: Table */}
                             <div className="md:hidden divide-y divide-slate-100">
                                 {items.map((item, idx) => (
-                                    <div key={idx} className="p-3 hover:bg-slate-50 transition">
-                                        <div className="flex justify-between items-start mb-2">
-                                            <h4 className="font-medium text-slate-800 text-sm">{item.name}</h4>
-                                            <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${item.available > 0 ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-700'}`}>
-                                                <span className={`w-1.5 h-1.5 rounded-full ${item.available > 0 ? 'bg-green-500' : 'bg-red-500'}`}></span>
+                                    <div key={idx} className="p-4 hover:bg-slate-50 transition">
+                                        <div className="flex justify-between items-start mb-3">
+                                            <h4 className="font-semibold text-slate-900 text-base">{item.name}</h4>
+                                            <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold ${item.available > 0 ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
+                                                <span className={`w-2 h-2 rounded-full ${item.available > 0 ? 'bg-green-500' : 'bg-red-500'}`}></span>
                                                 {item.available > 0 ? 'In Stock' : 'Out'}
                                             </span>
                                         </div>
-                                        <div className="grid grid-cols-3 gap-2 text-xs">
-                                            <div>
-                                                <span className="text-slate-500">Total</span>
-                                                <p className="font-semibold text-slate-700">{item.total_quantity}</p>
+                                        <div className="grid grid-cols-3 gap-3 text-sm mb-3">
+                                            <div className="bg-slate-50 p-2 rounded">
+                                                <span className="text-slate-500 text-xs uppercase tracking-wide">Total</span>
+                                                <p className="font-bold text-slate-800 text-lg">{item.total_quantity}</p>
                                             </div>
-                                            <div>
-                                                <span className="text-slate-500">Available</span>
-                                                <p className="font-semibold text-green-600">{item.available}</p>
+                                            <div className="bg-green-50 p-2 rounded">
+                                                <span className="text-green-600 text-xs uppercase tracking-wide">Avail</span>
+                                                <p className="font-bold text-green-700 text-lg">{item.available}</p>
                                             </div>
-                                            <div>
-                                                <span className="text-slate-500">In Use</span>
-                                                <p className="font-semibold text-orange-600">{item.in_use}</p>
+                                            <div className="bg-orange-50 p-2 rounded">
+                                                <span className="text-orange-600 text-xs uppercase tracking-wide">In Use</span>
+                                                <p className="font-bold text-orange-700 text-lg">{item.in_use}</p>
                                             </div>
                                         </div>
                                         {item.used_by !== '—' && (
-                                            <div className="mt-2 text-xs text-slate-500">
-                                                <span className="text-slate-600">Used by: </span>{item.used_by}
-                                                {item.in_use > 1 && <span className="text-slate-400"> +{item.in_use - 1}</span>}
+                                            <div className="mt-3 pt-3 border-t border-slate-100">
+                                                <span className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-2 block">USED BY</span>
+                                                <div className="flex flex-wrap gap-2">
+                                                    {item.used_by.split(',').map((eventName, eIdx) => (
+                                                        <span
+                                                            key={eIdx}
+                                                            className="inline-flex items-center px-2.5 py-1 rounded text-xs font-medium bg-blue-50 text-blue-700 border border-blue-100"
+                                                        >
+                                                            {eventName.trim()}
+                                                        </span>
+                                                    ))}
+                                                </div>
                                             </div>
                                         )}
                                     </div>
@@ -288,38 +297,57 @@ window.EquipmentInventory = function EquipmentInventory() {
 
                             {/* Desktop Table */}
                             <div className="hidden md:block overflow-x-auto">
-                                <table className="w-full text-left text-xs">
-                                    <thead className="bg-white text-slate-500 border-b border-slate-100">
+                                <table className="w-full text-left text-base">
+                                    <thead className="bg-slate-50 text-slate-500 border-b border-slate-200">
                                         <tr>
-                                            <th className="px-3 py-2 font-medium">Equipment</th>
-                                            <th className="px-3 py-2 font-medium text-center">Total</th>
-                                            <th className="px-3 py-2 font-medium text-center">Available</th>
-                                            <th className="px-3 py-2 font-medium text-center">In Use</th>
-                                            <th className="px-3 py-2 font-medium">Status</th>
-                                            <th className="px-3 py-2 font-medium">Used By</th>
+                                            <th className="px-6 py-4 font-semibold w-[35%]">Equipment</th>
+                                            <th className="px-6 py-4 font-semibold text-center w-[10%]">Total</th>
+                                            <th className="px-6 py-4 font-semibold text-center w-[10%]">Available</th>
+                                            <th className="px-6 py-4 font-semibold text-center w-[10%]">In Use</th>
+                                            <th className="px-6 py-4 font-semibold w-[15%]">Status</th>
+                                            <th className="px-6 py-4 font-semibold w-[20%]">Used By</th>
                                         </tr>
                                     </thead>
-                                    <tbody className="divide-y divide-slate-50">
+                                    <tbody className="divide-y divide-slate-100">
                                         {items.map((item, idx) => (
                                             <tr key={idx} className="hover:bg-slate-50 transition">
-                                                <td className="px-3 py-2 font-medium text-slate-800">{item.name}</td>
-                                                <td className="px-3 py-2 text-center text-slate-600">{item.total_quantity}</td>
-                                                <td className="px-3 py-2 text-center text-slate-600">{item.available}</td>
-                                                <td className="px-3 py-2 text-center text-slate-600">{item.in_use}</td>
-                                                <td className="px-3 py-2">
-                                                    <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${item.available > 0 ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-700'}`}>
-                                                        <span className={`w-1.5 h-1.5 rounded-full ${item.available > 0 ? 'bg-green-500' : 'bg-red-500'}`}></span>
+                                                <td className="px-6 py-5 font-medium text-slate-900">{item.name}</td>
+                                                <td className="px-6 py-5 text-center">
+                                                    <span className="inline-block bg-slate-100 text-slate-700 font-bold px-3 py-1.5 rounded-lg text-sm">
+                                                        {item.total_quantity}
+                                                    </span>
+                                                </td>
+                                                <td className="px-6 py-5 text-center">
+                                                    <span className={`font-bold ${item.available > 0 ? 'text-green-600' : 'text-slate-400'}`}>
+                                                        {item.available}
+                                                    </span>
+                                                </td>
+                                                <td className="px-6 py-5 text-center">
+                                                    <span className={`font-bold ${item.in_use > 0 ? 'text-orange-500' : 'text-slate-300'}`}>
+                                                        {item.in_use}
+                                                    </span>
+                                                </td>
+                                                <td className="px-6 py-5">
+                                                    <span className={`inline-flex items-center gap-2 px-3 py-1 rounded-full text-sm font-semibold ${item.available > 0 ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
+                                                        <span className={`w-2.5 h-2.5 rounded-full ${item.available > 0 ? 'bg-green-500' : 'bg-red-500'}`}></span>
                                                         {item.available > 0 ? 'In Stock' : 'Out of Stock'}
                                                     </span>
                                                 </td>
-                                                <td className="px-3 py-2 text-slate-500 text-xs">
+                                                <td className="px-6 py-5">
                                                     {item.used_by !== '—' ? (
-                                                        <div className="flex flex-col gap-0.5">
-                                                            <span>{item.used_by}</span>
-                                                            {item.in_use > 1 && <span className="text-slate-400">+ {item.in_use - 1} others</span>}
+                                                        <div className="flex flex-wrap gap-2">
+                                                            {item.used_by.split(',').map((eventName, eIdx) => (
+                                                                <span
+                                                                    key={eIdx}
+                                                                    className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-blue-50 text-blue-700 border border-blue-100 whitespace-nowrap max-w-[220px] truncate"
+                                                                    title={eventName.trim()}
+                                                                >
+                                                                    {eventName.trim()}
+                                                                </span>
+                                                            ))}
                                                         </div>
                                                     ) : (
-                                                        <span className="text-slate-300">—</span>
+                                                        <span className="text-slate-300 font-light">—</span>
                                                     )}
                                                 </td>
                                             </tr>
@@ -360,13 +388,13 @@ window.EquipmentInventory = function EquipmentInventory() {
 
                             <div>
                                 <label className="block text-xs font-medium text-slate-500 mb-1">Equipment Name <span className="text-red-500">*</span></label>
-                                <input 
-                                    type="text" 
+                                <input
+                                    type="text"
                                     required
                                     className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-900 focus:border-blue-900 text-sm"
                                     placeholder="e.g., Projector, Sound System..."
                                     value={newEquipment.name}
-                                    onChange={(e) => setNewEquipment({...newEquipment, name: e.target.value})}
+                                    onChange={(e) => setNewEquipment({ ...newEquipment, name: e.target.value })}
                                 />
                             </div>
 
@@ -376,7 +404,7 @@ window.EquipmentInventory = function EquipmentInventory() {
                                     <select
                                         className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-900 focus:border-blue-900 text-sm"
                                         value={newEquipment.category}
-                                        onChange={(e) => setNewEquipment({...newEquipment, category: e.target.value})}
+                                        onChange={(e) => setNewEquipment({ ...newEquipment, category: e.target.value })}
                                     >
                                         <option value="">Select...</option>
                                         {categories.map(category => (
@@ -392,7 +420,7 @@ window.EquipmentInventory = function EquipmentInventory() {
                                         min="1"
                                         className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-900 focus:border-blue-900 text-sm"
                                         value={newEquipment.total_quantity}
-                                        onChange={(e) => setNewEquipment({...newEquipment, total_quantity: parseInt(e.target.value) || 0})}
+                                        onChange={(e) => setNewEquipment({ ...newEquipment, total_quantity: parseInt(e.target.value) || 0 })}
                                     />
                                 </div>
                             </div>
@@ -406,7 +434,7 @@ window.EquipmentInventory = function EquipmentInventory() {
                                         className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-900 focus:border-blue-900 text-sm"
                                         placeholder="e.g., Lab Equipment, Kitchen Supplies..."
                                         value={newEquipment.customCategory}
-                                        onChange={(e) => setNewEquipment({...newEquipment, customCategory: e.target.value})}
+                                        onChange={(e) => setNewEquipment({ ...newEquipment, customCategory: e.target.value })}
                                     />
                                 </div>
                             )}
@@ -419,14 +447,14 @@ window.EquipmentInventory = function EquipmentInventory() {
                             </div>
 
                             <div className="flex gap-3 pt-2">
-                                <button 
+                                <button
                                     type="button"
                                     onClick={() => setShowModal(false)}
                                     className="flex-1 px-4 py-2 border border-slate-300 text-slate-700 rounded-lg text-sm font-medium hover:bg-slate-50 transition"
                                 >
                                     Cancel
                                 </button>
-                                <button 
+                                <button
                                     type="submit"
                                     className="flex-1 px-4 py-2 bg-blue-900 text-white rounded-lg text-sm font-medium hover:bg-blue-800 transition flex items-center justify-center gap-2"
                                 >

@@ -13,6 +13,7 @@ CREATE TABLE event_attendance (
     event_id INT NOT NULL,
     user_id INT NOT NULL,
     check_in_datetime DATETIME,
+    check_in_method ENUM('QR', 'Manual') DEFAULT 'QR',
     check_out_datetime DATETIME,
     attendance_status ENUM('Present', 'Late', 'Absent') DEFAULT 'Present',
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,

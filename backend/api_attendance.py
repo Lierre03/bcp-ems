@@ -47,9 +47,23 @@ def generate_qr_code(registration_id):
         if registration['registration_status'] != 'Registered':
             return jsonify({'error': 'Only confirmed registrations can generate QR codes'}), 400
 
-        # Generate QR code if not exists
+        # Generate QR code if not exists or if invalid/mismatched
         qr_data = registration['qr_code']
+        should_regenerate = False
+        
         if not qr_data:
+            should_regenerate = True
+        else:
+            # Verify existing QR code matches registration ID
+            try:
+                parts = qr_data.split('-')
+                if len(parts) != 4 or parts[0] != 'REG' or int(parts[1]) != registration['id']:
+                    logger.warning(f"Found mismatched QR code for reg {registration['id']}: {qr_data}. Regenerating.")
+                    should_regenerate = True
+            except (ValueError, IndexError):
+                should_regenerate = True
+
+        if should_regenerate:
             qr_data = f"REG-{registration['id']}-{session['user_id']}-{int(datetime.now().timestamp())}"
             # Update registration with QR code
             db.execute_update(
@@ -105,6 +119,7 @@ def check_in_attendance(qr_code):
         # Parse QR code format: REG-{registration_id}-{user_id}-{timestamp}
         qr_parts = qr_code.split('-')
         if len(qr_parts) != 4 or qr_parts[0] != 'REG':
+            logger.warning(f"Invalid QR check-in attempt. Received: '{qr_code}'")
             return jsonify({
                 'success': False,
                 'error': 'Invalid QR code format'
@@ -268,7 +283,7 @@ def manual_check_in():
 # ============================================================================
 
 @attendance_bp.route('/event/<int:event_id>', methods=['GET'])
-@require_role(['Super Admin', 'Admin', 'Staff', 'Requestor'])
+@require_role(['Super Admin', 'Admin', 'Staff', 'Student Organization Officer'])
 def get_event_attendance(event_id):
     """
     Get attendance report for an event
@@ -372,7 +387,7 @@ def get_my_attendance_history():
 
 
 @attendance_bp.route('/event/<int:event_id>/full-report', methods=['GET'])
-@require_role(['Super Admin', 'Admin', 'Staff', 'Requestor'])
+@require_role(['Super Admin', 'Admin', 'Staff', 'Student Organization Officer'])
 def get_full_attendance_report(event_id):
     """
     Get complete attendance report with all participant details

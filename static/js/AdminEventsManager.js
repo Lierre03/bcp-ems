@@ -39,7 +39,7 @@ window.AdminEventsManager = function AdminEventsManager({ eventIdToOpen }) {
     'Furniture & Setup': ['Tables', 'Chairs', 'Stage', 'Podium'],
     'Sports & Venue': ['Scoreboard', 'Lighting', 'Camera', 'First Aid Kit']
   });
-  
+
   const [venueOptions, setVenueOptions] = useState(['Auditorium', 'Gymnasium', 'Main Hall', 'Cafeteria', 'Lab', 'Courtyard', 'Library']);
 
   // Helpers
@@ -79,7 +79,7 @@ window.AdminEventsManager = function AdminEventsManager({ eventIdToOpen }) {
     loadVenues();
     fetchEquipmentOptions(); // Load dynamic equipment on mount
     checkModelStatus(); // Check if AI models are ready
-    
+
     // Check if there's an event to open from notification
     const eventIdToOpen = sessionStorage.getItem('openEventId');
     if (eventIdToOpen) {
@@ -92,7 +92,7 @@ window.AdminEventsManager = function AdminEventsManager({ eventIdToOpen }) {
       }, 500);
     }
   }, [sortBy, filterStatus, filterType]);
-  
+
   // Open event when triggered from notification
   useEffect(() => {
     if (eventIdToOpen && events.length > 0) {
@@ -151,7 +151,7 @@ window.AdminEventsManager = function AdminEventsManager({ eventIdToOpen }) {
         status: filterStatus !== 'All' ? filterStatus : '',
         type: filterType !== 'All' ? filterType : ''
       });
-      
+
       const res = await fetch(`/api/events?${queryParams}`, { credentials: 'include' });
       if (res.ok) {
         const data = await res.json();
@@ -190,9 +190,9 @@ window.AdminEventsManager = function AdminEventsManager({ eventIdToOpen }) {
       const response = await fetch('/api/ml/quick-estimate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-          eventType, 
-          attendees: attendees || 100 
+        body: JSON.stringify({
+          eventType,
+          attendees: attendees || 100
         })
       });
       const data = await response.json();
@@ -259,7 +259,7 @@ window.AdminEventsManager = function AdminEventsManager({ eventIdToOpen }) {
       const categories = Object.keys(event.budget_breakdown);
       const breakdown = event.budget_breakdown;
       const percentages = categories.map(cat => breakdown[cat]?.percentage || 0);
-      
+
       setBudgetData({
         totalBudget: event.budget || 0,
         categories,
@@ -277,13 +277,13 @@ window.AdminEventsManager = function AdminEventsManager({ eventIdToOpen }) {
         if (typeof activity === 'object' && activity.phase) {
           return activity;
         }
-        
+
         // Check if activity is in the stored JSON format (object with activity_name, startTime, etc.)
         if (typeof activity === 'object' && activity.activity_name) {
           // Extract phase name from activity_name (format: "09:00 - 10:00: Phase Name")
           const timeMatch = activity.activity_name.match(/^(\d{2}:\d{2})\s*-\s*(\d{2}:\d{2}):\s*(.+)$/);
           const phaseName = timeMatch ? timeMatch[3].trim() : activity.activity_name;
-          
+
           return {
             phase: phaseName,
             startTime: activity.startTime || '09:00',
@@ -292,7 +292,7 @@ window.AdminEventsManager = function AdminEventsManager({ eventIdToOpen }) {
             description: activity.description || phaseName
           };
         }
-        
+
         // Handle string format: "09:00 - 10:00: Phase Name"
         if (typeof activity === 'string') {
           const timeMatch = activity.match(/^(\d{2}:\d{2})\s*-\s*(\d{2}:\d{2}):\s*(.+)$/);
@@ -320,7 +320,7 @@ window.AdminEventsManager = function AdminEventsManager({ eventIdToOpen }) {
             };
           }
         }
-        
+
         // Final fallback
         return {
           phase: 'Unknown',
@@ -344,7 +344,7 @@ window.AdminEventsManager = function AdminEventsManager({ eventIdToOpen }) {
     }
 
     setAiSuggestions(null);
-    
+
     // Check if this is a conflict-rejected event and set the active tab
     const isConflictRejected = event.status === 'Conflict_Rejected';
     if (isConflictRejected) {
@@ -352,10 +352,10 @@ window.AdminEventsManager = function AdminEventsManager({ eventIdToOpen }) {
     } else {
       setActiveModalTab('details');
     }
-    
+
     setShowModal(true);
   };
-  
+
   // Auto-trigger AI for conflict-rejected events
   useEffect(() => {
     if (showModal && editingId && formData.name && activeModalTab === 'ai') {
@@ -375,7 +375,7 @@ window.AdminEventsManager = function AdminEventsManager({ eventIdToOpen }) {
     window.openEventEditor = async (eventId) => {
       // Fetch event data if not already loaded
       let event = events.find(e => e.id === eventId);
-      
+
       if (!event) {
         // Fetch the event from API
         try {
@@ -389,12 +389,12 @@ window.AdminEventsManager = function AdminEventsManager({ eventIdToOpen }) {
           return;
         }
       }
-      
+
       if (event) {
         handleEditEvent(event);
       }
     };
-    
+
     return () => {
       delete window.openEventEditor;
     };
@@ -476,7 +476,7 @@ window.AdminEventsManager = function AdminEventsManager({ eventIdToOpen }) {
       alert('Please enter an event name first!');
       return;
     }
-    
+
     // Check if models are trained
     if (!modelStatus.ready) {
       const needsTraining = modelStatus.training_samples >= 5;
@@ -487,12 +487,12 @@ window.AdminEventsManager = function AdminEventsManager({ eventIdToOpen }) {
       }
       // Continue with fallback estimates even without models
     }
-    
+
     setAiLoading(true);
     try {
       // Use the form type (which was already updated by classification if applicable)
       const eventType = formData.type;
-      
+
       const requestParams = {
         eventType: eventType,
         attendees: parseInt(formData.attendees) || 100,
@@ -520,25 +520,25 @@ window.AdminEventsManager = function AdminEventsManager({ eventIdToOpen }) {
       if (aiData.success) {
         // --- 1. Populate AI Suggestions State ---
         // This is crucial for the "AI Analysis" panel to appear
-        
+
         // Convert breakdown object to string for display to prevent React error
-        const breakdownStr = aiData.budgetBreakdown 
-            ? Object.entries(aiData.budgetBreakdown)
-                .map(([k, v]) => `${k}: ₱${typeof v === 'number' ? v.toLocaleString() : v}`)
-                .join(', ')
-            : '';
+        const breakdownStr = aiData.budgetBreakdown
+          ? Object.entries(aiData.budgetBreakdown)
+            .map(([k, v]) => `${k}: ₱${typeof v === 'number' ? v.toLocaleString() : v}`)
+            .join(', ')
+          : '';
 
         setAiSuggestions({
-            success: true,
-            confidence: aiData.confidence,
-            estimatedBudget: aiData.estimatedBudget,
-            budgetBreakdown: breakdownStr, // Passed as formatted string
-            suggestedAttendees: aiData.suggestedAttendees // Store for proportional calculation
+          success: true,
+          confidence: aiData.confidence,
+          estimatedBudget: aiData.estimatedBudget,
+          budgetBreakdown: breakdownStr, // Passed as formatted string
+          suggestedAttendees: aiData.suggestedAttendees // Store for proportional calculation
         });
 
         // --- 2. Update Form Data (Auto-fill) ---
         const totalBudget = aiData.estimatedBudget || 50000;
-        
+
         let updatedFormData = {
           ...formData,
           description: aiData.description || formData.description,
@@ -624,10 +624,10 @@ window.AdminEventsManager = function AdminEventsManager({ eventIdToOpen }) {
             activities: aiData.timeline.map(t => `${t.startTime} - ${t.endTime}: ${t.phase}`)
           };
         } else if (aiData.activities && aiData.activities.length > 0) {
-           updatedFormData = {
-             ...updatedFormData,
-             activities: aiData.activities
-           };
+          updatedFormData = {
+            ...updatedFormData,
+            activities: aiData.activities
+          };
         }
 
         setFormData(updatedFormData);
@@ -646,8 +646,8 @@ window.AdminEventsManager = function AdminEventsManager({ eventIdToOpen }) {
   };
 
   const toggleActivity = (item) => {
-    const newActivities = checkedActivities.includes(item) 
-      ? checkedActivities.filter(a => a !== item) 
+    const newActivities = checkedActivities.includes(item)
+      ? checkedActivities.filter(a => a !== item)
       : [...checkedActivities, item];
     setCheckedActivities(newActivities);
     setFormData(prev => ({ ...prev, activities: newActivities }));
@@ -688,11 +688,11 @@ window.AdminEventsManager = function AdminEventsManager({ eventIdToOpen }) {
         method: 'GET',
         credentials: 'include'
       });
-      
+
       if (!response.ok) {
         throw new Error('Failed to generate PDF');
       }
-      
+
       // Get the filename from Content-Disposition header or use default
       const contentDisposition = response.headers.get('Content-Disposition');
       let filename = `Event_Guideline_${eventId}.pdf`;
@@ -702,7 +702,7 @@ window.AdminEventsManager = function AdminEventsManager({ eventIdToOpen }) {
           filename = filenameMatch[1];
         }
       }
-      
+
       // Download the PDF
       const blob = await response.blob();
       const url = window.URL.createObjectURL(blob);
@@ -742,32 +742,45 @@ window.AdminEventsManager = function AdminEventsManager({ eventIdToOpen }) {
   else if (sortBy === 'name') filteredEvents.sort((a, b) => a.name.localeCompare(b.name));
 
   const totalBudget = events.reduce((sum, e) => sum + (parseInt(e.budget) || 0), 0);
+
+  // Calculate improved metrics
+  const now = new Date();
   const stats = {
     total: events.length,
-    planning: events.filter(e => e.status === 'Planning' || e.status === 'Pending').length,
-    inProgress: events.filter(e => e.status === 'In Progress' || e.status === 'Ongoing').length,
-    completed: events.filter(e => e.status === 'Completed').length
+    // Action Required: Events needing approval or review
+    actionRequired: events.filter(e => e.status === 'Pending' || e.status === 'Under Review').length,
+    // Upcoming: Approved events happening in the future
+    upcoming: events.filter(e => {
+      const isApproved = e.status === 'Approved';
+      const isFuture = new Date(e.start_datetime || e.date) > now;
+      return isApproved && isFuture;
+    }).length,
+    // Budget formatted
+    formattedBudget: totalBudget >= 1000000
+      ? `₱${(totalBudget / 1000000).toFixed(1)}M`
+      : `₱${(totalBudget / 1000).toFixed(0)}K`
   };
 
   return (
     <div className="space-y-6">
       {/* Stats Grid */}
+      {/* Stats Grid */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <div className="bg-white rounded-lg border border-slate-200 p-6 hover:shadow-lg transition">
-          <p className="text-sm font-medium text-slate-600 mb-2">Total Events</p>
-          <p className="text-3xl font-bold text-indigo-600">{stats.total}</p>
+        <div className="bg-white rounded-lg border border-slate-200 p-6 shadow-sm">
+          <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Total Events</p>
+          <p className="text-3xl font-bold text-slate-900">{stats.total}</p>
         </div>
-        <div className="bg-white rounded-lg border border-slate-200 p-6 hover:shadow-lg transition">
-          <p className="text-sm font-medium text-slate-600 mb-2">Planning</p>
-          <p className="text-3xl font-bold text-yellow-600">{stats.planning}</p>
+        <div className="bg-white rounded-lg border-l-4 border-orange-500 p-6 shadow-sm">
+          <p className="text-xs font-bold text-orange-600 uppercase tracking-wider mb-1">Action Required</p>
+          <p className="text-3xl font-bold text-slate-900">{stats.actionRequired}</p>
         </div>
-        <div className="bg-white rounded-lg border border-slate-200 p-6 hover:shadow-lg transition">
-          <p className="text-sm font-medium text-slate-600 mb-2">In Progress</p>
-          <p className="text-3xl font-bold text-blue-600">{stats.inProgress}</p>
+        <div className="bg-white rounded-lg border border-slate-200 p-6 shadow-sm">
+          <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Upcoming Approved</p>
+          <p className="text-3xl font-bold text-slate-900">{stats.upcoming}</p>
         </div>
-        <div className="bg-white rounded-lg border border-slate-200 p-6 hover:shadow-lg transition">
-          <p className="text-sm font-medium text-slate-600 mb-2">Total Budget</p>
-          <p className="text-3xl font-bold text-green-600">₱{(totalBudget/1000).toFixed(0)}K</p>
+        <div className="bg-white rounded-lg border border-slate-200 p-6 shadow-sm">
+          <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Total Budget</p>
+          <p className="text-3xl font-bold text-slate-900">{stats.formattedBudget}</p>
         </div>
       </div>
 
@@ -775,7 +788,7 @@ window.AdminEventsManager = function AdminEventsManager({ eventIdToOpen }) {
       <div className="bg-white rounded-lg border border-slate-200 p-6">
         <div className="flex justify-between items-center mb-4">
           <h2 className="text-2xl font-bold text-slate-900">Events Management</h2>
-          <button onClick={handleAddEvent} className="px-6 py-2.5 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition font-semibold shadow-md">
+          <button onClick={handleAddEvent} className="px-6 py-2.5 bg-slate-900 text-white rounded-lg hover:bg-slate-800 transition font-semibold shadow-md">
             + Create Event
           </button>
         </div>
@@ -853,16 +866,16 @@ window.AdminEventsManager = function AdminEventsManager({ eventIdToOpen }) {
       {/* Events Table */}
       <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
         <table className="w-full">
-          <thead className="bg-slate-50 text-slate-600 border-b border-slate-200">
+          <thead className="bg-slate-900 text-white border-b border-slate-800">
             <tr>
-              <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider">Event Name</th>
-              <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider">Type</th>
-              <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider">Department</th>
-              <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider">Schedule</th>
-              <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider">Budget</th>
-              <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider">Status</th>
-              <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider">Approvals</th>
-              <th className="px-4 py-3 text-center text-xs font-semibold uppercase tracking-wider">Actions</th>
+              <th className="px-4 py-4 text-left text-xs font-semibold uppercase tracking-wider text-slate-300">Event Name</th>
+              <th className="px-4 py-4 text-left text-xs font-semibold uppercase tracking-wider text-slate-300">Type</th>
+              <th className="px-4 py-4 text-left text-xs font-semibold uppercase tracking-wider text-slate-300">Department</th>
+              <th className="px-4 py-4 text-left text-xs font-semibold uppercase tracking-wider text-slate-300">Schedule</th>
+              <th className="px-4 py-4 text-left text-xs font-semibold uppercase tracking-wider text-slate-300">Budget</th>
+              <th className="px-4 py-4 text-left text-xs font-semibold uppercase tracking-wider text-slate-300">Status</th>
+              <th className="px-4 py-4 text-left text-xs font-semibold uppercase tracking-wider text-slate-300">Approvals</th>
+              <th className="px-4 py-4 text-center text-xs font-semibold uppercase tracking-wider text-slate-300">Actions</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
@@ -870,37 +883,27 @@ window.AdminEventsManager = function AdminEventsManager({ eventIdToOpen }) {
               const user = JSON.parse(localStorage.getItem('user') || '{}');
               return (
                 <tr key={event.id} className="hover:bg-slate-50 transition-colors">
-                  <td className="px-4 py-3.5">
-                    <div className="flex items-center gap-2">
-                      <div className="w-9 h-9 bg-slate-100 rounded-lg flex items-center justify-center flex-shrink-0">
-                        <svg className="w-5 h-5 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <td className="px-4 py-4">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 bg-slate-100 rounded-lg flex items-center justify-center flex-shrink-0 border border-slate-200 text-slate-500">
+                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                         </svg>
                       </div>
                       <div>
                         <div className="font-semibold text-slate-900 text-sm leading-tight">{event.name}</div>
-                        <div className="text-xs text-slate-500">{event.organizer || '—'}</div>
+                        <div className="text-xs text-slate-500 mt-0.5">{event.organizer || '—'}</div>
                       </div>
                     </div>
                   </td>
-                  <td className="px-4 py-3.5">
-                    <span className={`inline-flex items-center px-2.5 py-1 rounded-md text-xs font-medium ${
-                      (event.event_type || event.type) === 'Academic' ? 'bg-blue-50 text-blue-700 border border-blue-200' :
-                      (event.event_type || event.type) === 'Sports' ? 'bg-orange-50 text-orange-700 border border-orange-200' :
-                      'bg-slate-50 text-slate-700 border border-slate-200'
-                    }`}>
+                  <td className="px-4 py-4">
+                    <span className="inline-flex items-center px-2.5 py-1 rounded-md text-xs font-medium bg-slate-100 text-slate-700 border border-slate-200">
                       {event.event_type || event.type}
                     </span>
                   </td>
-                  <td className="px-4 py-3.5">
-                    <div className="text-xs text-slate-600 font-medium">
-                      {event.organizing_department ? (
-                        <span className="inline-flex items-center px-2 py-1 rounded-md bg-purple-50 text-purple-700 border border-purple-200">
-                          {event.organizing_department}
-                        </span>
-                      ) : (
-                        <span className="text-slate-400">—</span>
-                      )}
+                  <td className="px-4 py-4">
+                    <div className="text-sm text-slate-700">
+                      {event.organizing_department || <span className="text-slate-400">—</span>}
                     </div>
                   </td>
                   <td className="px-4 py-3.5">
@@ -930,30 +933,30 @@ window.AdminEventsManager = function AdminEventsManager({ eventIdToOpen }) {
                   </td>
                   <td className="px-4 py-3.5">
                     <div className="flex items-center justify-center gap-1.5">
-                      <button 
-                        onClick={() => handleEditEvent(event)} 
-                        className="px-2.5 py-1.5 text-slate-600 hover:bg-slate-100 rounded-lg transition-colors border border-transparent hover:border-slate-200 text-xs font-medium" 
+                      <button
+                        onClick={() => handleEditEvent(event)}
+                        className="px-2.5 py-1.5 text-slate-600 hover:bg-slate-100 rounded-lg transition-colors border border-transparent hover:border-slate-200 text-xs font-medium"
                         title="Edit"
                       >
                         Edit
                       </button>
-                      <button 
-                        onClick={() => handleExportPDF(event.id)} 
-                        className="px-2.5 py-1.5 text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors border border-transparent hover:border-indigo-200 text-xs font-medium" 
+                      <button
+                        onClick={() => handleExportPDF(event.id)}
+                        className="px-2.5 py-1.5 text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors border border-transparent hover:border-indigo-200 text-xs font-medium"
                         title="Export PDF"
                       >
                         📄 PDF
                       </button>
-                      <button 
-                        onClick={() => setSelectedEventHistory(event.id)} 
-                        className="px-2.5 py-1.5 text-slate-600 hover:bg-slate-100 rounded-lg transition-colors border border-transparent hover:border-slate-200 text-xs font-medium" 
+                      <button
+                        onClick={() => setSelectedEventHistory(event.id)}
+                        className="px-2.5 py-1.5 text-slate-600 hover:bg-slate-100 rounded-lg transition-colors border border-transparent hover:border-slate-200 text-xs font-medium"
                         title="History"
                       >
                         History
                       </button>
-                      <button 
-                        onClick={() => handleDeleteEvent(event.id)} 
-                        className="px-2.5 py-1.5 text-red-600 hover:bg-red-50 rounded-lg transition-colors border border-transparent hover:border-red-200 text-xs font-medium" 
+                      <button
+                        onClick={() => handleDeleteEvent(event.id)}
+                        className="px-2.5 py-1.5 text-red-600 hover:bg-red-50 rounded-lg transition-colors border border-transparent hover:border-red-200 text-xs font-medium"
                         title="Delete"
                       >
                         Delete

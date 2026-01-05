@@ -22,6 +22,9 @@
     <!-- Authentication utilities -->
     <script src="/static/js/auth.js"></script>
     
+    <!-- QR Code Scanning Library -->
+    <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js"></script>
+    
     <!-- Components -->
     <script type="text/babel" src="/static/js/components/Sidebar.js"></script>
     <script type="text/babel" src="/static/js/components/QRScanner.js"></script>
@@ -37,6 +40,8 @@
             const [user, setUser] = useState(null);
             const [activeView, setActiveView] = useState('scanner');
             const [selectedEventId, setSelectedEventId] = useState(null);
+            const [events, setEvents] = useState([]);
+            const [loadingEvents, setLoadingEvents] = useState(true);
 
             useEffect(() => {
                 const userJson = localStorage.getItem('user');
@@ -52,6 +57,26 @@
                     window.location.href = '/';
                 } catch (error) {
                     console.error('Logout failed:', error);
+                }
+            };
+
+            useEffect(() => {
+                if (activeView === 'scanner') {
+                    loadEvents();
+                }
+            }, [activeView]);
+
+            const loadEvents = async () => {
+                try {
+                    const res = await fetch('/api/events?status=Approved', { credentials: 'include' });
+                    const data = await res.json();
+                    if (data.success) {
+                        setEvents(data.events || []);
+                    }
+                } catch (error) {
+                    console.error('Error loading events:', error);
+                } finally {
+                    setLoadingEvents(false);
                 }
             };
 
@@ -108,27 +133,34 @@
                                                 </ul>
                                             </div>
 
-                                            {/* Event Selection - This would be populated with actual events */}
+                                            {/* Event Selection */}
                                             <div className="grid gap-4">
-                                                <div className="border border-gray-200 rounded-lg p-4 hover:border-blue-300 cursor-pointer transition"
-                                                     onClick={() => setSelectedEventId(10)}>
-                                                    <div className="flex justify-between items-start">
-                                                        <div>
-                                                            <h3 className="font-semibold text-gray-900">Foundation Day Celebration</h3>
-                                                            <p className="text-sm text-gray-600">December 16, 2025 • Auditorium</p>
-                                                            <p className="text-xs text-gray-500 mt-1">Status: Approved • Expected: 200</p>
+                                                {loadingEvents ? (
+                                                    <div className="text-center py-8 text-gray-500">Loading events...</div>
+                                                ) : events.length === 0 ? (
+                                                    <div className="text-center py-8 text-gray-500">No approved events available for attendance tracking.</div>
+                                                ) : (
+                                                    events.map(event => (
+                                                        <div key={event.id} 
+                                                             className="border border-gray-200 rounded-lg p-4 hover:border-blue-300 cursor-pointer transition"
+                                                             onClick={() => setSelectedEventId(event.id)}>
+                                                            <div className="flex justify-between items-start">
+                                                                <div>
+                                                                    <h3 className="font-semibold text-gray-900">{event.name}</h3>
+                                                                    <p className="text-sm text-gray-600">
+                                                                        {new Date(event.start_datetime).toLocaleDateString()} • {event.venue}
+                                                                    </p>
+                                                                    <p className="text-xs text-gray-500 mt-1">
+                                                                        Status: {event.approval_status} • Expected: {event.expected_attendees || 'N/A'}
+                                                                    </p>
+                                                                </div>
+                                                                <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                                                                    Available
+                                                                </span>
+                                                            </div>
                                                         </div>
-                                                        <div className="text-right">
-                                                            <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                                                                Active Event
-                                                            </span>
-                                                        </div>
-                                                    </div>
-                                                </div>
-
-                                                <div className="text-center py-4 text-gray-500">
-                                                    <p>More events will appear here as they become active for attendance.</p>
-                                                </div>
+                                                    ))
+                                                )}
                                             </div>
                                         </div>
                                     ) : (

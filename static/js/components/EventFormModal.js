@@ -14,20 +14,20 @@ window.EventFormModal = function EventFormModal({
   // Manual input states
   const [manualResources, setManualResources] = React.useState([]);
   const [activeTab, setActiveTab] = React.useState(parentActiveTab || 'details');
-  
+
   // Sync activeTab with parent when parentActiveTab changes
   React.useEffect(() => {
     if (parentActiveTab) {
       setActiveTab(parentActiveTab);
     }
   }, [parentActiveTab]);
-  
+
   // Notify parent when activeTab changes
   const handleTabChange = (tabId) => {
     setActiveTab(tabId);
     if (onTabChange) onTabChange(tabId);
   };
-  
+
   // Sync manualResources to parent checkedResources
   React.useEffect(() => {
     if (setCheckedResources && manualResources.length >= 0) {
@@ -38,7 +38,7 @@ window.EventFormModal = function EventFormModal({
       setCheckedResources(resourceNames);
     }
   }, [manualResources, setCheckedResources]);
-  
+
   // LOCAL budget state - isolated from parent's AI data to prevent auto-fill in the form
   const [userBudgetData, setUserBudgetData] = React.useState({
     totalBudget: 0,
@@ -48,7 +48,7 @@ window.EventFormModal = function EventFormModal({
     },
     percentages: [0]
   });
-  
+
   // LOCAL timeline state - isolated from parent's AI data to prevent auto-fill in the form
   const [userTimelineData, setUserTimelineData] = React.useState({
     timeline: [],
@@ -59,7 +59,7 @@ window.EventFormModal = function EventFormModal({
   const [userEquipmentData, setUserEquipmentData] = React.useState({
     equipment: [] // Array of {name: string, quantity: number}
   });
-  
+
   // Initialize on component mount or when event ID changes
   React.useEffect(() => {
     // If we're editing and have budgetData, use it. Otherwise start fresh
@@ -76,7 +76,7 @@ window.EventFormModal = function EventFormModal({
         percentages: [0]
       });
     }
-    
+
     // If we're editing and have timelineData, use it. Otherwise start fresh
     if (timelineData && timelineData.timeline && timelineData.timeline.length > 0) {
       setUserTimelineData(timelineData);
@@ -92,7 +92,7 @@ window.EventFormModal = function EventFormModal({
     setUserEquipmentData({
       equipment: formData.equipment || []
     });
-    
+
     // Initialize manualResources from checkedResources when editing
     if (checkedResources && checkedResources.length > 0) {
       setManualResources(
@@ -103,26 +103,26 @@ window.EventFormModal = function EventFormModal({
     } else {
       setManualResources([]);
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [editingId]); // Only re-initialize when editing a different event
-  
+
   // Sync userBudgetData total to parent formData.budget (but don't overwrite budgetData which contains AI suggestions)
   React.useEffect(() => {
     if (userBudgetData && userBudgetData.totalBudget) {
       // Only update the form's budget field, not the budgetData (which holds AI suggestions)
       setFormData(prev => ({ ...prev, budget: userBudgetData.totalBudget }));
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userBudgetData?.totalBudget]); // Only sync total budget changes
-  
+
   // Sync userEquipmentData to parent formData.equipment
   React.useEffect(() => {
     if (handleEquipmentUpdate && userEquipmentData.equipment) {
       handleEquipmentUpdate(userEquipmentData.equipment);
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userEquipmentData]); // Only depend on userEquipmentData, not the callback
-  
+
   // Sync userTimelineData to parent formData.activities
   React.useEffect(() => {
     if (setFormData && userTimelineData.timeline) {
@@ -139,12 +139,12 @@ window.EventFormModal = function EventFormModal({
       setFormData(prev => ({ ...prev, activities }));
     }
   }, [userTimelineData, setFormData]);
-  
+
   // We use ReactDOM.createPortal to render the modal at the document body level.
   const portalTarget = document.body;
 
   if (!portalTarget) return null;
-  
+
   // Check if AI suggestions are stale
   const isStale = lastAIRequest && aiSuggestions && (
     lastAIRequest.eventType !== formData.type ||
@@ -160,7 +160,7 @@ window.EventFormModal = function EventFormModal({
 
   return ReactDOM.createPortal(
     // BACKDROP WRAPPER
-    <div 
+    <div
       style={{
         position: 'fixed',
         top: 0,
@@ -180,27 +180,27 @@ window.EventFormModal = function EventFormModal({
       onClick={() => setShowModal(false)}
     >
       {/* MODAL CONTAINER */}
-      <div 
-        onClick={(e) => e.stopPropagation()} 
+      <div
+        onClick={(e) => e.stopPropagation()}
         style={{
-          display: 'flex', 
-          gap: '16px', 
+          display: 'flex',
+          gap: '16px',
           alignItems: 'flex-start',
           justifyContent: 'center', /* Ensures content is centered */
-          transition: 'all 500ms ease-out', 
-          maxHeight: '100vh', 
+          transition: 'all 500ms ease-out',
+          maxHeight: '100vh',
           width: '100%', /* CHANGED from 'auto' to '100%' to allow children to expand */
           maxWidth: '98vw'
         }}
       >
-        
+
         {/* CREATE EVENT MODAL */}
         <div className="bg-white rounded-xl overflow-hidden shadow-2xl flex flex-col flex-1 max-w-5xl h-[750px] max-h-[90vh]">
           {/* Header */}
           <div className="bg-gradient-to-r from-blue-700 to-blue-600 px-6 py-4 flex-shrink-0 flex justify-between items-center">
             <h2 className="text-lg font-bold text-white tracking-wide">{editingId ? 'Edit Event' : 'Create New Event'}</h2>
             <div className="text-blue-100 text-xs font-medium bg-blue-800 bg-opacity-30 px-2 py-1 rounded">
-               {formData.status}
+              {formData.status}
             </div>
           </div>
 
@@ -210,11 +210,10 @@ window.EventFormModal = function EventFormModal({
               <button
                 key={tab.id}
                 onClick={() => handleTabChange(tab.id)}
-                className={`flex-1 py-3 text-sm font-medium flex items-center justify-center gap-2 transition-colors relative ${
-                  activeTab === tab.id 
-                    ? 'text-blue-700 bg-white' 
-                    : 'text-gray-500 hover:text-gray-700 hover:bg-gray-100'
-                }`}
+                className={`flex-1 py-3 text-sm font-medium flex items-center justify-center gap-2 transition-colors relative ${activeTab === tab.id
+                  ? 'text-blue-700 bg-white'
+                  : 'text-gray-500 hover:text-gray-700 hover:bg-gray-100'
+                  }`}
               >
                 {tab.icon}
                 {tab.label}
@@ -228,7 +227,7 @@ window.EventFormModal = function EventFormModal({
           {/* Tab Content Area */}
           <div className="flex-1 overflow-hidden relative bg-gray-50/30">
             <div className="absolute inset-0 overflow-y-auto custom-scrollbar p-5">
-              
+
               {/* === TAB 1: DETAILS === */}
               {activeTab === 'details' && (
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-5 animate-fadeIn">
@@ -242,9 +241,9 @@ window.EventFormModal = function EventFormModal({
                         value={formData.name}
                         onChange={async (e) => {
                           const newName = e.target.value;
-                          setFormData(prev => ({...prev, name: newName}));
+                          setFormData(prev => ({ ...prev, name: newName }));
                           setAiSuggestions(null); // Clear suggestions on edit
-                          
+
                           // Real-time classification
                           if (newName.trim().length > 2) {
                             try {
@@ -255,9 +254,9 @@ window.EventFormModal = function EventFormModal({
                               });
                               const result = await response.json();
                               if (result.success && result.confidence > 30) {
-                                setFormData(prev => ({...prev, type: result.eventType}));
+                                setFormData(prev => ({ ...prev, type: result.eventType }));
                               }
-                            } catch (error) {}
+                            } catch (error) { }
                           }
                         }}
                         className="w-full px-3 py-2.5 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent shadow-sm"
@@ -276,9 +275,9 @@ window.EventFormModal = function EventFormModal({
                     <div className="grid grid-cols-2 gap-4">
                       <div>
                         <label className="block text-xs font-bold text-slate-700 mb-1.5">Event Type <span className="text-red-500">*</span></label>
-                        <select 
-                          value={formData.type} 
-                          onChange={(e) => { setFormData({...formData, type: e.target.value}); setAiSuggestions(null); }} 
+                        <select
+                          value={formData.type}
+                          onChange={(e) => { setFormData({ ...formData, type: e.target.value }); setAiSuggestions(null); }}
                           className="w-full px-3 py-2.5 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white shadow-sm"
                         >
                           <option>Academic</option>
@@ -292,14 +291,13 @@ window.EventFormModal = function EventFormModal({
                         <div>
                           <label className="block text-xs font-bold text-slate-700 mb-1.5">Current Status</label>
                           <div className="w-full px-3 py-2.5 border border-slate-200 rounded-lg text-sm bg-slate-50 flex items-center gap-2">
-                            <div className={`w-2 h-2 rounded-full ${
-                              formData.status === 'Approved' ? 'bg-green-500' :
+                            <div className={`w-2 h-2 rounded-full ${formData.status === 'Approved' ? 'bg-green-500' :
                               formData.status === 'Pending' ? 'bg-yellow-500' :
-                              formData.status === 'Under Review' ? 'bg-blue-500' :
-                              formData.status === 'Ongoing' ? 'bg-purple-500' :
-                              formData.status === 'Completed' ? 'bg-teal-500' :
-                              formData.status === 'Rejected' ? 'bg-red-500' : 'bg-gray-400'
-                            }`}></div>
+                                formData.status === 'Under Review' ? 'bg-blue-500' :
+                                  formData.status === 'Ongoing' ? 'bg-purple-500' :
+                                    formData.status === 'Completed' ? 'bg-teal-500' :
+                                      formData.status === 'Rejected' ? 'bg-red-500' : 'bg-gray-400'
+                              }`}></div>
                             <span className="font-medium text-slate-700">{formData.status}</span>
                           </div>
                           <p className="text-[10px] text-slate-500 mt-1">Status changes through approval workflow</p>
@@ -318,11 +316,11 @@ window.EventFormModal = function EventFormModal({
                     <div className="grid grid-cols-2 gap-4">
                       <div>
                         <label className="block text-xs font-bold text-slate-700 mb-1.5">Start Date <span className="text-red-500">*</span></label>
-                        <input type="date" value={formData.date} min={new Date().toISOString().split('T')[0]} onChange={(e) => setFormData({...formData, date: e.target.value})} className="w-full px-3 py-2.5 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-sm" />
+                        <input type="date" value={formData.date} min={new Date().toISOString().split('T')[0]} onChange={(e) => setFormData({ ...formData, date: e.target.value })} className="w-full px-3 py-2.5 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-sm" />
                       </div>
                       <div>
                         <label className="block text-xs font-bold text-slate-700 mb-1.5">End Date</label>
-                        <input type="date" value={formData.endDate} min={formData.date || new Date().toISOString().split('T')[0]} onChange={(e) => setFormData({...formData, endDate: e.target.value})} className="w-full px-3 py-2.5 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-sm" />
+                        <input type="date" value={formData.endDate} min={formData.date || new Date().toISOString().split('T')[0]} onChange={(e) => setFormData({ ...formData, endDate: e.target.value })} className="w-full px-3 py-2.5 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-sm" />
                       </div>
                     </div>
 
@@ -330,11 +328,11 @@ window.EventFormModal = function EventFormModal({
                     <div className="grid grid-cols-2 gap-4">
                       <div>
                         <label className="block text-xs font-bold text-slate-700 mb-1.5">Start Time</label>
-                        <input type="time" value={formData.startTime} onChange={(e) => setFormData({...formData, startTime: e.target.value})} className="w-full px-3 py-2.5 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-sm" />
+                        <input type="time" value={formData.startTime} onChange={(e) => setFormData({ ...formData, startTime: e.target.value })} className="w-full px-3 py-2.5 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-sm" />
                       </div>
                       <div>
                         <label className="block text-xs font-bold text-slate-700 mb-1.5">End Time</label>
-                        <input type="time" value={formData.endTime} onChange={(e) => setFormData({...formData, endTime: e.target.value})} className="w-full px-3 py-2.5 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-sm" />
+                        <input type="time" value={formData.endTime} onChange={(e) => setFormData({ ...formData, endTime: e.target.value })} className="w-full px-3 py-2.5 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-sm" />
                       </div>
                     </div>
 
@@ -369,11 +367,10 @@ window.EventFormModal = function EventFormModal({
                                   <button
                                     key={category}
                                     onClick={() => setActiveEquipmentTab(category)}
-                                    className={`px-3 py-2 text-xs font-medium whitespace-nowrap rounded-t-lg transition-all ${
-                                      currentTab === category 
-                                        ? 'bg-white text-blue-600 border-t border-x border-gray-200 shadow-sm -mb-px relative z-10' 
-                                        : 'text-gray-500 hover:text-gray-700 hover:bg-gray-100'
-                                    }`}
+                                    className={`px-3 py-2 text-xs font-medium whitespace-nowrap rounded-t-lg transition-all ${currentTab === category
+                                      ? 'bg-white text-blue-600 border-t border-x border-gray-200 shadow-sm -mb-px relative z-10'
+                                      : 'text-gray-500 hover:text-gray-700 hover:bg-gray-100'
+                                      }`}
                                   >
                                     {category}
                                     {selectedCount > 0 && (
@@ -407,13 +404,12 @@ window.EventFormModal = function EventFormModal({
                                           });
                                         }
                                       }}
-                                      className={`px-3 py-1.5 rounded-md text-xs border font-medium transition flex items-center gap-1.5 ${
-                                        existingEquipment
-                                          ? 'bg-blue-600 text-white border-blue-600 shadow-sm'
-                                          : isAISuggested
+                                      className={`px-3 py-1.5 rounded-md text-xs border font-medium transition flex items-center gap-1.5 ${existingEquipment
+                                        ? 'bg-blue-600 text-white border-blue-600 shadow-sm'
+                                        : isAISuggested
                                           ? 'bg-green-50 text-green-700 border-green-200 hover:bg-green-100 dashed-border'
                                           : 'bg-white border-gray-200 text-gray-600 hover:bg-gray-50 hover:border-gray-300'
-                                      }`}
+                                        }`}
                                     >
                                       {existingEquipment && <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M5 13l4 4L19 7" /></svg>}
                                       {isAISuggested && !existingEquipment && <svg className="w-3 h-3 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>}
@@ -422,7 +418,7 @@ window.EventFormModal = function EventFormModal({
                                   );
                                 })}
                               </div>
-                              
+
                               {/* Selected equipment with quantity inputs */}
                               {userEquipmentData.equipment.length > 0 && (
                                 <div className="space-y-2 max-h-[120px] overflow-y-auto custom-scrollbar">
@@ -468,10 +464,10 @@ window.EventFormModal = function EventFormModal({
                     {/* Description */}
                     <div>
                       <label className="block text-xs font-bold text-gray-700 mb-1.5">Description</label>
-                      <textarea 
-                        value={formData.description} 
-                        onChange={(e) => setFormData({...formData, description: e.target.value})} 
-                        placeholder="Describe the event, goals, and requirements..." 
+                      <textarea
+                        value={formData.description}
+                        onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                        placeholder="Describe the event, goals, and requirements..."
                         className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm text-gray-700 h-28 focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-sm resize-none"
                       ></textarea>
                     </div>
@@ -483,19 +479,19 @@ window.EventFormModal = function EventFormModal({
                       <div className="space-y-3">
                         <div>
                           <label className="block text-xs font-medium text-gray-600 mb-1">Venue</label>
-                          <select value={formData.venue} onChange={(e) => setFormData({...formData, venue: e.target.value})} className="w-full px-2 py-2 border border-gray-300 rounded text-sm text-gray-700 bg-gray-50 focus:bg-white transition-colors">
+                          <select value={formData.venue} onChange={(e) => setFormData({ ...formData, venue: e.target.value })} className="w-full px-2 py-2 border border-gray-300 rounded text-sm text-gray-700 bg-gray-50 focus:bg-white transition-colors">
                             {venueOptions.map(v => <option key={v}>{v}</option>)}
                           </select>
                         </div>
                         <div>
                           <label className="block text-xs font-medium text-gray-600 mb-1">Organizer</label>
-                          <input type="text" value={formData.organizer} onChange={(e) => setFormData({...formData, organizer: e.target.value})} placeholder="Organizer name" className="w-full px-2 py-2 border border-gray-300 rounded text-sm text-gray-700 bg-gray-50 focus:bg-white" />
+                          <input type="text" value={formData.organizer} onChange={(e) => setFormData({ ...formData, organizer: e.target.value })} placeholder="Organizer name" className="w-full px-2 py-2 border border-gray-300 rounded text-sm text-gray-700 bg-gray-50 focus:bg-white" />
                         </div>
                         <div>
                           <label className="block text-xs font-medium text-gray-600 mb-1">Organizing Department</label>
-                          <select 
-                            value={formData.organizing_department || ''} 
-                            onChange={(e) => setFormData({...formData, organizing_department: e.target.value})} 
+                          <select
+                            value={formData.organizing_department || ''}
+                            onChange={(e) => setFormData({ ...formData, organizing_department: e.target.value })}
                             className="w-full px-2 py-2 border border-gray-300 rounded text-sm text-gray-700 bg-gray-50 focus:bg-white transition-colors"
                           >
                             <option value="">Select Department</option>
@@ -524,13 +520,13 @@ window.EventFormModal = function EventFormModal({
                         </div>
                         <div>
                           <label className="block text-xs font-medium text-gray-600 mb-1">Estimated Attendees</label>
-                          <input 
-                            type="number" 
-                            value={formData.attendees} 
+                          <input
+                            type="number"
+                            value={formData.attendees}
                             onChange={(e) => {
                               const newAttendees = e.target.value;
                               const attendeeCount = parseInt(newAttendees) || 0;
-                              
+
                               // Budget scaling logic
                               let newBudget = formData.budget;
                               if (budgetData && budgetData.totalBudget && aiSuggestions) {
@@ -541,9 +537,9 @@ window.EventFormModal = function EventFormModal({
                                   newBudget = Math.round(baseBudget * ratio);
                                 }
                               }
-                              
+
                               setFormData({ ...formData, attendees: newAttendees, budget: newBudget });
-                              
+
                               // Recalculate breakdown
                               if (budgetData && budgetData.breakdown && newBudget > 0) {
                                 const { categories, breakdown } = budgetData;
@@ -557,20 +553,20 @@ window.EventFormModal = function EventFormModal({
                                 });
                                 handleBudgetUpdate({ totalBudget: newBudget, categories, breakdown: newBreakdown, percentages: newPercentages });
                               }
-                            }} 
-                            placeholder="0" 
-                            className="w-full px-2 py-2 border border-gray-300 rounded text-sm text-gray-700 bg-gray-50 focus:bg-white" 
+                            }}
+                            placeholder="0"
+                            className="w-full px-2 py-2 border border-gray-300 rounded text-sm text-gray-700 bg-gray-50 focus:bg-white"
                           />
                         </div>
                         <div>
                           <label className="block text-xs font-medium text-gray-600 mb-1">Total Budget (₱)</label>
                           <div className="relative">
-                            <input 
-                              type="number" 
-                              value={formData.budget} 
-                              onChange={(e) => setFormData({...formData, budget: e.target.value})} 
-                              placeholder="0.00" 
-                              className="w-full px-2 py-2 border border-gray-300 rounded text-sm text-gray-700 font-medium text-emerald-700 bg-emerald-50 focus:bg-white border-emerald-200" 
+                            <input
+                              type="number"
+                              value={formData.budget}
+                              onChange={(e) => setFormData({ ...formData, budget: e.target.value })}
+                              placeholder="0.00"
+                              className="w-full px-2 py-2 border border-gray-300 rounded text-sm text-gray-700 font-medium text-emerald-700 bg-emerald-50 focus:bg-white border-emerald-200"
                             />
                             {budgetEstimate && formData.name.trim().length >= 3 && !formData.budget && (
                               <div className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded border border-blue-100">
@@ -602,12 +598,12 @@ window.EventFormModal = function EventFormModal({
                       </div>
                     </div>
                   </div>
-                  
+
                   <div className="flex-1 bg-white border border-gray-200 rounded-lg p-4 shadow-sm min-h-[300px]">
-                    <SmartBudgetBreakdown 
-                      budgetData={userBudgetData} 
-                      onUpdate={setUserBudgetData} 
-                      onBudgetUpdate={handleBudgetUpdate} 
+                    <SmartBudgetBreakdown
+                      budgetData={userBudgetData}
+                      onUpdate={setUserBudgetData}
+                      onBudgetUpdate={handleBudgetUpdate}
                     />
                   </div>
                 </div>
@@ -616,7 +612,7 @@ window.EventFormModal = function EventFormModal({
               {/* === TAB 3: TIMELINE === */}
               {activeTab === 'timeline' && (
                 <div className="h-full flex flex-col animate-fadeIn">
-                   <div className="mb-4 bg-purple-50 border border-purple-100 rounded-lg p-3 flex gap-3 items-start">
+                  <div className="mb-4 bg-purple-50 border border-purple-100 rounded-lg p-3 flex gap-3 items-start">
                     <div className="bg-purple-100 p-2 rounded-full text-purple-600">
                       <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
                     </div>
@@ -629,9 +625,9 @@ window.EventFormModal = function EventFormModal({
                   </div>
 
                   <div className="flex-1">
-                    <EventTimelineGenerator 
+                    <EventTimelineGenerator
                       key={JSON.stringify(userTimelineData.timeline)}
-                      timelineData={userTimelineData} 
+                      timelineData={userTimelineData}
                       initialEditMode={true}
                       onTimelineUpdate={(updatedTimeline) => {
                         setUserTimelineData(updatedTimeline);
@@ -639,7 +635,7 @@ window.EventFormModal = function EventFormModal({
                           `${phase.startTime} - ${phase.endTime}: ${phase.phase}`
                         );
                         setFormData(prev => ({ ...prev, activities }));
-                      }} 
+                      }}
                     />
                   </div>
                 </div>
@@ -655,7 +651,7 @@ window.EventFormModal = function EventFormModal({
                     </div>
                     <button
                       type="button"
-                      onClick={() => setManualResources([...manualResources, {name: '', description: ''}])}
+                      onClick={() => setManualResources([...manualResources, { name: '', description: '' }])}
                       className="px-3 py-1.5 bg-teal-600 text-white text-xs font-medium rounded hover:bg-teal-700 transition flex items-center gap-1.5 shadow-sm"
                     >
                       <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4" /></svg>
@@ -708,9 +704,9 @@ window.EventFormModal = function EventFormModal({
 
           {/* Action Buttons Footer */}
           <div className="flex gap-4 px-6 py-4 border-t border-gray-200 bg-white flex-shrink-0 items-center">
-            <button 
-              onClick={handleAutoFill} 
-              disabled={aiLoading} 
+            <button
+              onClick={handleAutoFill}
+              disabled={aiLoading}
               className="flex-1 px-4 py-2.5 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-lg text-sm font-semibold hover:from-blue-700 hover:to-indigo-700 transition flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed shadow-md relative overflow-hidden group"
             >
               <span className="absolute inset-0 w-full h-full bg-white opacity-0 group-hover:opacity-10 transition-opacity"></span>
@@ -729,9 +725,9 @@ window.EventFormModal = function EventFormModal({
                 <span className="absolute top-2 right-2 w-2 h-2 bg-green-400 rounded-full animate-pulse"></span>
               )}
             </button>
-            
+
             <div className="h-8 w-px bg-gray-300 mx-2"></div>
-            
+
             <button onClick={() => setShowModal(false)} className="px-6 py-2.5 bg-white border border-gray-300 text-gray-700 rounded-lg text-sm font-semibold hover:bg-gray-50 transition shadow-sm">
               Cancel
             </button>
@@ -746,22 +742,22 @@ window.EventFormModal = function EventFormModal({
 
         {/* AI ANALYSIS MODAL - Side Panel */}
         {aiSuggestions && (
-          <div className="bg-white rounded-xl overflow-hidden shadow-2xl flex flex-col w-[450px] max-w-md h-[750px] max-h-[90vh] border-l-4 border-indigo-600 animate-slideInRight">
+          <div className="bg-white rounded-xl overflow-hidden shadow-2xl flex flex-col w-[450px] max-w-md h-[750px] max-h-[90vh] border-l-4 border-slate-900 animate-slideInRight">
             {/* AI Modal Header */}
-            <div className="bg-gradient-to-r from-indigo-600 to-violet-700 px-6 py-4 flex-shrink-0">
+            <div className="bg-slate-900 px-6 py-4 flex-shrink-0">
               <div className="flex items-center justify-between">
                 <h3 className="text-base font-bold text-white flex items-center gap-2">
                   <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20"><path d="M13 6a3 3 0 11-6 0 3 3 0 016 0zM18 8a2 2 0 11-4 0 2 2 0 014 0zM14 15a4 4 0 00-8 0v3h8v-3zM6 8a2 2 0 11-4 0 2 2 0 014 0zM16 18v-3a5.972 5.972 0 00-.75-2.906A3.005 3.005 0 0119 15v3h-3zM4.75 12.094A5.973 5.973 0 004 15v3H1v-3a3 3 0 013.75-2.906z" /></svg>
                   AI Analysis
                 </h3>
-                <button onClick={() => setAiSuggestions(null)} className="text-indigo-200 hover:text-white hover:bg-indigo-500 p-1.5 rounded-full transition">
+                <button onClick={() => setAiSuggestions(null)} className="text-slate-400 hover:text-white hover:bg-slate-800 p-1.5 rounded-full transition">
                   <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" /></svg>
                 </button>
               </div>
             </div>
 
             {/* AI Content */}
-            <div className="p-5 space-y-4 overflow-y-auto flex-1 custom-scrollbar bg-indigo-50/20">
+            <div className="p-5 space-y-4 overflow-y-auto flex-1 custom-scrollbar bg-slate-50">
               {/* Low Confidence / Unknown Event Warning */}
               {aiSuggestions && (aiSuggestions.confidence < 70 || !aiSuggestions.confidence) && (
                 <div className="bg-yellow-50 rounded-lg p-4 border border-yellow-300 flex items-start gap-3">
@@ -773,7 +769,7 @@ window.EventFormModal = function EventFormModal({
                       {aiSuggestions.confidence < 30 ? '❓ Unknown Event Type' : '⚠️ Limited Training Data'}
                     </p>
                     <p className="text-xs text-yellow-800 mt-1 leading-relaxed">
-                      {aiSuggestions.confidence < 30 
+                      {aiSuggestions.confidence < 30
                         ? 'The AI does not recognize this event type or cannot find similar events in the training database. Suggestions are based on general patterns and may not be accurate. Please manually review all recommendations.'
                         : 'This event type has limited training data, which may result in less accurate AI suggestions. Please review and adjust recommendations based on your specific needs.'
                       }
@@ -799,10 +795,10 @@ window.EventFormModal = function EventFormModal({
                   </div>
                 </div>
               )}
-              
+
               <div className="flex justify-between items-center bg-white p-3 rounded-lg border border-gray-200 shadow-sm">
-                 <span className="text-xs font-semibold text-gray-500 uppercase">Confidence</span>
-                 <span className="text-sm font-bold text-indigo-700">{aiSuggestions.confidence || '92.5'}%</span>
+                <span className="text-xs font-semibold text-gray-500 uppercase">Confidence</span>
+                <span className="text-sm font-bold text-indigo-700">{aiSuggestions.confidence || '92.5'}%</span>
               </div>
 
               {/* Estimated Budget */}
@@ -831,14 +827,13 @@ window.EventFormModal = function EventFormModal({
                     {formData.additionalResources.map((r, idx) => {
                       // Handle both string and object formats
                       const resourceName = typeof r === 'string' ? r : (r && r.name ? r.name : '');
-                      const isChecked = checkedResources.includes(resourceName); 
+                      const isChecked = checkedResources.includes(resourceName);
                       return (
-                        <button 
-                          key={resourceName || idx} 
-                          onClick={() => toggleAdditionalResource(resourceName)} 
-                          className={`px-2.5 py-1.5 rounded text-xs border font-medium transition flex items-center gap-1.5 ${
-                            isChecked ? 'bg-teal-50 text-teal-700 border-teal-200 shadow-inner' : 'bg-gray-50 text-gray-600 border-gray-200 hover:bg-white hover:shadow-sm'
-                          }`}
+                        <button
+                          key={resourceName || idx}
+                          onClick={() => toggleAdditionalResource(resourceName)}
+                          className={`px-2.5 py-1.5 rounded text-xs border font-medium transition flex items-center gap-1.5 ${isChecked ? 'bg-teal-50 text-teal-700 border-teal-200 shadow-inner' : 'bg-gray-50 text-gray-600 border-gray-200 hover:bg-white hover:shadow-sm'
+                            }`}
                         >
                           {isChecked ? <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" /></svg> : null}
                           {resourceName}
@@ -882,7 +877,7 @@ window.EventFormModal = function EventFormModal({
                     </button>
                   </div>
                   <p className="text-xs text-gray-600 mb-3">Click a category to add it to your budget</p>
-                  
+
                   <div className="grid grid-cols-1 gap-2 max-h-64 overflow-y-auto custom-scrollbar">
                     {Object.entries(budgetData.breakdown).map(([category, data]) => {
                       const isAlreadyAdded = userBudgetData && userBudgetData.categories && userBudgetData.categories.includes(category);
@@ -901,7 +896,7 @@ window.EventFormModal = function EventFormModal({
                                   existingBreakdown[cat] = { ...userBudgetData.breakdown[cat] };
                                 }
                               });
-                              
+
                               const newCategories = [...existingCategories, category];
                               const newPercentages = [...existingPercentages, data.percentage || 0];
                               const newBreakdown = { ...existingBreakdown, [category]: { ...data } };
@@ -924,7 +919,7 @@ window.EventFormModal = function EventFormModal({
                                   filteredBreakdown[cat] = { ...userBudgetData.breakdown[cat] };
                                 }
                               });
-                              
+
                               const updatedData = {
                                 totalBudget: userBudgetData.totalBudget,
                                 categories: filteredCategories,
@@ -935,11 +930,10 @@ window.EventFormModal = function EventFormModal({
                               setTimeout(() => handleTabChange('budget'), 10);
                             }
                           }}
-                          className={`p-3 rounded-lg border-2 transition text-left ${
-                            isAlreadyAdded
-                              ? 'bg-emerald-50 border-emerald-300 hover:border-red-400 hover:bg-red-50 cursor-pointer active:scale-95'
-                              : 'bg-blue-50 border-blue-200 hover:border-blue-400 hover:bg-blue-100 cursor-pointer active:scale-95'
-                          }`}
+                          className={`p-3 rounded-lg border-2 transition text-left ${isAlreadyAdded
+                            ? 'bg-emerald-50 border-emerald-300 hover:border-red-400 hover:bg-red-50 cursor-pointer active:scale-95'
+                            : 'bg-blue-50 border-blue-200 hover:border-blue-400 hover:bg-blue-100 cursor-pointer active:scale-95'
+                            }`}
                         >
                           <div className="flex items-center justify-between">
                             <div className="flex-1">
@@ -967,7 +961,7 @@ window.EventFormModal = function EventFormModal({
                   </div>
                 </div>
               )}
-                 
+
               {timelineData && timelineData.timeline && timelineData.timeline.length > 0 && (
                 <div className="bg-white rounded-lg p-4 border border-purple-100 shadow-sm">
                   <div className="flex items-center justify-between mb-3">
@@ -999,7 +993,7 @@ window.EventFormModal = function EventFormModal({
                     </button>
                   </div>
                   <p className="text-xs text-gray-600 mb-3">Click a phase to add it to your timeline</p>
-                  
+
                   <div className="grid grid-cols-1 gap-2 max-h-64 overflow-y-auto custom-scrollbar">
                     {timelineData.timeline.map((phase, idx) => {
                       const isAlreadyAdded = userTimelineData.timeline && userTimelineData.timeline.some(p => p.phase === phase.phase);
@@ -1022,11 +1016,10 @@ window.EventFormModal = function EventFormModal({
                               setTimeout(() => handleTabChange('timeline'), 10);
                             }
                           }}
-                          className={`p-3 rounded-lg border-2 transition text-left ${
-                            isAlreadyAdded
-                              ? 'bg-emerald-50 border-emerald-300 opacity-50 cursor-default'
-                              : 'bg-purple-50 border-purple-200 hover:border-purple-400 hover:bg-purple-100 cursor-pointer active:scale-95'
-                          }`}
+                          className={`p-3 rounded-lg border-2 transition text-left ${isAlreadyAdded
+                            ? 'bg-emerald-50 border-emerald-300 opacity-50 cursor-default'
+                            : 'bg-purple-50 border-purple-200 hover:border-purple-400 hover:bg-purple-100 cursor-pointer active:scale-95'
+                            }`}
                         >
                           <div className="flex items-center justify-between">
                             <div className="flex-1">
@@ -1077,7 +1070,7 @@ window.EventFormModal = function EventFormModal({
                     </button>
                   </div>
                   <p className="text-xs text-gray-600 mb-3">Click an item to add it to your equipment list</p>
-                  
+
                   <div className="grid grid-cols-1 gap-2 max-h-64 overflow-y-auto custom-scrollbar">
                     {resourceData.checklist.Equipment.map((item, idx) => {
                       const itemName = typeof item === 'string' ? item : (item.name || item);
@@ -1092,11 +1085,10 @@ window.EventFormModal = function EventFormModal({
                               });
                             }
                           }}
-                          className={`p-3 rounded-lg border-2 transition text-left ${
-                            isAlreadyAdded
-                              ? 'bg-emerald-50 border-emerald-300 opacity-50 cursor-default'
-                              : 'bg-white border-gray-200 text-gray-600 hover:bg-gray-50 hover:border-teal-300 cursor-pointer'
-                          }`}
+                          className={`p-3 rounded-lg border-2 transition text-left ${isAlreadyAdded
+                            ? 'bg-emerald-50 border-emerald-300 opacity-50 cursor-default'
+                            : 'bg-white border-gray-200 text-gray-600 hover:bg-gray-50 hover:border-teal-300 cursor-pointer'
+                            }`}
                         >
                           <div className="flex items-center justify-between">
                             <p className="text-sm font-semibold text-gray-800">{itemName}</p>
@@ -1120,7 +1112,7 @@ window.EventFormModal = function EventFormModal({
           </div>
         )}
       </div>
-      
+
       {/* Styles for animations */}
       <style>{`
         .custom-scrollbar::-webkit-scrollbar { width: 6px; }

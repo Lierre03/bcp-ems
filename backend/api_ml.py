@@ -381,7 +381,8 @@ def train_models():
         # --- 4. Train Event Classifier (TF-IDF + Logistic Regression) ---
         if 'event_name' in df.columns:
             vectorizer = TfidfVectorizer(max_features=1000, stop_words='english')
-            classifier = LogisticRegression(random_state=42, max_iter=1000)
+            # Use Random Forest for better confidence on small datasets
+            classifier = RandomForestClassifier(n_estimators=100, random_state=42)
             
             X_text = vectorizer.fit_transform(df['event_name'])
             y_type = df['event_type']
@@ -399,9 +400,12 @@ def train_models():
             total_events = len(type_df)
             
             for breakdown_list in type_df['budget_breakdown_list']:
-                event_total = sum(item.get('amount', 0) for item in breakdown_list)
+                # Filter out valid dict items only
+                valid_items = [item for item in breakdown_list if isinstance(item, dict)]
+                event_total = sum(item.get('amount', 0) for item in valid_items)
+                
                 if event_total > 0:
-                    for item in breakdown_list:
+                    for item in valid_items:
                         name = item.get('name', 'Misc')
                         amount = item.get('amount', 0)
                         name_key = name.strip().title() 
@@ -524,10 +528,19 @@ def predict_resources():
                 classifier = joblib.load(EVENT_CLASSIFIER_PATH)
                 vectorizer = joblib.load(EVENT_VECTORIZER_PATH)
                 text_vec = vectorizer.transform([event_name])
-                probs = classifier.predict_proba(text_vec)[0]
-                type_confidence = round(max(probs) * 100, 1)  # Round to 1 decimal place
-                predictions['confidence'] = type_confidence
-                print(f"[TYPE ML] Event type classification confidence: {type_confidence:.1f}%")
+                
+                # CHECK FOR UNKNOWN WORDS (Zero Vector)
+                # If the input text has no overlap with training vocabulary,
+                # the vector will be all zeros, meaning the model is just guessing.
+                if text_vec.nnz == 0:
+                    print(f"[TYPE ML] No vocabulary overlap for '{event_name}' - Unknown Event")
+                    predictions['confidence'] = 10.0
+                    predictions['eventType'] = 'Unknown' # Optional: could leave as guessed but low confidence
+                else:
+                    probs = classifier.predict_proba(text_vec)[0]
+                    type_confidence = round(max(probs) * 100, 1)  # Round to 1 decimal place
+                    predictions['confidence'] = type_confidence
+                    print(f"[TYPE ML] Event type classification confidence: {type_confidence:.1f}%")
         except Exception as e:
             print(f"[TYPE ML] Could not get type confidence: {e}")
 

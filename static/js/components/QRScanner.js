@@ -116,38 +116,38 @@ window.QRScanner = function QRScanner({ eventId, onCheckIn }) {
     scanningRef.current = false;
   };
 
-  const [scanCount, setScanCount] = React.useState(0);
-
   const scanQRCode = () => {
-    // This is a simplified QR scanning simulation
-    // In a real implementation, you would use a QR scanning library like jsQR
-    console.log('Starting QR scan simulation...');
-
-    let count = 0;
-
-    const scanInterval = setInterval(async () => {
-      if (!scanningRef.current || !videoRef.current) {
-        console.log('Stopping QR scan - scanning ref is false or no video');
-        clearInterval(scanInterval);
-        setScanCount(0);
+    if (!videoRef.current) return;
+    
+    const canvas = document.createElement('canvas');
+    const ctx = canvas.getContext('2d');
+    
+    const tick = () => {
+      if (!scanningRef.current || !videoRef.current || videoRef.current.readyState !== videoRef.current.HAVE_ENOUGH_DATA) {
+        if (scanningRef.current) requestAnimationFrame(tick);
         return;
       }
-
-      count++;
-      setScanCount(count); // Update display immediately
-      console.log(`Scan attempt #${count}`);
-
-      // Simulate QR detection (replace with actual QR scanning logic)
-      // For demo purposes, we'll simulate finding a QR code after a few scans
-      // More realistic timing - give user time to position QR code
-      if ((count >= 3 && Math.random() < 0.4) || count >= 8) { // 40% chance after 3 scans, or guaranteed after 8 scans
-        console.log('Simulating QR code detection...');
-        const mockQRCode = `REG-1-4-1766071880`; // Use the actual stored QR code from database
-        clearInterval(scanInterval); // Stop scanning first
-        setScanCount(0); // Reset counter
-        await processQRCode(mockQRCode);
+      
+      canvas.width = videoRef.current.videoWidth;
+      canvas.height = videoRef.current.videoHeight;
+      ctx.drawImage(videoRef.current, 0, 0, canvas.width, canvas.height);
+      
+      const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+      
+      if (window.jsQR) {
+        const code = window.jsQR(imageData.data, imageData.width, imageData.height, { inversionAttempts: "dontInvert" });
+        if (code && code.data) {
+          console.log('QR code detected:', code.data);
+          scanningRef.current = false;
+          processQRCode(code.data);
+          return;
+        }
       }
-    }, 1000); // Scan every 1 second for faster feedback
+      
+      requestAnimationFrame(tick);
+    };
+    
+    requestAnimationFrame(tick);
   };
 
   const processQRCode = async (qrCode) => {
@@ -310,7 +310,7 @@ window.QRScanner = function QRScanner({ eventId, onCheckIn }) {
                       <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                       <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                     </svg>
-                    <span>Scanning for QR codes... ({scanCount} scans)</span>
+                    <span>Scanning for QR codes...</span>
                   </div>
                   <p className="text-xs text-gray-500 mt-1">
                     Point QR code at the scanning frame above
