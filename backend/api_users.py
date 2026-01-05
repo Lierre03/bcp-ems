@@ -409,3 +409,52 @@ def get_pending_users():
         import traceback
         traceback.print_exc()
         return jsonify({'success': False, 'message': str(e)}), 500
+@users_bp.route('/<int:user_id>', methods=['DELETE'])
+@super_admin_required
+def delete_user(user_id):
+    """Delete user (if no dependent events)"""
+    try:
+        db = get_db()
+        
+        # 1. Prevent deleting self
+        if user_id == session.get('user_id'):
+            return jsonify({'success': False, 'message': 'Cannot delete your own account'}), 400
+            
+        # 2. Check if user exists
+        user = db.execute_one("SELECT username FROM users WHERE id = %s", (user_id,))
+        if not user:
+            return jsonify({'success': False, 'message': 'User not found'}), 404
+
+        # 3. Check for dependent events (requestor_id is NOT NULL)
+        events_count = db.execute_one(
+            "SELECT COUNT(*) as count FROM events WHERE requestor_id = %s", 
+            (user_id,)
+        )['count']
+        
+        if events_count > 0:
+            return jsonify({
+                'success': False, 
+                'message': f'Cannot delete user (has {events_count} events). Deactivate account instead.'
+            }), 400
+
+        # 4. Delete dependencies (Manual cleanup if foreign keys don't cascade)
+        # Notifications
+        db.execute_update("DELETE FROM notifications WHERE user_id = %s", (user_id,))
+        # Registrations
+        db.execute_update("DELETE FROM event_registrations WHERE user_id = %s", (user_id,))
+        # Attendance
+        db.execute_update("DELETE FROM event_attendance WHERE user_id = %s", (user_id,))
+        # Feedback
+        db.execute_update("DELETE FROM event_feedback WHERE user_id = %s", (user_id,))
+        # Student profile
+        db.execute_update("DELETE FROM students WHERE user_id = %s", (user_id,))
+        
+        # 5. Delete User
+        db.execute_update("DELETE FROM users WHERE id = %s", (user_id,))
+        
+        logger.info(f"User {user['username']} (ID: {user_id}) deleted by Super Admin")
+        return jsonify({'success': True, 'message': 'User deleted successfully'})
+        
+    except Exception as e:
+        logger.error(f"Error deleting user: {e}")
+        return jsonify({'success': False, 'message': str(e)}), 500

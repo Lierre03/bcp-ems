@@ -3,7 +3,7 @@
 # Flask app initialization, blueprint registration
 # ============================================================================
 
-from flask import Flask, render_template, send_from_directory
+from flask import Flask, render_template, send_from_directory, request
 from flask_cors import CORS
 import logging
 import os
@@ -132,6 +132,65 @@ def create_app(config_name='development'):
     def internal_error(error):
         return {'error': 'Internal server error'}, 500
     
+
+    # ========================================================================
+    # SCHEDULED TASKS (Lazy Execution)
+    # ========================================================================
+    
+    @app.before_request
+    def check_event_completion():
+        """
+        Lazily check for past events and mark them as Completed.
+        Only runs on relevant routes (admin/api) to save performance.
+        """
+        # Only run on API or Admin routes
+        # Only run on API or Admin routes
+        if not request.path or not (request.path.startswith('/api/') or request.path.startswith('/admin')):
+            return
+
+        try:
+            from database.db import get_db
+            
+            db = get_db()
+            
+            # 1. Check for events and get IDs
+            check_query = """
+                SELECT id, name, status 
+                FROM events 
+                WHERE status IN ('Approved', 'Ongoing') 
+                AND end_datetime < NOW()
+                AND deleted_at IS NULL
+            """
+            
+            events = db.execute_query(check_query)
+            
+            if events:
+                 # 2. Update Status (Auto-commit handled by helper)
+                 update_query = """
+                    UPDATE events 
+                    SET status = 'Completed', updated_at = NOW()
+                    WHERE status IN ('Approved', 'Ongoing') 
+                    AND end_datetime < NOW()
+                    AND deleted_at IS NULL
+                 """
+                 db.execute_update(update_query)
+                 
+                 # 3. Log history (Best effort, okay if slightly desynced from update in rare crash)
+                 for e in events:
+                    db.execute_insert("""
+                        INSERT INTO event_status_history (event_id, old_status, new_status, changed_by, reason)
+                        VALUES (%s, %s, 'Completed', NULL, 'Auto-completed (system)')
+                    """, (e['id'], e['status']))
+                            
+                 app.logger.info(f"Lazily auto-completed {len(events)} events")
+        except Exception as e:
+            # Print error to stdout so it shows in terminal
+            print(f"ERROR in lazy_check: {e}")
+            import traceback
+            traceback.print_exc()
+            import sys
+            sys.stdout.flush()
+
     return app
 
 

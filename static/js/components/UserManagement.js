@@ -92,7 +92,7 @@ window.UserManagement = function UserManagement() {
     try {
       const endpoint = editingUser ? `/api/users/${editingUser.id}` : '/api/users';
       const method = editingUser ? 'PUT' : 'POST';
-      
+
       const res = await fetch(endpoint, {
         method,
         headers: { 'Content-Type': 'application/json' },
@@ -159,10 +159,35 @@ window.UserManagement = function UserManagement() {
     }
   };
 
+  const handleDeleteUser = async (user) => {
+    if (!confirm(`Are you sure you want to PERMANENTLY DELETE user "${user.username}"? This action cannot be undone.\n\nNote: Users with dependent events cannot be deleted.`)) {
+      return;
+    }
+
+    try {
+      const res = await fetch(`/api/users/${user.id}`, {
+        method: 'DELETE',
+        credentials: 'include'
+      });
+      const data = await res.json();
+
+      if (data.success) {
+        alert('User deleted successfully');
+        loadUsers();
+      } else {
+        alert(data.message || 'Failed to delete user');
+      }
+    } catch (err) {
+      console.error('Delete failed:', err);
+      alert('Error deleting user');
+    }
+  };
+
+
   const filteredUsers = users.filter(user => {
     const matchesSearch = user.username.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         user.full_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         (user.email && user.email.toLowerCase().includes(searchTerm.toLowerCase()));
+      user.full_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (user.email && user.email.toLowerCase().includes(searchTerm.toLowerCase()));
     const matchesRole = filterRole === 'all' || user.role_name === filterRole;
     return matchesSearch && matchesRole;
   });
@@ -171,14 +196,14 @@ window.UserManagement = function UserManagement() {
     <div className="space-y-3">
       {/* Search, Filter, and Add User */}
       <div className="flex flex-col sm:flex-row gap-3">
-        <input 
+        <input
           type="text"
           placeholder="Search users..."
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
           className="flex-1 px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
         />
-        <select 
+        <select
           value={filterRole}
           onChange={(e) => setFilterRole(e.target.value)}
           className="px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
@@ -188,7 +213,7 @@ window.UserManagement = function UserManagement() {
             <option key={role} value={role}>{role}</option>
           ))}
         </select>
-        <button 
+        <button
           onClick={handleCreateUser}
           className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition text-sm font-semibold flex items-center gap-2 whitespace-nowrap"
         >
@@ -228,12 +253,11 @@ window.UserManagement = function UserManagement() {
                 </td>
                 <td className="px-4 py-3.5 text-sm text-slate-600">{user.email || 'N/A'}</td>
                 <td className="px-4 py-3.5">
-                  <span className={`inline-flex items-center px-2.5 py-1 rounded-md text-xs font-medium ${
-                    user.role_name === 'Super Admin' ? 'bg-purple-50 text-purple-700 border border-purple-200' :
+                  <span className={`inline-flex items-center px-2.5 py-1 rounded-md text-xs font-medium ${user.role_name === 'Super Admin' ? 'bg-purple-50 text-purple-700 border border-purple-200' :
                     user.role_name === 'Admin' ? 'bg-blue-50 text-blue-700 border border-blue-200' :
-                    user.role_name === 'Staff' ? 'bg-green-50 text-green-700 border border-green-200' :
-                    'bg-slate-50 text-slate-700 border border-slate-200'
-                  }`}>
+                      user.role_name === 'Staff' ? 'bg-green-50 text-green-700 border border-green-200' :
+                        'bg-slate-50 text-slate-700 border border-slate-200'
+                    }`}>
                     {user.role_name}
                   </span>
                 </td>
@@ -247,16 +271,15 @@ window.UserManagement = function UserManagement() {
                   )}
                 </td>
                 <td className="px-4 py-3.5">
-                  <span className={`inline-flex items-center px-2.5 py-1 rounded-md text-xs font-medium ${
-                    user.status === 'active' ? 'bg-green-50 text-green-700 border border-green-200' :
+                  <span className={`inline-flex items-center px-2.5 py-1 rounded-md text-xs font-medium ${user.status === 'active' ? 'bg-green-50 text-green-700 border border-green-200' :
                     'bg-red-50 text-red-700 border border-red-200'
-                  }`}>
+                    }`}>
                     {user.status === 'active' ? 'Active' : 'Inactive'}
                   </span>
                 </td>
                 <td className="px-4 py-3.5">
                   <div className="flex items-center justify-center gap-1">
-                    <button 
+                    <button
                       onClick={() => handleEditUser(user)}
                       className="p-1.5 text-slate-600 hover:bg-slate-100 rounded-lg transition-colors"
                       title="Edit"
@@ -265,7 +288,7 @@ window.UserManagement = function UserManagement() {
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
                       </svg>
                     </button>
-                    <button 
+                    <button
                       onClick={() => handleResetPassword(user.id)}
                       className="p-1.5 text-slate-600 hover:bg-slate-100 rounded-lg transition-colors"
                       title="Reset Password"
@@ -274,13 +297,12 @@ window.UserManagement = function UserManagement() {
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" />
                       </svg>
                     </button>
-                    <button 
+                    <button
                       onClick={() => handleToggleStatus(user.id, user.status)}
-                      className={`p-1.5 rounded-lg transition-colors ${
-                        user.status === 'active' 
-                          ? 'text-red-600 hover:bg-red-50' 
-                          : 'text-green-600 hover:bg-green-50'
-                      }`}
+                      className={`p-1.5 rounded-lg transition-colors ${user.status === 'active'
+                        ? 'text-orange-600 hover:bg-orange-50'
+                        : 'text-green-600 hover:bg-green-50'
+                        }`}
                       title={user.status === 'active' ? 'Deactivate' : 'Activate'}
                     >
                       <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -289,6 +311,15 @@ window.UserManagement = function UserManagement() {
                         ) : (
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
                         )}
+                      </svg>
+                    </button>
+                    <button
+                      onClick={() => handleDeleteUser(user)}
+                      className="p-1.5 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                      title="Delete User"
+                    >
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                       </svg>
                     </button>
                   </div>
@@ -319,14 +350,14 @@ window.UserManagement = function UserManagement() {
                 </svg>
               </button>
             </div>
-            
+
             <div className="p-6 space-y-4">
               <div>
                 <label className="block text-sm font-semibold text-slate-700 mb-1">Username *</label>
-                <input 
+                <input
                   type="text"
                   value={formData.username}
-                  onChange={(e) => setFormData({...formData, username: e.target.value})}
+                  onChange={(e) => setFormData({ ...formData, username: e.target.value })}
                   disabled={!!editingUser}
                   className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm disabled:bg-slate-100"
                 />
@@ -334,29 +365,29 @@ window.UserManagement = function UserManagement() {
 
               <div>
                 <label className="block text-sm font-semibold text-slate-700 mb-1">Full Name *</label>
-                <input 
+                <input
                   type="text"
                   value={formData.full_name}
-                  onChange={(e) => setFormData({...formData, full_name: e.target.value})}
+                  onChange={(e) => setFormData({ ...formData, full_name: e.target.value })}
                   className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
                 />
               </div>
 
               <div>
                 <label className="block text-sm font-semibold text-slate-700 mb-1">Email</label>
-                <input 
+                <input
                   type="email"
                   value={formData.email}
-                  onChange={(e) => setFormData({...formData, email: e.target.value})}
+                  onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                   className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
                 />
               </div>
 
               <div>
                 <label className="block text-sm font-semibold text-slate-700 mb-1">Role *</label>
-                <select 
+                <select
                   value={formData.role}
-                  onChange={(e) => setFormData({...formData, role: e.target.value})}
+                  onChange={(e) => setFormData({ ...formData, role: e.target.value })}
                   className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
                 >
                   {roles.map(role => (
@@ -369,9 +400,9 @@ window.UserManagement = function UserManagement() {
                 <label className="block text-sm font-semibold text-slate-700 mb-1">
                   Department {formData.role === 'Admin' ? '*' : ''}
                 </label>
-                <select 
+                <select
                   value={formData.department}
-                  onChange={(e) => setFormData({...formData, department: e.target.value})}
+                  onChange={(e) => setFormData({ ...formData, department: e.target.value })}
                   disabled={formData.role === 'Super Admin' || formData.role === 'Staff'}
                   className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm disabled:bg-slate-100 disabled:text-slate-500"
                 >
@@ -411,10 +442,10 @@ window.UserManagement = function UserManagement() {
                 <label className="block text-sm font-semibold text-slate-700 mb-1">
                   Password {!editingUser && '*'}
                 </label>
-                <input 
+                <input
                   type="password"
                   value={formData.password}
-                  onChange={(e) => setFormData({...formData, password: e.target.value})}
+                  onChange={(e) => setFormData({ ...formData, password: e.target.value })}
                   placeholder={editingUser ? 'Leave blank to keep current' : 'Enter password'}
                   className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
                 />
@@ -422,14 +453,14 @@ window.UserManagement = function UserManagement() {
             </div>
 
             <div className="px-6 py-4 bg-slate-50 rounded-b-lg flex justify-end gap-2">
-              <button 
+              <button
                 onClick={() => setShowModal(false)}
                 disabled={loading}
                 className="px-4 py-2 bg-white border border-slate-300 rounded-lg hover:bg-slate-50 text-sm font-semibold transition disabled:opacity-50"
               >
                 Cancel
               </button>
-              <button 
+              <button
                 onClick={handleSaveUser}
                 disabled={loading}
                 className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm font-semibold transition disabled:opacity-50"

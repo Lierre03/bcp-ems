@@ -16,15 +16,16 @@ logger = logging.getLogger(__name__)
 venues_bp = Blueprint('venues', __name__, url_prefix='/api/venues')
 
 # Hardcoded venues for MVP (In production, this would be a database table)
-VENUES = [
-    {'id': 1, 'name': 'Auditorium', 'type': 'Auditorium', 'capacity': 500, 'color': 'blue'},
-    {'id': 2, 'name': 'Gymnasium', 'type': 'Gym', 'capacity': 1000, 'color': 'orange'},
-    {'id': 3, 'name': 'Main Hall', 'type': 'Hall', 'capacity': 200, 'color': 'purple'},
-    {'id': 4, 'name': 'Cafeteria', 'type': 'Hall', 'capacity': 150, 'color': 'indigo'},
-    {'id': 5, 'name': 'Lab', 'type': 'Lab', 'capacity': 50, 'color': 'teal'},
-    {'id': 6, 'name': 'Courtyard', 'type': 'Outdoor', 'capacity': 2000, 'color': 'green'},
-    {'id': 7, 'name': 'Library', 'type': 'Indoor', 'capacity': 100, 'color': 'gray'}
-]
+# Hardcoded venues - MIGRATED TO DB (venues table)
+# VENUES = [
+#     {'id': 1, 'name': 'Auditorium', 'type': 'Auditorium', 'capacity': 500, 'color': 'blue'},
+#     {'id': 2, 'name': 'Gymnasium', 'type': 'Gym', 'capacity': 1000, 'color': 'orange'},
+#     {'id': 3, 'name': 'Main Hall', 'type': 'Hall', 'capacity': 200, 'color': 'purple'},
+#     {'id': 4, 'name': 'Cafeteria', 'type': 'Hall', 'capacity': 150, 'color': 'indigo'},
+#     {'id': 5, 'name': 'Lab', 'type': 'Lab', 'capacity': 50, 'color': 'teal'},
+#     {'id': 6, 'name': 'Courtyard', 'type': 'Outdoor', 'capacity': 2000, 'color': 'green'},
+#     {'id': 7, 'name': 'Library', 'type': 'Indoor', 'capacity': 100, 'color': 'gray'}
+# ]
 
 # ============================================================================
 # VENUE ENDPOINTS
@@ -33,7 +34,15 @@ VENUES = [
 @venues_bp.route('/', methods=['GET'])
 def get_venues():
     """Get all available venues"""
-    return jsonify({'success': True, 'venues': VENUES})
+    try:
+        db = get_db()
+        venues = db.execute_query("SELECT * FROM venues WHERE is_active = 1 ORDER BY name")
+        # Ensure format matches frontend expectations
+        # DB columns: id, name, type, capacity, color
+        return jsonify({'success': True, 'venues': venues})
+    except Exception as e:
+        logger.error(f"Error fetching venues: {e}")
+        return jsonify({'success': False, 'message': 'Failed to load venues'}), 500
 
 @venues_bp.route('/equipment', methods=['GET'])
 def get_equipment():
@@ -317,8 +326,9 @@ def get_venue_calendar():
             
         # Filter by venue if provided
         if venue_filter:
-            # Find venue name from ID
-            venue_name = next((v['name'] for v in VENUES if str(v['id']) == venue_filter), None)
+            # Find venue name from ID using DB
+            venue_row = db.execute_one("SELECT name FROM venues WHERE id = %s", (venue_filter,))
+            venue_name = venue_row['name'] if venue_row else None
             if venue_name:
                 query += " AND e.venue = %s"
                 params.append(venue_name)

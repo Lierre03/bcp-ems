@@ -255,3 +255,55 @@ def get_budget_breakdown(db, event_id):
         return []
     # Return array of objects with category, amount, and percentage
     return [{"category": row['category'], "amount": float(row['amount']), "percentage": float(row['percentage'])} for row in rows]
+
+
+def auto_complete_past_events(db):
+    """
+    Check for events that have ended and update status to Completed.
+    This releases equipment inventory implicitly.
+    
+    Returns:
+        int: Number of events updated
+    """
+    try:
+        # Find approved/ongoing events that have ended
+        # end_datetime < NOW()
+        
+        # Use a transaction to ensure atomic updates
+        with db.get_transaction() as cursor:
+            # First, find IDs to update
+            cursor.execute("""
+                SELECT id, name, status, requestor_id 
+                FROM events 
+                WHERE status IN ('Approved', 'Ongoing') 
+                AND end_datetime < NOW()
+                AND deleted_at IS NULL
+            """)
+            events_to_complete = cursor.fetchall()
+            
+            if not events_to_complete:
+                return 0
+                
+            count = 0
+            for event in events_to_complete:
+                # Update status
+                cursor.execute(
+                    "UPDATE events SET status = 'Completed', updated_at = NOW() WHERE id = %s",
+                    (event['id'],)
+                )
+                
+                # Log history
+                cursor.execute(
+                    """INSERT INTO event_status_history (event_id, old_status, new_status, changed_by, reason)
+                       VALUES (%s, %s, 'Completed', NULL, 'Auto-completed (system)')""",
+                    (event['id'], event['status'])
+                )
+                
+                logger.info(f"Auto-completed event {event['id']}: {event['name']}")
+                count += 1
+                
+            return count
+            
+    except Exception as e:
+        logger.error(f"Error auto-completing events: {e}")
+        return 0

@@ -142,7 +142,7 @@ window.VenueCalendar = function VenueCalendar({ userRole }) {
 
                 {/* Empty Cells */}
                 {emptyDays.map(i => (
-                  <div key={`empty-${i}`} className="bg-white h-20"></div>
+                  <div key={`empty-${i}`} className="bg-white h-28"></div>
                 ))}
 
                 {/* Days */}
@@ -154,21 +154,21 @@ window.VenueCalendar = function VenueCalendar({ userRole }) {
                     <div
                       key={day}
                       onClick={() => handleDateClick(day)}
-                      className={`bg-white h-20 p-1 transition hover:bg-slate-50 cursor-pointer relative group ${isToday ? 'bg-blue-50/30' : ''}`}
+                      className={`bg-white h-28 p-1 transition hover:bg-slate-50 cursor-pointer relative group ${isToday ? 'bg-blue-50/30' : ''}`}
                     >
                       <span className={`text-xs font-medium ${isToday ? 'bg-blue-600 text-white w-5 h-5 flex items-center justify-center rounded-full' : 'text-slate-700'}`}>
                         {day}
                       </span>
 
-                      <div className="mt-0.5 space-y-0.5 overflow-y-auto max-h-[60px]">
-                        {dayEvents.slice(0, 2).map(event => (
-                          <div key={event.id} className={`text-[9px] px-1 py-0.5 rounded border truncate ${event.colorClass}`}>
-                            {new Date(event.start).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} {event.title}
+                      <div className="mt-1 space-y-0.5 overflow-y-auto max-h-[75px] custom-scrollbar">
+                        {dayEvents.slice(0, 3).map(event => (
+                          <div key={event.id} className={`text-[10px] px-1.5 py-1 rounded border truncate ${event.colorClass} mb-0.5`}>
+                            <span className="font-semibold">{new Date(event.start).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span> {event.title}
                           </div>
                         ))}
-                        {dayEvents.length > 2 && (
-                          <div className="text-[9px] text-slate-500 font-medium pl-1">
-                            +{dayEvents.length - 2}
+                        {dayEvents.length > 3 && (
+                          <div className="text-[10px] text-slate-500 font-medium pl-1">
+                            +{dayEvents.length - 3} more
                           </div>
                         )}
                       </div>
