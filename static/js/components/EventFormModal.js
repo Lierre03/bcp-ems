@@ -96,9 +96,17 @@ window.EventFormModal = function EventFormModal({
     // Initialize manualResources from checkedResources when editing
     if (checkedResources && checkedResources.length > 0) {
       setManualResources(
-        checkedResources
-          .filter(name => typeof name === 'string')
-          .map(name => ({ name, description: '' }))
+        checkedResources.map(res => {
+          if (typeof res === 'string') {
+            return { name: res, description: '' };
+          } else if (typeof res === 'object') {
+            return {
+              name: res.name || res.resource_name || '',
+              description: res.description || ''
+            };
+          }
+          return null;
+        }).filter(r => r && r.name)
       );
     } else {
       setManualResources([]);
@@ -131,6 +139,7 @@ window.EventFormModal = function EventFormModal({
         .filter(phase => phase.phase && phase.phase.trim()) // Only include phases with names
         .map(phase => ({
           activity_name: `${phase.startTime || ''} - ${phase.endTime || ''}: ${phase.phase}`,
+          phase: phase.phase, // KEEPTHE PHASE!
           description: phase.description || '',
           startTime: phase.startTime || '',
           endTime: phase.endTime || '',
@@ -139,6 +148,13 @@ window.EventFormModal = function EventFormModal({
       setFormData(prev => ({ ...prev, activities }));
     }
   }, [userTimelineData, setFormData]);
+
+  // Sync manualResources to parent formData.additionalResources
+  React.useEffect(() => {
+    if (setFormData) {
+      setFormData(prev => ({ ...prev, additionalResources: manualResources || [] }));
+    }
+  }, [manualResources, setFormData]);
 
   // We use ReactDOM.createPortal to render the modal at the document body level.
   const portalTarget = document.body;
@@ -153,9 +169,10 @@ window.EventFormModal = function EventFormModal({
 
   const tabs = [
     { id: 'details', label: 'Event Details', icon: <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg> },
+    { id: 'equipment', label: 'Required Equipment', icon: <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2zM9 9h6v6H9V9z" /></svg> },
     { id: 'budget', label: 'Smart Budget', icon: <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg> },
     { id: 'timeline', label: 'Timeline', icon: <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg> },
-    { id: 'resources', label: 'Extras', icon: <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" /></svg> }
+    { id: 'resources', label: 'Additional Resources', icon: <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" /></svg> }
   ];
 
   return ReactDOM.createPortal(
@@ -253,7 +270,9 @@ window.EventFormModal = function EventFormModal({
                                 body: JSON.stringify({ text: newName })
                               });
                               const result = await response.json();
-                              if (result.success && result.confidence > 30) {
+                              // Only update if confidence is high and type is valid
+                              const validTypes = ['Academic', 'Sports', 'Cultural', 'Workshop', 'Other'];
+                              if (result.success && result.confidence > 30 && validTypes.includes(result.eventType)) {
                                 setFormData(prev => ({ ...prev, type: result.eventType }));
                               }
                             } catch (error) { }
@@ -336,133 +355,9 @@ window.EventFormModal = function EventFormModal({
                       </div>
                     </div>
 
-                    {/* Equipment Section */}
-                    <div className="mt-2 pt-4 border-t border-slate-200">
-                      <h3 className="text-xs font-bold text-gray-900 mb-3 flex items-center gap-2">
-                        <svg className="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" /></svg>
-                        Required Equipment
-                      </h3>
-                      {(() => {
-                        const aiResourceNames = resourceData && resourceData.checklist && resourceData.checklist.Resources
-                          ? resourceData.checklist.Resources.map(item => typeof item === 'string' ? item : (item.name || item))
-                          : [];
 
-                        const firstCategory = Object.keys(equipmentCategories)[0];
-                        const currentTab = activeEquipmentTab && Object.keys(equipmentCategories).includes(activeEquipmentTab)
-                          ? activeEquipmentTab
-                          : firstCategory;
-
-                        return (
-                          <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
-                            <div className="flex gap-1 overflow-x-auto border-b border-gray-200 bg-gray-50 px-2 pt-2 scrollbar-hide">
-                              {Object.keys(equipmentCategories).map((category) => {
-                                const categoryItems = equipmentCategories[category].map(item =>
-                                  typeof item === 'string' ? item : item.name
-                                );
-                                const selectedCount = categoryItems.filter(itemName =>
-                                  userEquipmentData.equipment.some(eq => eq.name === itemName)
-                                ).length;
-
-                                return (
-                                  <button
-                                    key={category}
-                                    onClick={() => setActiveEquipmentTab(category)}
-                                    className={`px-3 py-2 text-xs font-medium whitespace-nowrap rounded-t-lg transition-all ${currentTab === category
-                                      ? 'bg-white text-blue-600 border-t border-x border-gray-200 shadow-sm -mb-px relative z-10'
-                                      : 'text-gray-500 hover:text-gray-700 hover:bg-gray-100'
-                                      }`}
-                                  >
-                                    {category}
-                                    {selectedCount > 0 && (
-                                      <span className="ml-1.5 text-[10px] bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded-full font-bold">
-                                        {selectedCount}
-                                      </span>
-                                    )}
-                                  </button>
-                                );
-                              })}
-                            </div>
-
-                            <div className="p-3 space-y-2">
-                              {/* Equipment category selection as buttons */}
-                              <div className="flex flex-wrap gap-2 pb-2 border-b border-gray-200">
-                                {equipmentCategories[currentTab].map(item => {
-                                  const itemName = typeof item === 'string' ? item : item.name;
-                                  const existingEquipment = userEquipmentData.equipment.find(eq => eq.name === itemName);
-                                  const isAISuggested = aiResourceNames.includes(itemName);
-                                  return (
-                                    <button
-                                      key={itemName}
-                                      onClick={() => {
-                                        if (existingEquipment) {
-                                          setUserEquipmentData({
-                                            equipment: userEquipmentData.equipment.filter(e => e.name !== itemName)
-                                          });
-                                        } else {
-                                          setUserEquipmentData({
-                                            equipment: [...userEquipmentData.equipment, { name: itemName, quantity: 1 }]
-                                          });
-                                        }
-                                      }}
-                                      className={`px-3 py-1.5 rounded-md text-xs border font-medium transition flex items-center gap-1.5 ${existingEquipment
-                                        ? 'bg-blue-600 text-white border-blue-600 shadow-sm'
-                                        : isAISuggested
-                                          ? 'bg-green-50 text-green-700 border-green-200 hover:bg-green-100 dashed-border'
-                                          : 'bg-white border-gray-200 text-gray-600 hover:bg-gray-50 hover:border-gray-300'
-                                        }`}
-                                    >
-                                      {existingEquipment && <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M5 13l4 4L19 7" /></svg>}
-                                      {isAISuggested && !existingEquipment && <svg className="w-3 h-3 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>}
-                                      {itemName}
-                                    </button>
-                                  );
-                                })}
-                              </div>
-
-                              {/* Selected equipment with quantity inputs */}
-                              {userEquipmentData.equipment.length > 0 && (
-                                <div className="space-y-2 max-h-[120px] overflow-y-auto custom-scrollbar">
-                                  <label className="block text-xs font-medium text-gray-600 mb-1">Selected Equipment</label>
-                                  {userEquipmentData.equipment.map((item, index) => (
-                                    <div key={index} className="flex gap-2 items-center bg-slate-50 p-2 rounded border border-slate-200">
-                                      <span className="flex-1 text-xs text-slate-700 font-medium">{item.name}</span>
-                                      <input
-                                        type="number"
-                                        placeholder="Qty"
-                                        min="1"
-                                        value={item.quantity}
-                                        onChange={(e) => {
-                                          const newEquipment = [...userEquipmentData.equipment];
-                                          newEquipment[index].quantity = parseInt(e.target.value) || 1;
-                                          setUserEquipmentData({ equipment: newEquipment });
-                                        }}
-                                        className="w-16 px-2 py-1 border border-gray-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-blue-500"
-                                      />
-                                      <button
-                                        type="button"
-                                        onClick={() => {
-                                          const newEquipment = userEquipmentData.equipment.filter((_, i) => i !== index);
-                                          setUserEquipmentData({ equipment: newEquipment });
-                                        }}
-                                        className="px-2 py-1 bg-red-500 text-white rounded text-xs hover:bg-red-600"
-                                      >
-                                        ✕
-                                      </button>
-                                    </div>
-                                  ))}
-                                </div>
-                              )}
-                            </div>
-                          </div>
-                        );
-                      })()}
-                    </div>
-                  </div>
-
-                  {/* RIGHT COLUMN */}
-                  <div className="space-y-4">
-                    {/* Description */}
-                    <div>
+                    {/* Description moved here */}
+                    <div className="mt-4">
                       <label className="block text-xs font-bold text-gray-700 mb-1.5">Description</label>
                       <textarea
                         value={formData.description}
@@ -471,6 +366,11 @@ window.EventFormModal = function EventFormModal({
                         className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm text-gray-700 h-28 focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-sm resize-none"
                       ></textarea>
                     </div>
+                  </div>
+
+                  {/* RIGHT COLUMN */}
+                  <div className="space-y-4">
+
 
                     {/* LOGISTICS CARD */}
                     <div className="bg-white p-4 rounded-lg border border-gray-200 shadow-sm">
@@ -479,8 +379,13 @@ window.EventFormModal = function EventFormModal({
                       <div className="space-y-3">
                         <div>
                           <label className="block text-xs font-medium text-gray-600 mb-1">Venue</label>
-                          <select value={formData.venue} onChange={(e) => setFormData({ ...formData, venue: e.target.value })} className="w-full px-2 py-2 border border-gray-300 rounded text-sm text-gray-700 bg-gray-50 focus:bg-white transition-colors">
-                            {venueOptions.map(v => <option key={v}>{v}</option>)}
+                          <select
+                            value={formData.venue}
+                            onChange={(e) => setFormData({ ...formData, venue: e.target.value })}
+                            className={`w-full px-2 py-2 border rounded text-sm bg-gray-50 focus:bg-white transition-colors ${!formData.venue ? 'text-gray-400 border-gray-300' : 'text-gray-700 border-gray-300 focus:border-blue-500'}`}
+                          >
+                            <option value="" disabled>Select Venue</option>
+                            {venueOptions.map(v => <option key={v} value={v}>{v}</option>)}
                           </select>
                         </div>
                         <div>
@@ -699,6 +604,143 @@ window.EventFormModal = function EventFormModal({
                   </div>
                 </div>
               )}
+
+              {/* === TAB 5: REQUIRED EQUIPMENT === */}
+              {activeTab === 'equipment' && (
+                <div className="h-full flex flex-col animate-fadeIn">
+                  <div className="mb-4 flex items-center justify-between">
+                    <div>
+                      <h3 className="text-sm font-bold text-slate-800">Required Equipment</h3>
+                      <p className="text-xs text-slate-500">Select items needed for the event from standard inventory</p>
+                    </div>
+                  </div>
+
+                  {(() => {
+                    const aiResourceNames = resourceData && resourceData.checklist && resourceData.checklist.Resources
+                      ? resourceData.checklist.Resources.map(item => typeof item === 'string' ? item : (item.name || item))
+                      : [];
+
+                    const firstCategory = Object.keys(equipmentCategories)[0];
+                    const currentTab = activeEquipmentTab && Object.keys(equipmentCategories).includes(activeEquipmentTab)
+                      ? activeEquipmentTab
+                      : firstCategory;
+
+                    return (
+                      <div className="bg-white border border-gray-200 rounded-lg overflow-hidden flex-1 flex flex-col">
+                        <div className="flex gap-1 overflow-x-auto border-b border-gray-200 bg-gray-50 px-2 pt-2 scrollbar-hide flex-shrink-0">
+                          {Object.keys(equipmentCategories).map((category) => {
+                            const categoryItems = equipmentCategories[category].map(item =>
+                              typeof item === 'string' ? item : item.name
+                            );
+                            const selectedCount = categoryItems.filter(itemName =>
+                              userEquipmentData.equipment.some(eq => eq.name === itemName)
+                            ).length;
+
+                            return (
+                              <button
+                                key={category}
+                                onClick={() => setActiveEquipmentTab(category)}
+                                className={`px-4 py-3 text-sm font-medium whitespace-nowrap rounded-t-lg transition-all ${currentTab === category
+                                  ? 'bg-white text-blue-600 border-t border-x border-gray-200 shadow-sm -mb-px relative z-10'
+                                  : 'text-gray-500 hover:text-gray-700 hover:bg-gray-100'
+                                  }`}
+                              >
+                                {category}
+                                {selectedCount > 0 && (
+                                  <span className="ml-2 text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full font-bold">
+                                    {selectedCount}
+                                  </span>
+                                )}
+                              </button>
+                            );
+                          })}
+                        </div>
+
+                        <div className="p-5 space-y-4 flex-1 overflow-y-auto">
+                          {/* Equipment category selection as buttons */}
+                          <div className="flex flex-wrap gap-2 pb-4 border-b border-gray-200">
+                            {equipmentCategories[currentTab].map(item => {
+                              const itemName = typeof item === 'string' ? item : item.name;
+                              const existingEquipment = userEquipmentData.equipment.find(eq => eq.name === itemName);
+                              const isAISuggested = aiResourceNames.includes(itemName);
+                              return (
+                                <button
+                                  key={itemName}
+                                  onClick={() => {
+                                    if (existingEquipment) {
+                                      setUserEquipmentData({
+                                        equipment: userEquipmentData.equipment.filter(e => e.name !== itemName)
+                                      });
+                                    } else {
+                                      setUserEquipmentData({
+                                        equipment: [...userEquipmentData.equipment, { name: itemName, quantity: 1 }]
+                                      });
+                                    }
+                                  }}
+                                  className={`px-4 py-2 rounded-lg text-sm border font-medium transition flex items-center gap-2 ${existingEquipment
+                                    ? 'bg-blue-600 text-white border-blue-600 shadow-sm'
+                                    : isAISuggested
+                                      ? 'bg-green-50 text-green-700 border-green-200 hover:bg-green-100 dashed-border'
+                                      : 'bg-white border-gray-200 text-gray-600 hover:bg-gray-50 hover:border-gray-300'
+                                    }`}
+                                >
+                                  {existingEquipment && <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M5 13l4 4L19 7" /></svg>}
+                                  {isAISuggested && !existingEquipment && <svg className="w-4 h-4 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>}
+                                  {itemName}
+                                </button>
+                              );
+                            })}
+                          </div>
+
+                          {/* Selected equipment with quantity inputs */}
+                          {userEquipmentData.equipment.length > 0 ? (
+                            <div className="space-y-3">
+                              <label className="block text-sm font-bold text-gray-700 mb-2">Selected Equipment List</label>
+                              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                {userEquipmentData.equipment.map((item, index) => (
+                                  <div key={index} className="flex gap-3 items-center bg-white p-3 rounded-lg border border-gray-200 shadow-sm">
+                                    <span className="flex-1 text-sm text-slate-700 font-medium">{item.name}</span>
+                                    <div className="flex items-center gap-2">
+                                      <span className="text-xs text-gray-500">Qty:</span>
+                                      <input
+                                        type="number"
+                                        placeholder="Qty"
+                                        min="1"
+                                        value={item.quantity}
+                                        onChange={(e) => {
+                                          const newEquipment = [...userEquipmentData.equipment];
+                                          newEquipment[index].quantity = parseInt(e.target.value) || 1;
+                                          setUserEquipmentData({ equipment: newEquipment });
+                                        }}
+                                        className="w-16 px-2 py-1.5 border border-gray-300 rounded text-sm focus:outline-none focus:ring-1 focus:ring-blue-500"
+                                      />
+                                    </div>
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        const newEquipment = userEquipmentData.equipment.filter((_, i) => i !== index);
+                                        setUserEquipmentData({ equipment: newEquipment });
+                                      }}
+                                      className="p-1.5 bg-red-50 text-red-500 rounded hover:bg-red-100 transition"
+                                    >
+                                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" /></svg>
+                                    </button>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          ) : (
+                            <div className="flex flex-col items-center justify-center h-40 text-gray-400 border-2 border-dashed border-gray-200 rounded-lg">
+                              <svg className="w-10 h-10 mb-2 opacity-30" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2zM9 9h6v6H9V9z" /></svg>
+                              <p className="text-sm">No equipment selected yet.</p>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })()}
+                </div>
+              )}
             </div>
           </div>
 
@@ -801,6 +843,126 @@ window.EventFormModal = function EventFormModal({
                 <span className="text-sm font-bold text-indigo-700">{aiSuggestions.confidence || '92.5'}%</span>
               </div>
 
+              {/* AI Description Suggestion (Moved to match Details Tab) */}
+              {aiSuggestions.description && (
+                <div className="bg-white rounded-lg p-4 border border-indigo-100 shadow-sm">
+                  <div className="flex items-center justify-between mb-2">
+                    <h4 className="text-sm font-bold text-indigo-900 flex items-center gap-2">
+                      <svg className="w-4 h-4 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 6h16M4 12h16M4 18h7" /></svg>
+                      Suggested Description
+                    </h4>
+                    <button
+                      onClick={() => setFormData(prev => ({ ...prev, description: aiSuggestions.description }))}
+                      className="text-xs font-bold text-indigo-600 hover:text-indigo-800 hover:bg-indigo-50 px-2 py-1 rounded transition"
+                    >
+                      Apply
+                    </button>
+                  </div>
+                  <div className="relative group">
+                    <p className="text-xs text-gray-600 italic line-clamp-4 group-hover:line-clamp-none transition-all duration-300">
+                      "{aiSuggestions.description}"
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              {/* AI Equipment Suggestions (Moved to First Actionable Item) */}
+              {aiSuggestions.equipmentSuggestions && aiSuggestions.equipmentSuggestions.length > 0 && (
+                <div className="bg-white rounded-lg p-4 border border-blue-100 shadow-sm">
+                  <div className="flex items-center justify-between mb-3">
+                    <h4 className="text-xs font-bold text-gray-700 uppercase flex items-center gap-2">
+                      <span className="w-2 h-2 bg-blue-500 rounded-full"></span>
+                      Suggested Equipment
+                    </h4>
+                    <button
+                      onClick={() => {
+                        // Merge AI equipment with existing equipment
+                        const existingNames = new Set(userEquipmentData.equipment.map(e => e.name));
+                        // Access equipmentSuggestions from correct property
+                        const suggestions = aiSuggestions.equipmentSuggestions || [];
+
+                        const newItems = suggestions
+                          .map(item => {
+                            const name = typeof item === 'string' ? item : (item.name || item);
+                            return name;
+                          })
+                          .filter(name => !existingNames.has(name))
+                          .map(name => ({ name: name, quantity: 1 }));
+
+                        if (newItems.length > 0) {
+                          setUserEquipmentData(prev => ({
+                            equipment: [...prev.equipment, ...newItems]
+                          }));
+                          // Switch tab to show additions
+                          if (handleTabChange) {
+                            handleTabChange('equipment');
+                          }
+                        }
+                      }}
+                      className="text-xs font-bold text-blue-600 hover:text-blue-800 hover:bg-blue-50 px-2 py-1 rounded transition"
+                    >
+                      Apply All
+                    </button>
+                  </div>
+                  <div className="grid grid-cols-1 gap-2 max-h-64 overflow-y-auto custom-scrollbar">
+                    {aiSuggestions.equipmentSuggestions.map((rec, idx) => {
+                      const isAlreadyAdded = userEquipmentData.equipment.some(e => e.name === rec.name);
+                      return (
+                        <button
+                          key={rec.name || idx}
+                          onClick={() => {
+                            if (!isAlreadyAdded) {
+                              setUserEquipmentData(prev => ({
+                                equipment: [...prev.equipment, { name: rec.name, quantity: rec.quantity || 1 }]
+                              }));
+                            } else {
+                              setUserEquipmentData(prev => ({
+                                equipment: prev.equipment.filter(e => e.name !== rec.name)
+                              }));
+                            }
+                            // Local update if needed for immediate feedback (though parent state update might be enough if reactive)
+                            // If we want to switch tabs to show the addition:
+                            if (handleTabChange) {
+                              console.log('Auto-switching tab to equipment');
+                              handleTabChange('equipment');
+                            } else {
+                              console.warn('handleTabChange not available');
+                            }
+                          }}
+                          className={`p-3 rounded-lg border-2 transition text-left ${isAlreadyAdded
+                            ? 'bg-emerald-50 border-emerald-300 hover:border-red-400 hover:bg-red-50 cursor-pointer active:scale-95'
+                            : 'bg-blue-50 border-blue-200 hover:border-blue-400 hover:bg-blue-100 cursor-pointer active:scale-95'
+                            }`}
+                        >
+                          <div className="flex items-center justify-between">
+                            <div className="flex-1">
+                              <p className="text-sm font-semibold text-gray-800">{rec.name}</p>
+                              <p className="text-xs text-gray-600 mt-1">Qty: {rec.quantity || 1}</p>
+                            </div>
+                            {isAlreadyAdded ? (
+                              <svg className="w-5 h-5 text-emerald-600" fill="currentColor" viewBox="0 0 20 20">
+                                <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                              </svg>
+                            ) : (
+                              <svg className="w-5 h-5 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4" />
+                              </svg>
+                            )}
+                          </div>
+                          {rec.reason && (
+                            <div className="relative group mt-2">
+                              <p className="text-xs text-gray-600 italic line-clamp-2 group-hover:line-clamp-none transition-all duration-300">
+                                "{rec.reason}"
+                              </p>
+                            </div>
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
               {/* Estimated Budget */}
               {aiSuggestions.estimatedBudget && (
                 <div className="bg-white rounded-lg p-4 border-l-4 border-emerald-500 shadow-sm">
@@ -816,36 +978,15 @@ window.EventFormModal = function EventFormModal({
                 </div>
               )}
 
-              {/* Additional Resources List */}
-              {formData.additionalResources.length > 0 && (
-                <div className="bg-white rounded-lg p-4 border border-gray-200 shadow-sm">
-                  <h4 className="text-xs font-bold text-gray-700 uppercase mb-3 flex items-center gap-2">
-                    <span className="w-2 h-2 bg-teal-500 rounded-full"></span>
-                    Suggested Extras
-                  </h4>
-                  <div className="flex flex-wrap gap-2">
-                    {formData.additionalResources.map((r, idx) => {
-                      // Handle both string and object formats
-                      const resourceName = typeof r === 'string' ? r : (r && r.name ? r.name : '');
-                      const isChecked = checkedResources.includes(resourceName);
-                      return (
-                        <button
-                          key={resourceName || idx}
-                          onClick={() => toggleAdditionalResource(resourceName)}
-                          className={`px-2.5 py-1.5 rounded text-xs border font-medium transition flex items-center gap-1.5 ${isChecked ? 'bg-teal-50 text-teal-700 border-teal-200 shadow-inner' : 'bg-gray-50 text-gray-600 border-gray-200 hover:bg-white hover:shadow-sm'
-                            }`}
-                        >
-                          {isChecked ? <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" /></svg> : null}
-                          {resourceName}
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-              )}
+
+
+              {/* AI Equipment Suggestions */}
+
+
+
 
               {/* AI Budget Suggestions - Clickable Cards */}
-              {budgetData && budgetData.breakdown && Object.keys(budgetData.breakdown).length > 0 && (
+              {aiSuggestions && aiSuggestions.budgetBreakdown && Object.keys(aiSuggestions.budgetBreakdown).length > 0 && (
                 <div className="bg-white rounded-lg p-4 border border-blue-100 shadow-sm">
                   <div className="flex items-center justify-between mb-3">
                     <h4 className="text-sm font-bold text-blue-900 flex items-center gap-2">
@@ -857,17 +998,37 @@ window.EventFormModal = function EventFormModal({
                     <button
                       onClick={() => {
                         // Apply all suggestions - remove empty categories first
-                        const allCats = Object.keys(budgetData.breakdown);
+                        const allCats = Object.keys(aiSuggestions.budgetBreakdown);
                         if (allCats.length > 0) {
                           // Create fresh budget data without empty categories
-                          const newPercentages = allCats.map(cat => budgetData.breakdown[cat]?.percentage || 0);
+                          // Handle data whether it is simple number or object
+                          const totalBudget = aiSuggestions.estimatedBudget || userBudgetData.totalBudget || 50000;
+
+                          const breakdown = {};
+                          const newPercentages = [];
+
+                          allCats.forEach(cat => {
+                            const rawVal = aiSuggestions.budgetBreakdown[cat];
+                            const amount = typeof rawVal === 'object' ? (rawVal.amount || 0) : (rawVal || 0);
+                            const percentage = typeof rawVal === 'object'
+                              ? (rawVal.percentage || 0)
+                              : (totalBudget > 0 ? Math.round((amount / totalBudget) * 100) : 0);
+
+                            breakdown[cat] = { amount, percentage };
+                            newPercentages.push(percentage);
+                          });
+
                           const updatedData = {
-                            totalBudget: budgetData.totalBudget,
+                            totalBudget: totalBudget,
                             categories: allCats,
                             percentages: newPercentages,
-                            breakdown: { ...budgetData.breakdown }
+                            breakdown: breakdown
                           };
                           setUserBudgetData(updatedData);
+                          // PROPAGATE TO PARENT!
+                          if (handleBudgetUpdate) {
+                            handleBudgetUpdate(updatedData);
+                          }
                           setTimeout(() => handleTabChange('budget'), 10);
                         }
                       }}
@@ -879,8 +1040,13 @@ window.EventFormModal = function EventFormModal({
                   <p className="text-xs text-gray-600 mb-3">Click a category to add it to your budget</p>
 
                   <div className="grid grid-cols-1 gap-2 max-h-64 overflow-y-auto custom-scrollbar">
-                    {Object.entries(budgetData.breakdown).map(([category, data]) => {
+                    {Object.entries(aiSuggestions.budgetBreakdown).map(([category, data]) => {
                       const isAlreadyAdded = userBudgetData && userBudgetData.categories && userBudgetData.categories.includes(category);
+
+                      // Handle both simple number and object format
+                      const amount = typeof data === 'object' ? (data.amount || 0) : (data || 0);
+                      const percentage = typeof data === 'object' ? (data.percentage || 0) : 0; // Don't calc % for sidebar view unless needed
+
                       return (
                         <button
                           key={category}
@@ -897,9 +1063,16 @@ window.EventFormModal = function EventFormModal({
                                 }
                               });
 
+                              // Calculate percentage for new item
+                              const currentTotal = userBudgetData.totalBudget || aiSuggestions.estimatedBudget || 50000;
+                              const newPercentage = currentTotal > 0 ? Math.round((amount / currentTotal) * 100) : 0;
+
                               const newCategories = [...existingCategories, category];
-                              const newPercentages = [...existingPercentages, data.percentage || 0];
-                              const newBreakdown = { ...existingBreakdown, [category]: { ...data } };
+                              const newPercentages = [...existingPercentages, newPercentage];
+                              const newBreakdown = {
+                                ...existingBreakdown,
+                                [category]: { amount: amount, percentage: newPercentage }
+                              };
                               const updatedData = {
                                 totalBudget: userBudgetData.totalBudget,
                                 categories: newCategories,
@@ -907,6 +1080,10 @@ window.EventFormModal = function EventFormModal({
                                 breakdown: newBreakdown
                               };
                               setUserBudgetData(updatedData);
+                              // PROPAGATE TO PARENT!
+                              if (handleBudgetUpdate) {
+                                handleBudgetUpdate(updatedData);
+                              }
                               // Switch to budget tab after state updates
                               setTimeout(() => handleTabChange('budget'), 10);
                             } else {
@@ -927,6 +1104,10 @@ window.EventFormModal = function EventFormModal({
                                 breakdown: filteredBreakdown
                               };
                               setUserBudgetData(updatedData);
+                              // PROPAGATE TO PARENT!
+                              if (handleBudgetUpdate) {
+                                handleBudgetUpdate(updatedData);
+                              }
                               setTimeout(() => handleTabChange('budget'), 10);
                             }
                           }}
@@ -938,11 +1119,11 @@ window.EventFormModal = function EventFormModal({
                           <div className="flex items-center justify-between">
                             <div className="flex-1">
                               <p className="text-sm font-semibold text-gray-800">{category}</p>
-                              <p className="text-xs text-gray-600 mt-1">₱{(data.amount || 0).toLocaleString()}</p>
+                              <p className="text-xs text-gray-600 mt-1">₱{amount.toLocaleString()}</p>
                             </div>
                             <div className="flex items-center gap-2">
-                              {data.percentage && (
-                                <span className="text-xs font-bold text-blue-700 bg-blue-100 px-2 py-1 rounded">{data.percentage}%</span>
+                              {percentage > 0 && (
+                                <span className="text-xs font-bold text-blue-700 bg-blue-100 px-2 py-1 rounded">{percentage}%</span>
                               )}
                               {isAlreadyAdded ? (
                                 <svg className="w-5 h-5 text-emerald-600" fill="currentColor" viewBox="0 0 20 20">
@@ -962,7 +1143,7 @@ window.EventFormModal = function EventFormModal({
                 </div>
               )}
 
-              {timelineData && timelineData.timeline && timelineData.timeline.length > 0 && (
+              {aiSuggestions && aiSuggestions.timeline && aiSuggestions.timeline.length > 0 && (
                 <div className="bg-white rounded-lg p-4 border border-purple-100 shadow-sm">
                   <div className="flex items-center justify-between mb-3">
                     <h4 className="text-sm font-bold text-purple-900 flex items-center gap-2">
@@ -973,13 +1154,20 @@ window.EventFormModal = function EventFormModal({
                     </h4>
                     <button
                       onClick={() => {
-                        // Create new timeline array and sort by start time
-                        const newTimeline = [...userTimelineData.timeline, ...timelineData.timeline].sort((a, b) => {
+                        // Create new timeline array, avoiding duplicates
+                        const existingPhases = new Set(userTimelineData.timeline.map(p => p.phase));
+                        const uniqueNewPhases = aiSuggestions.timeline.filter(p => !existingPhases.has(p.phase));
+
+                        const newTimeline = [...userTimelineData.timeline, ...uniqueNewPhases].sort((a, b) => {
                           const timeA = a.startTime || '00:00';
                           const timeB = b.startTime || '00:00';
                           return timeA.localeCompare(timeB);
                         });
-                        const newTotalDuration = (userTimelineData.totalDuration || 0) + (timelineData.totalDuration || 0);
+
+                        // Calculate duration approximately
+                        const addedDuration = uniqueNewPhases.reduce((acc, curr) => acc + (curr.duration || 0), 0);
+                        const newTotalDuration = (userTimelineData.totalDuration || 0) + addedDuration;
+
                         setUserTimelineData({
                           timeline: newTimeline,
                           totalDuration: newTotalDuration
@@ -995,7 +1183,7 @@ window.EventFormModal = function EventFormModal({
                   <p className="text-xs text-gray-600 mb-3">Click a phase to add it to your timeline</p>
 
                   <div className="grid grid-cols-1 gap-2 max-h-64 overflow-y-auto custom-scrollbar">
-                    {timelineData.timeline.map((phase, idx) => {
+                    {aiSuggestions.timeline.map((phase, idx) => {
                       const isAlreadyAdded = userTimelineData.timeline && userTimelineData.timeline.some(p => p.phase === phase.phase);
                       return (
                         <button
@@ -1014,10 +1202,19 @@ window.EventFormModal = function EventFormModal({
                               });
                               // Switch to timeline tab after state updates
                               setTimeout(() => handleTabChange('timeline'), 10);
+                            } else {
+                              // REMOVE: Filter out this phase
+                              const newTimeline = userTimelineData.timeline.filter(p => p.phase !== phase.phase);
+
+                              setUserTimelineData({
+                                timeline: newTimeline,
+                                totalDuration: Math.max(0, (userTimelineData.totalDuration || 0) - (phase.duration || 0))
+                              });
+                              setTimeout(() => handleTabChange('timeline'), 10);
                             }
                           }}
                           className={`p-3 rounded-lg border-2 transition text-left ${isAlreadyAdded
-                            ? 'bg-emerald-50 border-emerald-300 opacity-50 cursor-default'
+                            ? 'bg-emerald-50 border-emerald-300 hover:border-red-400 hover:bg-red-50 cursor-pointer active:scale-95'
                             : 'bg-purple-50 border-purple-200 hover:border-purple-400 hover:bg-purple-100 cursor-pointer active:scale-95'
                             }`}
                         >
@@ -1043,78 +1240,61 @@ window.EventFormModal = function EventFormModal({
                 </div>
               )}
 
-              {/* AI Equipment Suggestions - Clickable Cards */}
-              {resourceData && resourceData.checklist && resourceData.checklist.Equipment && resourceData.checklist.Equipment.length > 0 && (
+              {/* Suggested Resources (Moved to End) */}
+              {aiSuggestions.additionalResources && aiSuggestions.additionalResources.length > 0 && (
                 <div className="bg-white rounded-lg p-4 border border-gray-200 shadow-sm">
-                  <div className="flex items-center justify-between mb-3">
-                    <h4 className="text-sm font-bold text-gray-900 flex items-center gap-2">
-                      <svg className="w-4 h-4 text-teal-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
-                      </svg>
-                      Equipment Suggestions
-                    </h4>
-                    <button
-                      onClick={() => {
-                        const aiEquipment = resourceData.checklist.Equipment.map(item => {
-                          const itemName = typeof item === 'string' ? item : (item.name || item);
-                          const existingItem = userEquipmentData.equipment.find(eq => eq.name === itemName);
-                          return existingItem || { name: itemName, quantity: 1 };
-                        });
-                        setUserEquipmentData({
-                          equipment: aiEquipment
-                        });
-                      }}
-                      className="text-xs font-bold text-teal-600 hover:text-teal-800 hover:bg-teal-50 px-2 py-1 rounded transition"
-                    >
-                      Apply All
-                    </button>
-                  </div>
-                  <p className="text-xs text-gray-600 mb-3">Click an item to add it to your equipment list</p>
+                  <h4 className="text-xs font-bold text-gray-700 uppercase mb-3 flex items-center gap-2">
+                    <span className="w-2 h-2 bg-teal-500 rounded-full"></span>
+                    Suggested Resources
+                  </h4>
+                  <div className="flex flex-wrap gap-2">
+                    {aiSuggestions.additionalResources.map((r, idx) => {
+                      // Handle both string and object formats
+                      const resourceName = typeof r === 'string' ? r : (r && r.name ? r.name : '');
+                      // Check against manualResources (local state) instead of parent prop
+                      const isChecked = manualResources.some(res => (typeof res === 'string' ? res : res.name) === resourceName);
 
-                  <div className="grid grid-cols-1 gap-2 max-h-64 overflow-y-auto custom-scrollbar">
-                    {resourceData.checklist.Equipment.map((item, idx) => {
-                      const itemName = typeof item === 'string' ? item : (item.name || item);
-                      const isAlreadyAdded = userEquipmentData.equipment.some(eq => eq.name === itemName);
                       return (
                         <button
-                          key={idx}
+                          key={resourceName || idx}
                           onClick={() => {
-                            if (!isAlreadyAdded) {
-                              setUserEquipmentData({
-                                equipment: [...userEquipmentData.equipment, { name: itemName, quantity: 1 }]
-                              });
+                            // Local toggle function
+                            if (isChecked) {
+                              setManualResources(manualResources.filter(res => (typeof res === 'string' ? res : res.name) !== resourceName));
+                            } else {
+                              setManualResources([...manualResources, { name: resourceName, description: '' }]);
+                            }
+                            // Auto-switch to resources tab to show the action
+                            if (handleTabChange) {
+                              handleTabChange('resources');
+                            }
+
+                            // Also update parent CheckedResources for consistency (optional but good for tracking)
+                            if (setCheckedResources) {
+                              // We can't easily sync this perfectly without useEffect, but preserving prop usage is fine for now
+                              // However, we are decoupling visual state from this prop.
                             }
                           }}
-                          className={`p-3 rounded-lg border-2 transition text-left ${isAlreadyAdded
-                            ? 'bg-emerald-50 border-emerald-300 opacity-50 cursor-default'
-                            : 'bg-white border-gray-200 text-gray-600 hover:bg-gray-50 hover:border-teal-300 cursor-pointer'
+                          className={`px-2.5 py-1.5 rounded text-xs border font-medium transition flex items-center gap-1.5 ${isChecked ? 'bg-teal-50 text-teal-700 border-teal-200 shadow-inner' : 'bg-gray-50 text-gray-600 border-gray-200 hover:bg-white hover:shadow-sm'
                             }`}
                         >
-                          <div className="flex items-center justify-between">
-                            <p className="text-sm font-semibold text-gray-800">{itemName}</p>
-                            {isAlreadyAdded ? (
-                              <svg className="w-5 h-5 text-emerald-600" fill="currentColor" viewBox="0 0 20 20">
-                                <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                              </svg>
-                            ) : (
-                              <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4" />
-                              </svg>
-                            )}
-                          </div>
+                          {isChecked ? <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" /></svg> : null}
+                          {resourceName}
                         </button>
                       );
                     })}
                   </div>
                 </div>
               )}
+
+
             </div>
           </div>
         )}
-      </div>
 
-      {/* Styles for animations */}
-      <style>{`
+
+
+        <style>{`
         .custom-scrollbar::-webkit-scrollbar { width: 6px; }
         .custom-scrollbar::-webkit-scrollbar-track { bg: transparent; }
         .custom-scrollbar::-webkit-scrollbar-thumb { background-color: #cbd5e1; border-radius: 20px; }
@@ -1126,6 +1306,7 @@ window.EventFormModal = function EventFormModal({
         .animate-slideInRight { animation: slideInRight 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
         .dashed-border { background-image: url("data:image/svg+xml,%3csvg width='100%25' height='100%25' xmlns='http://www.w3.org/2000/svg'%3e%3crect width='100%25' height='100%25' fill='none' rx='6' ry='6' stroke='%2315803D' stroke-width='1' stroke-dasharray='4%2c 4' stroke-dashoffset='0' stroke-linecap='square'/%3e%3c/svg%3e"); border: none; }
       `}</style>
+      </div>
     </div>,
     portalTarget
   );

@@ -4,6 +4,14 @@ const Sidebar = window.Sidebar;
 const NotificationBell = window.NotificationBell;
 const EquipmentApprovalReview = window.EquipmentApprovalReview;
 const AccountApprovalPanel = window.AccountApprovalPanel;
+const DepartmentFeedback = window.DepartmentFeedback;
+const ResourceManagement = window.ResourceManagement;
+const RescheduleEvent = window.RescheduleEvent;
+const AdminEventsManager = window.AdminEventsManager;
+const AnalyticsDashboard = window.AnalyticsDashboard;
+const AITrainingDashboard = window.AITrainingDashboard;
+const UserManagement = window.UserManagement;
+const AttendanceDashboard = window.AttendanceDashboard;
 
 window.AdminDashboard = function AdminDashboard() {
   const [user, setUser] = useState(null);
@@ -31,7 +39,7 @@ window.AdminDashboard = function AdminDashboard() {
 
     handleHashChange(); // Initial check
     window.addEventListener('hashchange', handleHashChange);
-    
+
     return () => window.removeEventListener('hashchange', handleHashChange);
   }, []);
 
@@ -40,19 +48,26 @@ window.AdminDashboard = function AdminDashboard() {
     if (userJson) {
       setUser(JSON.parse(userJson));
     }
-    
+
     // Set up global function for opening events from notifications
     window.openEventForReview = (eventId) => {
       setActiveView('events');
       setEventIdToOpen(eventId);
     };
-    
+
     // Set up global function for opening equipment review
     window.openEquipmentReview = (eventId) => {
       setActiveView('equipment-review');
       setEquipmentReviewEventId(eventId);
     };
-    
+
+    // Set up global function for opening attendance dashboard (replaces modal)
+    window.openEventAttendance = (eventId) => {
+      // Store eventId in a global temp var that AttendanceDashboard will pick up on mount
+      window.selectedAttendanceEventId = eventId;
+      setActiveView('attendance');
+    };
+
     return () => {
       delete window.openEventForReview;
       delete window.openEquipmentReview;
@@ -91,6 +106,11 @@ window.AdminDashboard = function AdminDashboard() {
       label: 'Events Manager',
       icon: <svg className="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
     },
+    {
+      id: 'attendance',
+      label: 'Attendance',
+      icon: <svg className="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" /></svg>
+    },
     ...(isAdmin ? [{
       id: 'approvals',
       label: 'Account Approvals',
@@ -102,10 +122,15 @@ window.AdminDashboard = function AdminDashboard() {
       icon: <svg className="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" /></svg>
     },
     {
+      id: 'feedback',
+      label: 'Event Feedback',
+      icon: <svg className="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z" /></svg>
+    },
+    ...(isSuperAdmin ? [{
       id: 'ai-training',
       label: 'AI Training',
       icon: <svg className="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
-    },
+    }] : []),
     {
       id: 'resources',
       label: 'Resource Management',
@@ -120,7 +145,7 @@ window.AdminDashboard = function AdminDashboard() {
 
   return (
     <div className="flex h-screen bg-gray-50">
-      <Sidebar 
+      <Sidebar
         user={user}
         menuItems={menuItems}
         activeView={activeView}
@@ -135,20 +160,23 @@ window.AdminDashboard = function AdminDashboard() {
               <p className="text-blue-600 text-xs font-medium mb-0.5">Admin Dashboard</p>
               <h1 className="text-2xl font-bold text-gray-900">
                 {activeView === 'events' ? 'Events Manager' :
-                 activeView === 'approvals' ? 'Account Approvals' :
-                 activeView === 'analytics' ? 'Analytics Dashboard' :
-                 activeView === 'ai-training' ? 'AI Training Center' :
-                 activeView === 'resources' ? 'Resource Management' :
-                 activeView === 'equipment-review' ? 'Equipment Approval Review' : 'User Management'}
+                  activeView === 'approvals' ? 'Account Approvals' :
+                    activeView === 'analytics' ? 'Analytics Dashboard' :
+                      activeView === 'feedback' ? 'Event Feedback' :
+                        activeView === 'ai-training' ? 'AI Training Center' :
+                          activeView === 'resources' ? 'Resource Management' :
+                            activeView === 'equipment-review' ? 'Equipment Approval Review' : 'User Management'}
               </h1>
               <p className="text-gray-500 text-xs mt-1">
                 {activeView === 'events' ? 'Create, manage, and track all school events' :
-                 activeView === 'approvals' ? 'Review and approve student registration requests' :
-                 activeView === 'analytics' ? 'Visualize event metrics, attendance, and performance data' :
-                 activeView === 'ai-training' ? 'Train and optimize your event planning AI' :
-                 activeView === 'resources' ? 'Manage venues, equipment, and view schedules' :
-                 activeView === 'equipment-review' ? 'Review and respond to equipment approval adjustments' :
-                 'Manage system users and permissions'}
+                  activeView === 'approvals' ? 'Review and approve student registration requests' :
+                    activeView === 'analytics' ? 'Visualize event metrics, attendance, and performance data' :
+                      activeView === 'feedback' ? 'View feedback and ratings for your department events' :
+                        activeView === 'ai-training' ? 'Train and optimize your event planning AI' :
+                          activeView === 'resources' ? 'Manage venues, equipment, and view schedules' :
+                            activeView === 'equipment-review' ? 'Review and respond to equipment approval adjustments' :
+                              activeView === 'attendance' ? 'Monitor student attendance and check-ins' :
+                                'Manage system users and permissions'}
               </p>
             </div>
             <div className="flex items-center">
@@ -161,9 +189,11 @@ window.AdminDashboard = function AdminDashboard() {
           {activeView === 'events' && <AdminEventsManager eventIdToOpen={eventIdToOpen} />}
           {activeView === 'approvals' && <AccountApprovalPanel />}
           {activeView === 'analytics' && <AnalyticsDashboard />}
+          {activeView === 'feedback' && <DepartmentFeedback />}
           {activeView === 'ai-training' && <AITrainingDashboard />}
           {activeView === 'resources' && <ResourceManagement userRole={user ? user.role_name : 'Admin'} />}
           {activeView === 'equipment-review' && <EquipmentApprovalReview eventId={equipmentReviewEventId} onClose={() => setActiveView('events')} />}
+          {activeView === 'attendance' && <AttendanceDashboard />}
           {activeView === 'users' && <UserManagement />}
         </main>
       </div>

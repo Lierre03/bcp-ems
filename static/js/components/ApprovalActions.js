@@ -3,6 +3,8 @@ const { useState } = React;
 
 window.ApprovalActions = function ApprovalActions({ event, onSuccess }) {
   const [loading, setLoading] = useState(false);
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [successMessage, setSuccessMessage] = useState('');
   const [showReviewModal, setShowReviewModal] = useState(false);
   const [showRejectModal, setShowRejectModal] = useState(false);
   const [selectedReason, setSelectedReason] = useState('');
@@ -56,8 +58,8 @@ window.ApprovalActions = function ApprovalActions({ event, onSuccess }) {
       const dur = Math.max(1, Math.round(getDurationMinutes(p) * scale));
       let end = new Date(cursor.getTime() + dur * 60000);
       if (endISO && end > new Date(endISO)) end = new Date(endISO);
-      const startRaw = cursor.toTimeString().slice(0,5);
-      const endRaw = end.toTimeString().slice(0,5);
+      const startRaw = cursor.toTimeString().slice(0, 5);
+      const endRaw = end.toTimeString().slice(0, 5);
       result.push({
         ...p,
         rawStart: startRaw,
@@ -121,11 +123,11 @@ window.ApprovalActions = function ApprovalActions({ event, onSuccess }) {
   // Helper function to format datetime to 12-hour time without timezone issues
   const formatTime12Hour = (datetimeStr) => {
     if (!datetimeStr) return '';
-    
+
     try {
       // Handle different datetime formats
       let timePart;
-      
+
       // Check for RFC 2822 format: "Fri, 19 Dec 2025 07:00:00 GMT"
       const rfcMatch = datetimeStr.match(/(\d{2}):(\d{2}):(\d{2})/);
       if (rfcMatch) {
@@ -139,15 +141,15 @@ window.ApprovalActions = function ApprovalActions({ event, onSuccess }) {
       else if (datetimeStr.match(/\d{4}-\d{2}-\d{2}\s/)) {
         timePart = datetimeStr.split(' ')[1]?.substring(0, 5);
       }
-      
+
       if (!timePart || !timePart.includes(':')) return '';
-      
+
       const [hours24, minutes] = timePart.split(':').map(Number);
       if (isNaN(hours24) || isNaN(minutes)) return '';
-      
+
       const period = hours24 >= 12 ? 'PM' : 'AM';
       const hours12 = hours24 % 12 || 12;
-      
+
       return `${hours12}:${minutes.toString().padStart(2, '0')} ${period}`;
     } catch (e) {
       console.error('Error formatting time:', datetimeStr, e);
@@ -171,9 +173,9 @@ window.ApprovalActions = function ApprovalActions({ event, onSuccess }) {
   // Check if a time slot is blocked
   const isTimeBlocked = (timeStr) => {
     if (!daySchedule.length || !rescheduleDates.date) return false;
-    
+
     const checkTime = new Date(`${rescheduleDates.date}T${timeStr}`);
-    
+
     return daySchedule.some(evt => {
       const evtStart = new Date(evt.start);
       const evtEnd = new Date(evt.end);
@@ -185,18 +187,18 @@ window.ApprovalActions = function ApprovalActions({ event, onSuccess }) {
   // Fetch schedule for the selected day to show availability
   const fetchDaySchedule = async (dateStr) => {
     if (!dateStr || !fullEventData?.venue) return;
-    
+
     setCheckingSchedule(true);
     const month = dateStr.slice(0, 7); // YYYY-MM
-    
+
     try {
       const res = await fetch(`/api/venues/calendar?month=${month}`);
       const data = await res.json();
       if (data.success) {
         // Filter for this venue and this day
         const venueName = fullEventData.venue;
-        const dayEvents = data.events.filter(e => 
-          e.venue === venueName && 
+        const dayEvents = data.events.filter(e =>
+          e.venue === venueName &&
           e.start.startsWith(dateStr) &&
           e.id !== event.id && // Exclude current event
           e.status !== 'Rejected'
@@ -213,7 +215,7 @@ window.ApprovalActions = function ApprovalActions({ event, onSuccess }) {
   // Check for conflicts before confirming
   const checkConflicts = async () => {
     if (!rescheduleDates.date || !rescheduleDates.startTime || !rescheduleDates.endTime) return true;
-    
+
     const startDateTime = `${rescheduleDates.date}T${rescheduleDates.startTime}:00`;
     const endDateTime = `${rescheduleDates.date}T${rescheduleDates.endTime}:00`;
 
@@ -242,7 +244,7 @@ window.ApprovalActions = function ApprovalActions({ event, onSuccess }) {
       alert('Please select date, start time, and end time');
       return;
     }
-    
+
     const startDateTime = `${rescheduleDates.date}T${rescheduleDates.startTime}:00`;
     const endDateTime = `${rescheduleDates.date}T${rescheduleDates.endTime}:00`;
 
@@ -345,14 +347,16 @@ window.ApprovalActions = function ApprovalActions({ event, onSuccess }) {
       return actions;
     }
 
+    console.log('📋 getAvailableActions:', actions);
     return actions;
   };
 
   const fetchFullEventData = async () => {
     setLoading(true);
+    console.log('📥 fetchFullEventData started...');
     try {
       // Add cache busting to ensure fresh data
-      const res = await fetch(`/api/events/${event.id}?_=${Date.now()}`, { 
+      const res = await fetch(`/api/events/${event.id}?_=${Date.now()}`, {
         credentials: 'include',
         cache: 'no-store'
       });
@@ -377,7 +381,9 @@ window.ApprovalActions = function ApprovalActions({ event, onSuccess }) {
   };
 
   const handleApprovalAction = async (endpoint) => {
-    if (endpoint === 'superadmin-approve') {
+    console.log('🚀 handleApprovalAction called with endpoint:', endpoint);
+    if (endpoint === 'superadmin-approve' || endpoint === 'review' || endpoint === 'approve-forward') {
+      console.log('  -> Triggering Review Modal...');
       await fetchFullEventData();
       return;
     }
@@ -410,30 +416,38 @@ window.ApprovalActions = function ApprovalActions({ event, onSuccess }) {
     }
   };
 
-  const confirmApproval = async (actionOnConflict = null) => {
+
+
+  const performApproval = async (endpoint, payload = {}) => {
     setLoading(true);
     try {
-      const res = await fetch(`/api/events/${event.id}/superadmin-approve`, {
+      const res = await fetch(`/api/events/${event.id}/${endpoint}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
-        body: JSON.stringify({ action_on_conflict: actionOnConflict })
+        body: JSON.stringify(payload)
       });
       const data = await res.json();
       if (data.success) {
-        alert(data.message || 'Event approved successfully');
+        setSuccessMessage(data.message || 'Action completed successfully');
+        setShowSuccessModal(true);
         setShowReviewModal(false);
         setFullEventData(null);
-        if (onSuccess) onSuccess();
+        // Do NOT call onSuccess here to prevent unmounting/refreshing before the user sees the modal
       } else {
-        alert(data.message || 'Approval failed');
+        alert(data.message || 'Action failed');
       }
     } catch (err) {
-      console.error('Approval failed:', err);
-      alert('Error approving event');
+      console.error('Action failed:', err);
+      alert('Error performing action');
     } finally {
       setLoading(false);
     }
+  };
+
+  const confirmApproval = async (actionOnConflict = null) => {
+    // Legacy support for superadmin confirm with conflict handling
+    await performApproval('superadmin-approve', { action_on_conflict: actionOnConflict });
   };
 
   const handleReject = async () => {
@@ -441,7 +455,7 @@ window.ApprovalActions = function ApprovalActions({ event, onSuccess }) {
       alert('Please select a rejection reason');
       return;
     }
-    
+
     // Build the full reason
     let reason;
     if (selectedReason === 'Other (specify below)') {
@@ -453,11 +467,11 @@ window.ApprovalActions = function ApprovalActions({ event, onSuccess }) {
       reason = customNote.trim();
     } else {
       // For predefined reasons, combine with custom note if provided
-      reason = customNote.trim() 
-        ? `${selectedReason}: ${customNote.trim()}` 
+      reason = customNote.trim()
+        ? `${selectedReason}: ${customNote.trim()}`
         : selectedReason;
     }
-    
+
     // Validate minimum length
     if (reason.length < 10) {
       alert('Rejection reason must be at least 10 characters');
@@ -499,18 +513,17 @@ window.ApprovalActions = function ApprovalActions({ event, onSuccess }) {
         const isReject = action.variant === 'danger';
         const isReview = action.endpoint === 'superadmin-approve';
         const isApprove = action.variant === 'success' && !isReview;
-        
+
         return (
-          <button 
+          <button
             key={action.endpoint}
-            onClick={() => handleApprovalAction(action.endpoint)} 
+            onClick={() => handleApprovalAction(action.endpoint)}
             disabled={loading}
-            className={`p-1.5 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
-              isReject ? 'text-red-600 hover:bg-red-50' :
+            className={`p-1.5 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${isReject ? 'text-red-600 hover:bg-red-50' :
               isReview ? 'text-blue-600 hover:bg-blue-50' :
-              isApprove ? 'text-green-600 hover:bg-green-50' :
-              'text-slate-600 hover:bg-slate-100'
-            }`}
+                isApprove ? 'text-green-600 hover:bg-green-50' :
+                  'text-slate-600 hover:bg-slate-100'
+              }`}
             title={loading ? 'Processing...' : action.label}
           >
             {isReject ? (
@@ -534,22 +547,22 @@ window.ApprovalActions = function ApprovalActions({ event, onSuccess }) {
       {showReviewModal && fullEventData && (
         <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-xl shadow-2xl w-full max-w-7xl h-[90vh] flex flex-col overflow-hidden">
-            
+
             {/* Header - Fixed */}
             <div className="bg-white border-b border-gray-200 px-6 py-3 flex justify-between items-center flex-shrink-0">
               <h2 className="text-lg font-bold text-gray-900 flex items-center gap-2">
                 {isRescheduling ? (
-                    <span className="flex items-center gap-2 text-yellow-700">
-                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
-                        Reschedule Event Mode
-                    </span>
+                  <span className="flex items-center gap-2 text-yellow-700">
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
+                    Reschedule Event Mode
+                  </span>
                 ) : (
-                    <>
-                        Review Event Details
-                        <span className={`text-xs px-2 py-0.5 rounded-full border ${fullEventData.has_conflicts ? 'bg-red-50 text-red-700 border-red-200' : 'bg-green-50 text-green-700 border-green-200'}`}>
-                            {fullEventData.has_conflicts ? 'Conflict Detected' : 'Clear'}
-                        </span>
-                    </>
+                  <>
+                    Review Event Details
+                    <span className={`text-xs px-2 py-0.5 rounded-full border ${fullEventData.has_conflicts ? 'bg-red-50 text-red-700 border-red-200' : 'bg-green-50 text-green-700 border-green-200'}`}>
+                      {fullEventData.has_conflicts ? 'Conflict Detected' : 'Clear'}
+                    </span>
+                  </>
                 )}
               </h2>
               <button onClick={() => { setShowReviewModal(false); setFullEventData(null); setIsRescheduling(false); }} className="text-gray-400 hover:text-gray-600">
@@ -558,388 +571,414 @@ window.ApprovalActions = function ApprovalActions({ event, onSuccess }) {
                 </svg>
               </button>
             </div>
-            
+
             {/* Main Content - Swappable Views */}
             <div className="p-4 bg-gray-50 flex-1 overflow-y-auto">
               {!isRescheduling ? (
-                  // STANDARD VIEW: Tabbed Interface
-                  <div className="flex flex-col h-full">
-                    {/* Tab Navigation */}
-                    <div className="flex gap-1 mb-6 bg-white rounded-lg p-1 shadow-sm border border-slate-200">
-                      <button
-                        onClick={() => setActiveTab('overview')}
-                        className={`flex items-center gap-2 px-4 py-2.5 text-sm font-medium rounded-md transition-all ${
-                          activeTab === 'overview' 
-                            ? 'bg-blue-600 text-white shadow-sm' 
-                            : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
+                // STANDARD VIEW: Tabbed Interface
+                <div className="flex flex-col h-full">
+                  {/* Tab Navigation */}
+                  <div className="flex gap-1 mb-6 bg-white rounded-lg p-1 shadow-sm border border-slate-200">
+                    <button
+                      onClick={() => setActiveTab('overview')}
+                      className={`flex items-center gap-2 px-4 py-2.5 text-sm font-medium rounded-md transition-all ${activeTab === 'overview'
+                        ? 'bg-blue-600 text-white shadow-sm'
+                        : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
                         }`}
-                      >
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                        </svg>
-                        Overview
-                      </button>
-                      <button
-                        onClick={() => setActiveTab('budget')}
-                        className={`flex items-center gap-2 px-4 py-2.5 text-sm font-medium rounded-md transition-all ${
-                          activeTab === 'budget' 
-                            ? 'bg-blue-600 text-white shadow-sm' 
-                            : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
+                    >
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                      </svg>
+                      Overview
+                    </button>
+                    <button
+                      onClick={() => setActiveTab('budget')}
+                      className={`flex items-center gap-2 px-4 py-2.5 text-sm font-medium rounded-md transition-all ${activeTab === 'budget'
+                        ? 'bg-blue-600 text-white shadow-sm'
+                        : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
                         }`}
-                      >
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                        </svg>
-                        Budget
-                      </button>
-                      <button
-                        onClick={() => setActiveTab('timeline')}
-                        className={`flex items-center gap-2 px-4 py-2.5 text-sm font-medium rounded-md transition-all ${
-                          activeTab === 'timeline' 
-                            ? 'bg-blue-600 text-white shadow-sm' 
-                            : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
+                    >
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                      Budget
+                    </button>
+                    <button
+                      onClick={() => setActiveTab('timeline')}
+                      className={`flex items-center gap-2 px-4 py-2.5 text-sm font-medium rounded-md transition-all ${activeTab === 'timeline'
+                        ? 'bg-blue-600 text-white shadow-sm'
+                        : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
                         }`}
-                      >
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                        </svg>
-                        Timeline
-                      </button>
-                      <button
-                        onClick={() => setActiveTab('resources')}
-                        className={`flex items-center gap-2 px-4 py-2.5 text-sm font-medium rounded-md transition-all ${
-                          activeTab === 'resources' 
-                            ? 'bg-blue-600 text-white shadow-sm' 
-                            : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
+                    >
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                      Timeline
+                    </button>
+                    <button
+                      onClick={() => setActiveTab('resources')}
+                      className={`flex items-center gap-2 px-4 py-2.5 text-sm font-medium rounded-md transition-all ${activeTab === 'resources'
+                        ? 'bg-blue-600 text-white shadow-sm'
+                        : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
                         }`}
-                      >
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
-                        </svg>
-                        Resources
-                      </button>
-                    </div>
+                    >
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+                      </svg>
+                      Resources
+                    </button>
+                  </div>
 
-                    {/* Tab Content */}
-                    <div className="flex-1 overflow-y-auto">
-                      {/* OVERVIEW TAB */}
-                      {activeTab === 'overview' && (
-                        <div className="max-w-4xl mx-auto">
-                          {/* Basic Info */}
-                          <div className="bg-white rounded-xl border border-slate-200 shadow-md overflow-hidden hover:shadow-lg transition-shadow">
-                            <div className="p-6">
-                              <div className="space-y-5">
-                                <div>
-                                  <span className="text-xs text-slate-500 uppercase font-semibold block mb-1.5 tracking-wide">Event Name</span>
-                                  <p className="text-xl font-bold text-slate-900">{fullEventData.name}</p>
-                                </div>
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                  <div className="bg-slate-50 rounded-lg p-4">
-                                    <span className="text-xs text-slate-500 uppercase font-semibold block mb-1.5 tracking-wide">Type</span>
-                                    <p className="text-base font-medium text-slate-800">{fullEventData.event_type || fullEventData.type}</p>
-                                  </div>
-                                  <div className="bg-slate-50 rounded-lg p-4">
-                                    <span className="text-xs text-slate-500 uppercase font-semibold block mb-1.5 tracking-wide">Venue</span>
-                                    <p className="text-base font-medium text-slate-800">{fullEventData.venue}</p>
-                                  </div>
-                                </div>
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                  <div className="bg-slate-50 rounded-lg p-4">
-                                    <span className="text-xs text-slate-500 uppercase font-semibold block mb-1.5 tracking-wide">Date</span>
-                                    <p className="text-base font-medium text-slate-800">{fullEventData.start_datetime ? new Date(fullEventData.start_datetime).toLocaleDateString() : fullEventData.date}</p>
-                                  </div>
-                                  <div className="bg-slate-50 rounded-lg p-4">
-                                    <span className="text-xs text-slate-500 uppercase font-semibold block mb-1.5 tracking-wide">Time</span>
-                                    <p className="text-base font-medium text-slate-800">
-                                      {formatTime12Hour(fullEventData.start_datetime)} - {formatTime12Hour(fullEventData.end_datetime)}
-                                    </p>
-                                  </div>
-                                </div>
-                                {fullEventData.description && (
-                                  <div className="pt-4 mt-4 border-t border-slate-200">
-                                    <span className="text-xs text-slate-500 uppercase font-semibold block mb-2 tracking-wide">Description</span>
-                                    <p className="text-base text-slate-700 leading-relaxed">{fullEventData.description}</p>
-                                  </div>
-                                )}
+                  {/* Tab Content */}
+                  <div className="flex-1 overflow-y-auto">
+                    {/* OVERVIEW TAB */}
+                    {activeTab === 'overview' && (
+                      <div className="max-w-4xl mx-auto">
+                        {/* Basic Info */}
+                        <div className="bg-white rounded-xl border border-slate-200 shadow-md overflow-hidden hover:shadow-lg transition-shadow">
+                          <div className="p-6">
+                            <div className="space-y-5">
+                              <div>
+                                <span className="text-xs text-slate-500 uppercase font-semibold block mb-1.5 tracking-wide">Event Name</span>
+                                <p className="text-xl font-bold text-slate-900">{fullEventData.name}</p>
                               </div>
-                            </div>
-                            
-                            {/* Venue Status - Integrated */}
-                            <div className="px-6 pb-6">
-                              {fullEventData.has_conflicts ? (
-                                <div className="bg-gradient-to-r from-red-50 to-orange-50 rounded-lg border border-red-200 p-4">
-                                  <h4 className="text-sm font-bold text-red-700 flex items-center gap-2 mb-3">
-                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
-                                    Venue Conflicts Detected
-                                  </h4>
-                                  <ul className="space-y-2">
-                                    {fullEventData.conflicts.map(conflict => (
-                                      <li key={conflict.id} className="bg-white p-3 rounded-lg border border-red-200 shadow-sm">
-                                        <div className="font-bold text-sm text-red-900">{conflict.name}</div>
-                                        <div className="text-xs text-red-600 mt-1 flex items-center gap-1">
-                                          <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-                                          {formatTime12Hour(conflict.start_datetime)} - {formatTime12Hour(conflict.end_datetime)}
-                                        </div>
-                                      </li>
-                                    ))}
-                                  </ul>
+                              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div className="bg-slate-50 rounded-lg p-4">
+                                  <span className="text-xs text-slate-500 uppercase font-semibold block mb-1.5 tracking-wide">Type</span>
+                                  <p className="text-base font-medium text-slate-800">{fullEventData.event_type || fullEventData.type}</p>
                                 </div>
-                              ) : (
-                                <div className="bg-gradient-to-r from-green-50 to-emerald-50 rounded-lg border border-green-200 p-4 flex items-center gap-3">
-                                  <div className="flex-shrink-0 w-10 h-10 bg-green-500 rounded-full flex items-center justify-center">
-                                    <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" /></svg>
-                                  </div>
-                                  <div>
-                                    <h4 className="text-sm font-bold text-green-700">Venue Available</h4>
-                                    <p className="text-xs text-green-600 mt-0.5">No scheduling conflicts detected</p>
-                                  </div>
+                                <div className="bg-slate-50 rounded-lg p-4">
+                                  <span className="text-xs text-slate-500 uppercase font-semibold block mb-1.5 tracking-wide">Venue</span>
+                                  <p className="text-base font-medium text-slate-800">{fullEventData.venue}</p>
+                                </div>
+                              </div>
+                              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div className="bg-slate-50 rounded-lg p-4">
+                                  <span className="text-xs text-slate-500 uppercase font-semibold block mb-1.5 tracking-wide">Date</span>
+                                  <p className="text-base font-medium text-slate-800">{fullEventData.start_datetime ? new Date(fullEventData.start_datetime).toLocaleDateString() : fullEventData.date}</p>
+                                </div>
+                                <div className="bg-slate-50 rounded-lg p-4">
+                                  <span className="text-xs text-slate-500 uppercase font-semibold block mb-1.5 tracking-wide">Time</span>
+                                  <p className="text-base font-medium text-slate-800">
+                                    {formatTime12Hour(fullEventData.start_datetime)} - {formatTime12Hour(fullEventData.end_datetime)}
+                                  </p>
+                                </div>
+                              </div>
+                              {fullEventData.description && (
+                                <div className="pt-4 mt-4 border-t border-slate-200">
+                                  <span className="text-xs text-slate-500 uppercase font-semibold block mb-2 tracking-wide">Description</span>
+                                  <p className="text-base text-slate-700 leading-relaxed">{fullEventData.description}</p>
                                 </div>
                               )}
                             </div>
                           </div>
-                        </div>
-                      )}
 
-                      {/* BUDGET TAB */}
-                      {activeTab === 'budget' && (
-                        <div className="max-w-4xl mx-auto">
-                          {fullEventData.budget_breakdown && (() => {
-                            const breakdown = typeof fullEventData.budget_breakdown === 'string' 
-                              ? JSON.parse(fullEventData.budget_breakdown) 
-                              : fullEventData.budget_breakdown;
-                            
-                            if (breakdown && typeof breakdown === 'object') {
+                          {/* Venue Status - Integrated */}
+                          <div className="px-6 pb-6">
+                            {fullEventData.has_conflicts ? (
+                              <div className="bg-gradient-to-r from-red-50 to-orange-50 rounded-lg border border-red-200 p-4">
+                                <h4 className="text-sm font-bold text-red-700 flex items-center gap-2 mb-3">
+                                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
+                                  Venue Conflicts Detected
+                                </h4>
+                                <ul className="space-y-2">
+                                  {fullEventData.conflicts.map(conflict => (
+                                    <li key={conflict.id} className="bg-white p-3 rounded-lg border border-red-200 shadow-sm">
+                                      <div className="font-bold text-sm text-red-900">{conflict.name}</div>
+                                      <div className="text-xs text-red-600 mt-1 flex items-center gap-1">
+                                        <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                                        {formatTime12Hour(conflict.start_datetime)} - {formatTime12Hour(conflict.end_datetime)}
+                                      </div>
+                                    </li>
+                                  ))}
+                                </ul>
+                              </div>
+                            ) : (
+                              <div className="bg-gradient-to-r from-green-50 to-emerald-50 rounded-lg border border-green-200 p-4 flex items-center gap-3">
+                                <div className="flex-shrink-0 w-10 h-10 bg-green-500 rounded-full flex items-center justify-center">
+                                  <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" /></svg>
+                                </div>
+                                <div>
+                                  <h4 className="text-sm font-bold text-green-700">Venue Available</h4>
+                                  <p className="text-xs text-green-600 mt-0.5">No scheduling conflicts detected</p>
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* BUDGET TAB */}
+                    {activeTab === 'budget' && (
+                      <div className="max-w-4xl mx-auto">
+                        {(() => {
+                          const parsedData = fullEventData.budget_breakdown
+                            ? (typeof fullEventData.budget_breakdown === 'string'
+                              ? JSON.parse(fullEventData.budget_breakdown)
+                              : fullEventData.budget_breakdown)
+                            : null;
+
+                          if (parsedData && typeof parsedData === 'object') {
+                            // Helper to check for empty breakdown (legacy empty dict)
+                            const isEmpty = Object.keys(parsedData).length === 0;
+                            if (isEmpty) {
                               return (
-                                <SmartBudgetBreakdown 
-                                  budgetData={{
-                                    totalBudget: fullEventData.budget || fullEventData.total_budget,
-                                    categories: Object.keys(breakdown),
-                                    breakdown: breakdown,
-                                    percentages: Object.values(breakdown).map(d => d.percentage)
-                                  }}
-                                  onUpdate={() => {}} 
-                                />
+                                <div className="text-center py-12">
+                                  <p className="text-sm text-gray-400 italic">No budget breakdown available.</p>
+                                </div>
                               );
                             }
-                            
+
+                            // Check if it's the full structure (has categories/breakdown keys) or just the breakdown dictionary
+                            const isFullStructure = Array.isArray(parsedData.categories) && typeof parsedData.breakdown === 'object';
+
+                            const budgetData = isFullStructure ? {
+                              totalBudget: fullEventData.budget || fullEventData.total_budget,
+                              categories: parsedData.categories,
+                              breakdown: parsedData.breakdown,
+                              percentages: parsedData.percentages || []
+                            } : {
+                              // Legacy format: parsedData IS the breakdown dictionary
+                              totalBudget: fullEventData.budget || fullEventData.total_budget,
+                              categories: Object.keys(parsedData),
+                              breakdown: parsedData,
+                              percentages: Object.values(parsedData).map(d => d.percentage)
+                            };
+
                             return (
-                              <div className="text-center py-12">
-                                <p className="text-sm text-gray-400 italic">No budget breakdown available.</p>
-                              </div>
+                              <SmartBudgetBreakdown
+                                budgetData={budgetData}
+                                onUpdate={() => { }}
+                              />
                             );
-                          })()}
-                        </div>
-                      )}
+                          }
 
-                      {/* TIMELINE TAB */}
-                      {activeTab === 'timeline' && (
-                        <div className="max-w-4xl mx-auto">
-                          <div className="bg-white rounded-xl border border-slate-200 shadow-md overflow-hidden hover:shadow-lg transition-shadow">
-                            <div className="bg-gradient-to-r from-indigo-50 to-purple-50 px-5 py-4 border-b border-slate-200">
-                              <h3 className="text-base font-bold text-slate-800 flex items-center gap-2">
-                                <svg className="w-5 h-5 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                </svg>
-                                EVENT SCHEDULE
-                              </h3>
+                          return (
+                            <div className="text-center py-12">
+                              <p className="text-sm text-gray-400 italic">No budget breakdown available.</p>
                             </div>
-                            <div className="p-6">
-                              {(() => {
-                                const timeline = fullEventData.timeline 
-                                  ? (typeof fullEventData.timeline === 'string' ? JSON.parse(fullEventData.timeline) : fullEventData.timeline)
-                                  : fullEventData.activities;
-                                
-                                if (timeline && timeline.length > 0) {
-                                  return (
-                                    <EventTimelineGenerator 
-                                      timelineData={{ timeline }}
-                                      onUpdate={() => {}}
-                                    />
-                                  );
-                                }
-                                
+                          );
+                        })()}
+                      </div>
+                    )}
+
+                    {/* TIMELINE TAB */}
+                    {activeTab === 'timeline' && (
+                      <div className="max-w-4xl mx-auto">
+                        <div className="bg-white rounded-xl border border-slate-200 shadow-md overflow-hidden hover:shadow-lg transition-shadow">
+                          <div className="bg-gradient-to-r from-indigo-50 to-purple-50 px-5 py-4 border-b border-slate-200">
+                            <h3 className="text-base font-bold text-slate-800 flex items-center gap-2">
+                              <svg className="w-5 h-5 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                              </svg>
+                              EVENT SCHEDULE
+                            </h3>
+                          </div>
+                          <div className="p-6">
+                            {(() => {
+                              const timeline = fullEventData.timeline
+                                ? (typeof fullEventData.timeline === 'string' ? JSON.parse(fullEventData.timeline) : fullEventData.timeline)
+                                : fullEventData.activities;
+
+                              if (timeline && timeline.length > 0) {
                                 return (
-                                  <div className="text-center py-12">
-                                    <svg className="w-16 h-16 mx-auto text-gray-300 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                    </svg>
-                                    <p className="text-sm text-gray-400 italic">No timeline activities available.</p>
-                                  </div>
+                                  <EventTimelineGenerator
+                                    timelineData={{ timeline }}
+                                    onUpdate={() => { }}
+                                  />
                                 );
-                              })()}
-                            </div>
+                              }
+
+                              return (
+                                <div className="text-center py-12">
+                                  <svg className="w-16 h-16 mx-auto text-gray-300 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                  </svg>
+                                  <p className="text-sm text-gray-400 italic">No timeline activities available.</p>
+                                </div>
+                              );
+                            })()}
                           </div>
                         </div>
-                      )}
+                      </div>
+                    )}
 
-                      {/* RESOURCES TAB */}
-                      {activeTab === 'resources' && (
-                        <div className="max-w-5xl mx-auto grid grid-cols-1 lg:grid-cols-2 gap-6">
-                          {/* Equipment */}
-                          <div className="bg-white rounded-xl border border-slate-200 shadow-md overflow-hidden">
-                            <div className="bg-gradient-to-r from-orange-50 to-amber-50 px-5 py-4 border-b border-slate-200">
-                              <h3 className="text-base font-bold text-slate-800 flex items-center gap-2">
-                                <svg className="w-5 h-5 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2zM9 9h6v6H9V9z" />
-                                </svg>
-                                EQUIPMENT ({fullEventData.equipment ? fullEventData.equipment.length : 0})
-                              </h3>
-                            </div>
-                            <div className="p-5">
-                              {fullEventData.equipment && fullEventData.equipment.length > 0 ? (
-                                <ul className="space-y-2">
-                                  {fullEventData.equipment.map((item, idx) => {
-                                    const itemName = typeof item === 'string' ? item : (item.equipment_name || item.name || item);
-                                    const quantity = typeof item === 'string' ? 1 : (item.quantity || 1);
-                                    return (
-                                      <li key={idx} className="flex items-center justify-between p-3 bg-orange-50 rounded-lg border border-orange-200 hover:bg-orange-100 transition-colors">
-                                        <span className="text-sm font-medium text-orange-900 flex items-center gap-2">
-                                          <svg className="w-4 h-4 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
-                                          </svg>
-                                          {itemName}
-                                        </span>
-                                        {quantity > 1 && (
-                                          <span className="bg-orange-600 text-white text-xs font-bold px-2.5 py-1 rounded-full">×{quantity}</span>
-                                        )}
-                                      </li>
-                                    );
-                                  })}
-                                </ul>
-                              ) : (
-                                <p className="text-sm text-gray-400 italic text-center py-8">No equipment requested.</p>
-                              )}
-                            </div>
+                    {/* RESOURCES TAB */}
+                    {activeTab === 'resources' && (
+                      <div className="max-w-5xl mx-auto grid grid-cols-1 lg:grid-cols-2 gap-6">
+                        {/* Equipment */}
+                        <div className="bg-white rounded-xl border border-slate-200 shadow-md overflow-hidden">
+                          <div className="bg-gradient-to-r from-orange-50 to-amber-50 px-5 py-4 border-b border-slate-200">
+                            <h3 className="text-base font-bold text-slate-800 flex items-center gap-2">
+                              <svg className="w-5 h-5 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2zM9 9h6v6H9V9z" />
+                              </svg>
+                              EQUIPMENT ({fullEventData.equipment ? fullEventData.equipment.length : 0})
+                            </h3>
                           </div>
+                          <div className="p-5">
+                            {fullEventData.equipment && fullEventData.equipment.length > 0 ? (
+                              <ul className="space-y-2">
+                                {fullEventData.equipment.map((item, idx) => {
+                                  const itemName = typeof item === 'string' ? item : (item.equipment_name || item.name || item);
+                                  const quantity = typeof item === 'string' ? 1 : (item.quantity || 1);
+                                  return (
+                                    <li key={idx} className="flex items-center justify-between p-3 bg-orange-50 rounded-lg border border-orange-200 hover:bg-orange-100 transition-colors">
+                                      <span className="text-sm font-medium text-orange-900 flex items-center gap-2">
+                                        <svg className="w-4 h-4 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
+                                        </svg>
+                                        {itemName}
+                                      </span>
+                                      {quantity > 1 && (
+                                        <span className="bg-orange-600 text-white text-xs font-bold px-2.5 py-1 rounded-full">×{quantity}</span>
+                                      )}
+                                    </li>
+                                  );
+                                })}
+                              </ul>
+                            ) : (
+                              <p className="text-sm text-gray-400 italic text-center py-8">No equipment requested.</p>
+                            )}
+                          </div>
+                        </div>
 
-                          {/* Additional Resources */}
-                          <div className="bg-white rounded-xl border border-slate-200 shadow-md overflow-hidden">
-                            <div className="bg-gradient-to-r from-purple-50 to-pink-50 px-5 py-4 border-b border-slate-200">
-                              <h3 className="text-base font-bold text-slate-800 flex items-center gap-2">
-                                <svg className="w-5 h-5 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-                                </svg>
-                                ADDITIONAL RESOURCES ({fullEventData.additional_resources ? fullEventData.additional_resources.length : 0})
-                              </h3>
-                            </div>
-                            <div className="p-5">
-                              {fullEventData.additional_resources && fullEventData.additional_resources.length > 0 ? (
-                                <ul className="space-y-2">
-                                  {fullEventData.additional_resources.map((resource, idx) => (
+                        {/* Additional Resources */}
+                        <div className="bg-white rounded-xl border border-slate-200 shadow-md overflow-hidden">
+                          <div className="bg-gradient-to-r from-purple-50 to-pink-50 px-5 py-4 border-b border-slate-200">
+                            <h3 className="text-base font-bold text-slate-800 flex items-center gap-2">
+                              <svg className="w-5 h-5 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                              </svg>
+                              ADDITIONAL RESOURCES ({fullEventData.additional_resources ? fullEventData.additional_resources.length : 0})
+                            </h3>
+                          </div>
+                          <div className="p-5">
+                            {fullEventData.additional_resources && fullEventData.additional_resources.length > 0 ? (
+                              <ul className="space-y-2">
+                                {fullEventData.additional_resources.map((resource, idx) => {
+                                  const resourceName = typeof resource === 'string' ? resource : (resource.name || 'Unknown Item');
+                                  const resourceDesc = typeof resource === 'object' && resource.description ? resource.description : '';
+                                  return (
                                     <li key={idx} className="flex items-start gap-2 p-3 bg-purple-50 rounded-lg border border-purple-200 hover:bg-purple-100 transition-colors">
                                       <svg className="w-4 h-4 text-purple-600 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7" />
                                       </svg>
-                                      <span className="text-sm text-purple-900">{resource}</span>
+                                      <div className="flex flex-col">
+                                        <span className="text-sm font-medium text-purple-900">{resourceName}</span>
+                                        {resourceDesc && <span className="text-xs text-purple-700">{resourceDesc}</span>}
+                                      </div>
                                     </li>
-                                  ))}
-                                </ul>
-                              ) : (
-                                <p className="text-sm text-gray-400 italic text-center py-8">No additional resources requested.</p>
-                              )}
-                            </div>
+                                  );
+                                })}
+                              </ul>
+                            ) : (
+                              <p className="text-sm text-gray-400 italic text-center py-8">No additional resources requested.</p>
+                            )}
                           </div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ) : (
+                // RESCHEDULE VIEW: REPLACES MAIN CONTENT (Full Screen Mode)
+                <div className="flex flex-col h-full gap-4">
+                  {/* Controls Toolbar */}
+                  <div className="bg-yellow-50 p-4 rounded-lg border border-yellow-200 flex flex-wrap gap-4 items-end shadow-sm flex-shrink-0">
+                    <div className="flex flex-col">
+                      <label className="text-xs font-bold text-yellow-800 uppercase mb-1">New Date</label>
+                      <input
+                        type="date"
+                        className="border border-yellow-300 rounded px-3 py-1.5 text-sm bg-white shadow-sm focus:ring-2 focus:ring-yellow-400 outline-none"
+                        value={rescheduleDates.date}
+                        onChange={e => {
+                          setRescheduleDates({ ...rescheduleDates, date: e.target.value, startTime: '', endTime: '' });
+                          fetchDaySchedule(e.target.value);
+                        }}
+                      />
+                    </div>
+                    <div className="flex flex-col">
+                      <label className="text-xs font-bold text-yellow-800 uppercase mb-1">Start Time</label>
+                      <select
+                        className="border border-yellow-300 rounded px-3 py-1.5 text-sm bg-white shadow-sm focus:ring-2 focus:ring-yellow-400 outline-none min-w-[120px]"
+                        value={rescheduleDates.startTime}
+                        onChange={e => {
+                          setRescheduleDates({ ...rescheduleDates, startTime: e.target.value });
+                          setManualEnd(false);
+                          refreshRescheduleTimeline(rescheduleDates.date, e.target.value);
+                        }}
+                        disabled={!rescheduleDates.date}
+                      >
+                        <option value="">Select...</option>
+                        {generateTimeSlots().map(time => {
+                          const blocked = isTimeBlocked(time);
+                          return <option key={time} value={time} disabled={blocked} className={blocked ? 'bg-gray-100 text-gray-400' : ''}>{format12h(time)} {blocked ? '(Booked)' : ''}</option>
+                        })}
+                      </select>
+                    </div>
+                    <div className="flex flex-col">
+                      <label className="text-xs font-bold text-yellow-800 uppercase mb-1">End Time</label>
+                      <select
+                        className="border border-yellow-300 rounded px-3 py-1.5 text-sm bg-white shadow-sm focus:ring-2 focus:ring-yellow-400 outline-none min-w-[120px]"
+                        value={rescheduleDates.endTime}
+                        onChange={e => {
+                          setManualEnd(true);
+                          setRescheduleDates({ ...rescheduleDates, endTime: e.target.value });
+                          refreshRescheduleTimeline(rescheduleDates.date, rescheduleDates.startTime, e.target.value);
+                        }}
+                        disabled={!rescheduleDates.startTime}
+                      >
+                        <option value="">Select...</option>
+                        {generateTimeSlots().map(time => {
+                          if (time <= rescheduleDates.startTime) return null;
+                          const blocked = isTimeBlocked(time);
+                          return <option key={time} value={time} disabled={blocked} className={blocked ? 'bg-gray-100 text-gray-400' : ''}>{format12h(time)} {blocked ? '(Booked)' : ''}</option>
+                        })}
+                      </select>
+                    </div>
+                  </div>
+
+                  {/* Main Visualization Area (Split) */}
+                  <div className="flex-1 grid grid-cols-1 lg:grid-cols-4 gap-4 min-h-0">
+                    {/* Left: Booked Slots List */}
+                    <div className="bg-white rounded-lg border border-gray-200 flex flex-col overflow-hidden shadow-sm">
+                      <div className="bg-gray-50 px-4 py-3 border-b border-gray-200 flex justify-between items-center">
+                        <h3 className="text-xs font-bold text-gray-500 uppercase">Booked Slots</h3>
+                        <span className="text-[10px] bg-gray-200 text-gray-600 px-2 py-0.5 rounded-full">{daySchedule.length}</span>
+                      </div>
+                      <div className="overflow-y-auto p-2 flex-1 space-y-2">
+                        {daySchedule.length > 0 ? (
+                          daySchedule.map(evt => (
+                            <div key={evt.id} className="p-2 bg-gray-50 rounded border border-gray-100 text-xs">
+                              <div className="font-bold text-gray-700">{evt.title}</div>
+                              <div className="text-gray-500">{new Date(evt.start).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} - {new Date(evt.end).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</div>
+                            </div>
+                          ))
+                        ) : (
+                          <div className="h-full flex flex-col items-center justify-center text-gray-400 text-xs italic p-4 text-center">
+                            <svg className="w-8 h-8 mb-2 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
+                            No conflicting bookings found for this date.
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Right: Full Timeline - Container Removed */}
+                    <div className="lg:col-span-3 flex flex-col min-h-0">
+                      {rescheduleTimeline.length > 0 ? (
+                        <div className="h-full overflow-y-auto pr-1">
+                          <EventTimelineGenerator timelineData={{ timeline: rescheduleTimeline }} />
+                        </div>
+                      ) : (
+                        <div className="h-full flex flex-col items-center justify-center text-gray-400 text-sm border-2 border-dashed border-gray-200 rounded-lg bg-white">
+                          <span>Select a Date and Start Time to preview the generated timeline.</span>
                         </div>
                       )}
                     </div>
                   </div>
-              ) : (
-                  // RESCHEDULE VIEW: REPLACES MAIN CONTENT (Full Screen Mode)
-                  <div className="flex flex-col h-full gap-4">
-                      {/* Controls Toolbar */}
-                      <div className="bg-yellow-50 p-4 rounded-lg border border-yellow-200 flex flex-wrap gap-4 items-end shadow-sm flex-shrink-0">
-                         <div className="flex flex-col">
-                           <label className="text-xs font-bold text-yellow-800 uppercase mb-1">New Date</label>
-                           <input 
-                              type="date" 
-                              className="border border-yellow-300 rounded px-3 py-1.5 text-sm bg-white shadow-sm focus:ring-2 focus:ring-yellow-400 outline-none" 
-                              value={rescheduleDates.date}
-                              onChange={e => {
-                                setRescheduleDates({...rescheduleDates, date: e.target.value, startTime: '', endTime: ''});
-                                fetchDaySchedule(e.target.value);
-                              }}
-                           />
-                         </div>
-                         <div className="flex flex-col">
-                           <label className="text-xs font-bold text-yellow-800 uppercase mb-1">Start Time</label>
-                           <select 
-                              className="border border-yellow-300 rounded px-3 py-1.5 text-sm bg-white shadow-sm focus:ring-2 focus:ring-yellow-400 outline-none min-w-[120px]"
-                              value={rescheduleDates.startTime}
-                              onChange={e => {
-                                setRescheduleDates({...rescheduleDates, startTime: e.target.value});
-                                setManualEnd(false);
-                                refreshRescheduleTimeline(rescheduleDates.date, e.target.value);
-                              }}
-                              disabled={!rescheduleDates.date}
-                           >
-                              <option value="">Select...</option>
-                              {generateTimeSlots().map(time => {
-                                const blocked = isTimeBlocked(time);
-                                return <option key={time} value={time} disabled={blocked} className={blocked ? 'bg-gray-100 text-gray-400' : ''}>{format12h(time)} {blocked ? '(Booked)' : ''}</option>
-                              })}
-                           </select>
-                         </div>
-                         <div className="flex flex-col">
-                           <label className="text-xs font-bold text-yellow-800 uppercase mb-1">End Time</label>
-                           <select 
-                              className="border border-yellow-300 rounded px-3 py-1.5 text-sm bg-white shadow-sm focus:ring-2 focus:ring-yellow-400 outline-none min-w-[120px]"
-                              value={rescheduleDates.endTime}
-                              onChange={e => {
-                                setManualEnd(true);
-                                setRescheduleDates({...rescheduleDates, endTime: e.target.value});
-                                refreshRescheduleTimeline(rescheduleDates.date, rescheduleDates.startTime, e.target.value);
-                              }}
-                              disabled={!rescheduleDates.startTime}
-                           >
-                              <option value="">Select...</option>
-                              {generateTimeSlots().map(time => {
-                                 if (time <= rescheduleDates.startTime) return null;
-                                 const blocked = isTimeBlocked(time);
-                                 return <option key={time} value={time} disabled={blocked} className={blocked ? 'bg-gray-100 text-gray-400' : ''}>{format12h(time)} {blocked ? '(Booked)' : ''}</option>
-                              })}
-                           </select>
-                         </div>
-                      </div>
-
-                      {/* Main Visualization Area (Split) */}
-                      <div className="flex-1 grid grid-cols-1 lg:grid-cols-4 gap-4 min-h-0">
-                         {/* Left: Booked Slots List */}
-                         <div className="bg-white rounded-lg border border-gray-200 flex flex-col overflow-hidden shadow-sm">
-                            <div className="bg-gray-50 px-4 py-3 border-b border-gray-200 flex justify-between items-center">
-                               <h3 className="text-xs font-bold text-gray-500 uppercase">Booked Slots</h3>
-                               <span className="text-[10px] bg-gray-200 text-gray-600 px-2 py-0.5 rounded-full">{daySchedule.length}</span>
-                            </div>
-                            <div className="overflow-y-auto p-2 flex-1 space-y-2">
-                               {daySchedule.length > 0 ? (
-                                  daySchedule.map(evt => (
-                                    <div key={evt.id} className="p-2 bg-gray-50 rounded border border-gray-100 text-xs">
-                                       <div className="font-bold text-gray-700">{evt.title}</div>
-                                       <div className="text-gray-500">{new Date(evt.start).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})} - {new Date(evt.end).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}</div>
-                                    </div>
-                                  ))
-                               ) : (
-                                  <div className="h-full flex flex-col items-center justify-center text-gray-400 text-xs italic p-4 text-center">
-                                     <svg className="w-8 h-8 mb-2 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
-                                     No conflicting bookings found for this date.
-                                  </div>
-                               )}
-                            </div>
-                         </div>
-
-                         {/* Right: Full Timeline - Container Removed */}
-                         <div className="lg:col-span-3 flex flex-col min-h-0">
-                               {rescheduleTimeline.length > 0 ? (
-                                  <div className="h-full overflow-y-auto pr-1">
-                                     <EventTimelineGenerator timelineData={{ timeline: rescheduleTimeline }} />
-                                  </div>
-                               ) : (
-                                  <div className="h-full flex flex-col items-center justify-center text-gray-400 text-sm border-2 border-dashed border-gray-200 rounded-lg bg-white">
-                                     <span>Select a Date and Start Time to preview the generated timeline.</span>
-                                  </div>
-                               )}
-                         </div>
-                      </div>
-                  </div>
+                </div>
               )}
             </div>
 
@@ -947,14 +986,14 @@ window.ApprovalActions = function ApprovalActions({ event, onSuccess }) {
             <div className="bg-white px-6 py-3 border-t border-gray-200 flex-shrink-0 flex justify-end gap-3">
               {isRescheduling ? (
                 <>
-                  <button 
-                    onClick={() => setIsRescheduling(false)} 
+                  <button
+                    onClick={() => setIsRescheduling(false)}
                     className="px-4 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 text-sm font-semibold transition shadow-sm text-gray-700"
                   >
                     Cancel Reschedule
                   </button>
-                  <button 
-                    onClick={handleRescheduleConfirm} 
+                  <button
+                    onClick={handleRescheduleConfirm}
                     className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm font-semibold transition shadow-sm flex items-center gap-2"
                   >
                     <span>Confirm & Update</span>
@@ -964,8 +1003,20 @@ window.ApprovalActions = function ApprovalActions({ event, onSuccess }) {
               ) : (
                 <>
                   <button onClick={() => { setShowReviewModal(false); setFullEventData(null); setIsRescheduling(false); }} disabled={loading} className="px-4 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 text-sm font-semibold transition disabled:opacity-50">Cancel</button>
-                  <button onClick={() => confirmApproval()} disabled={loading} className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 text-sm font-semibold transition disabled:opacity-50 shadow-sm">
-                    {loading ? 'Processing...' : (fullEventData.has_conflicts ? 'Approve (Auto-reject Conflicts)' : 'Approve Event')}
+                  <button onClick={() => {
+                    // Determine correct endpoint based on role/status
+                    const actions = getAvailableActions();
+                    const approveAction = actions.find(a => a.variant === 'success' || a.variant === 'primary');
+                    if (approveAction) {
+                      if (approveAction.endpoint === 'superadmin-approve') {
+                        confirmApproval();
+                      } else {
+                        // Direct API call
+                        performApproval(approveAction.endpoint);
+                      }
+                    }
+                  }} disabled={loading} className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 text-sm font-semibold transition disabled:opacity-50 shadow-sm">
+                    {loading ? 'Processing...' : (fullEventData.has_conflicts && isSuperAdmin ? 'Approve (Auto-reject Conflicts)' : 'Approve Event')}
                   </button>
                 </>
               )}
@@ -1001,6 +1052,32 @@ window.ApprovalActions = function ApprovalActions({ event, onSuccess }) {
             <div className="bg-gray-50 px-6 py-4 flex justify-end gap-3 border-t border-gray-200">
               <button onClick={() => { setShowRejectModal(false); setSelectedReason(''); setCustomNote(''); }} disabled={loading} className="px-4 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 text-sm font-semibold transition disabled:opacity-50">Cancel</button>
               <button onClick={handleReject} disabled={loading || !selectedReason} className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 text-sm font-semibold disabled:opacity-50 disabled:cursor-not-allowed transition">{loading ? 'Processing...' : 'Reject Event'}</button>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* Success Modal */}
+      {showSuccessModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[70] p-4">
+          <div className="bg-white rounded-xl shadow-xl max-w-sm w-full transform transition-all scale-100 overflow-hidden">
+            <div className="p-6 text-center">
+              <div className="mx-auto flex items-center justify-center h-16 w-16 rounded-full bg-blue-100 mb-6">
+                <svg className="h-8 w-8 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
+                </svg>
+              </div>
+              <h3 className="text-xl font-bold text-slate-900 mb-2">Success!</h3>
+              <p className="text-slate-600 mb-8">{successMessage}</p>
+              <button
+                type="button"
+                className="w-full inline-flex justify-center rounded-lg border border-transparent shadow-sm px-4 py-2.5 bg-blue-600 text-base font-semibold text-white hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors"
+                onClick={() => {
+                  setShowSuccessModal(false);
+                  if (onSuccess) onSuccess();
+                }}
+              >
+                Okay, got it
+              </button>
             </div>
           </div>
         </div>

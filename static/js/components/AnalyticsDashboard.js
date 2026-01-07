@@ -4,28 +4,28 @@ const { useState, useEffect, useRef } = React;
 window.AnalyticsDashboard = function AnalyticsDashboard() {
   const [analytics, setAnalytics] = useState(null);
   const [loading, setLoading] = useState(true);
-  
+
   // Chart refs
   const statusChartRef = useRef(null);
   const typeChartRef = useRef(null);
   const feedbackChartRef = useRef(null);
   const trendsChartRef = useRef(null);
-  
+
   // Chart instances
   const statusChartInstance = useRef(null);
   const typeChartInstance = useRef(null);
   const feedbackChartInstance = useRef(null);
   const trendsChartInstance = useRef(null);
-  
+
   useEffect(() => {
     fetchAnalytics();
   }, []);
-  
+
   useEffect(() => {
     if (analytics) {
       renderCharts();
     }
-    
+
     // Cleanup charts on unmount
     return () => {
       if (statusChartInstance.current) statusChartInstance.current.destroy();
@@ -34,7 +34,7 @@ window.AnalyticsDashboard = function AnalyticsDashboard() {
       if (trendsChartInstance.current) trendsChartInstance.current.destroy();
     };
   }, [analytics]);
-  
+
   const fetchAnalytics = async () => {
     try {
       const response = await fetch('/api/analytics/dashboard', {
@@ -50,16 +50,16 @@ window.AnalyticsDashboard = function AnalyticsDashboard() {
       setLoading(false);
     }
   };
-  
+
   const renderCharts = () => {
     if (!analytics) return;
-    
+
     // Destroy existing charts
     if (statusChartInstance.current) statusChartInstance.current.destroy();
     if (typeChartInstance.current) typeChartInstance.current.destroy();
     if (feedbackChartInstance.current) feedbackChartInstance.current.destroy();
     if (trendsChartInstance.current) trendsChartInstance.current.destroy();
-    
+
     // 1. Status Distribution Pie Chart
     if (statusChartRef.current && analytics.status_distribution.length > 0) {
       const statusData = analytics.status_distribution;
@@ -72,7 +72,7 @@ window.AnalyticsDashboard = function AnalyticsDashboard() {
         'Draft': '#6b7280',
         'Archived': '#9ca3af'
       };
-      
+
       statusChartInstance.current = new Chart(statusChartRef.current, {
         type: 'doughnut',
         data: {
@@ -105,11 +105,11 @@ window.AnalyticsDashboard = function AnalyticsDashboard() {
         }
       });
     }
-    
+
     // 2. Event Type Distribution Bar Chart
     if (typeChartRef.current && analytics.type_distribution.length > 0) {
       const typeData = analytics.type_distribution;
-      
+
       typeChartInstance.current = new Chart(typeChartRef.current, {
         type: 'bar',
         data: {
@@ -136,7 +136,7 @@ window.AnalyticsDashboard = function AnalyticsDashboard() {
         }
       });
     }
-    
+
     // 3. Feedback Ratings Radar Chart
     if (feedbackChartRef.current && analytics.feedback.total_feedback > 0) {
       feedbackChartInstance.current = new Chart(feedbackChartRef.current, {
@@ -176,11 +176,11 @@ window.AnalyticsDashboard = function AnalyticsDashboard() {
         }
       });
     }
-    
+
     // 4. Monthly Trends Line Chart
     if (trendsChartRef.current && analytics.trends.monthly.length > 0) {
       const monthlyData = analytics.trends.monthly;
-      
+
       trendsChartInstance.current = new Chart(trendsChartRef.current, {
         type: 'line',
         data: {
@@ -213,19 +213,19 @@ window.AnalyticsDashboard = function AnalyticsDashboard() {
       });
     }
   };
-  
+
   if (loading) {
     return React.createElement('div', { className: 'flex items-center justify-center h-96' },
       React.createElement('div', { className: 'animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600' })
     );
   }
-  
+
   if (!analytics) {
     return React.createElement('div', { className: 'text-center text-gray-500 py-12' },
       'No analytics data available'
     );
   }
-  
+
   return React.createElement('div', { className: 'space-y-6' },
     // Header
     React.createElement('div', { className: 'flex justify-between items-center' },
@@ -243,14 +243,14 @@ window.AnalyticsDashboard = function AnalyticsDashboard() {
         'Refresh'
       )
     ),
-    
+
     // Key Metrics Cards
     React.createElement('div', { className: 'grid grid-cols-1 md:grid-cols-4 gap-4' },
       React.createElement('div', { className: 'bg-white rounded-lg border border-slate-200 p-6' },
         React.createElement('div', { className: 'flex items-center justify-between' },
           React.createElement('div', null,
             React.createElement('p', { className: 'text-sm font-medium text-slate-600 mb-1' }, 'Total Budget'),
-            React.createElement('p', { className: 'text-2xl font-bold text-emerald-600' }, 
+            React.createElement('p', { className: 'text-2xl font-bold text-emerald-600' },
               `₱${(analytics.budget.total / 1000).toFixed(0)}K`
             )
           ),
@@ -260,16 +260,16 @@ window.AnalyticsDashboard = function AnalyticsDashboard() {
             )
           )
         ),
-        React.createElement('p', { className: 'text-xs text-slate-500 mt-2' }, 
+        React.createElement('p', { className: 'text-xs text-slate-500 mt-2' },
           `Avg: ₱${analytics.budget.average.toFixed(0)}`
         )
       ),
-      
+
       React.createElement('div', { className: 'bg-white rounded-lg border border-slate-200 p-6' },
         React.createElement('div', { className: 'flex items-center justify-between' },
           React.createElement('div', null,
             React.createElement('p', { className: 'text-sm font-medium text-slate-600 mb-1' }, 'Attendance Rate'),
-            React.createElement('p', { className: 'text-2xl font-bold text-blue-600' }, 
+            React.createElement('p', { className: 'text-2xl font-bold text-blue-600' },
               `${analytics.attendance.attendance_rate}%`
             )
           ),
@@ -279,16 +279,16 @@ window.AnalyticsDashboard = function AnalyticsDashboard() {
             )
           )
         ),
-        React.createElement('p', { className: 'text-xs text-slate-500 mt-2' }, 
+        React.createElement('p', { className: 'text-xs text-slate-500 mt-2' },
           `${analytics.attendance.total_attendees}/${analytics.attendance.total_registrations} registered`
         )
       ),
-      
+
       React.createElement('div', { className: 'bg-white rounded-lg border border-slate-200 p-6' },
         React.createElement('div', { className: 'flex items-center justify-between' },
           React.createElement('div', null,
             React.createElement('p', { className: 'text-sm font-medium text-slate-600 mb-1' }, 'Avg Feedback'),
-            React.createElement('p', { className: 'text-2xl font-bold text-amber-600' }, 
+            React.createElement('p', { className: 'text-2xl font-bold text-amber-600' },
               `${analytics.feedback.avg_overall}/5`
             )
           ),
@@ -298,16 +298,16 @@ window.AnalyticsDashboard = function AnalyticsDashboard() {
             )
           )
         ),
-        React.createElement('p', { className: 'text-xs text-slate-500 mt-2' }, 
+        React.createElement('p', { className: 'text-xs text-slate-500 mt-2' },
           `${analytics.feedback.total_feedback} responses`
         )
       ),
-      
+
       React.createElement('div', { className: 'bg-white rounded-lg border border-slate-200 p-6' },
         React.createElement('div', { className: 'flex items-center justify-between' },
           React.createElement('div', null,
             React.createElement('p', { className: 'text-sm font-medium text-slate-600 mb-1' }, 'Upcoming Events'),
-            React.createElement('p', { className: 'text-2xl font-bold text-purple-600' }, 
+            React.createElement('p', { className: 'text-2xl font-bold text-purple-600' },
               analytics.trends.upcoming_events
             )
           ),
@@ -320,7 +320,7 @@ window.AnalyticsDashboard = function AnalyticsDashboard() {
         React.createElement('p', { className: 'text-xs text-slate-500 mt-2' }, 'Approved & scheduled')
       )
     ),
-    
+
     // Charts Grid
     React.createElement('div', { className: 'grid grid-cols-1 md:grid-cols-2 gap-6' },
       // Status Distribution
@@ -330,7 +330,7 @@ window.AnalyticsDashboard = function AnalyticsDashboard() {
           React.createElement('canvas', { ref: statusChartRef })
         )
       ),
-      
+
       // Event Types
       React.createElement('div', { className: 'bg-white rounded-lg border border-slate-200 p-6' },
         React.createElement('h3', { className: 'text-lg font-semibold text-gray-900 mb-4' }, 'Events by Type'),
@@ -338,19 +338,19 @@ window.AnalyticsDashboard = function AnalyticsDashboard() {
           React.createElement('canvas', { ref: typeChartRef })
         )
       ),
-      
+
       // Feedback Ratings
       React.createElement('div', { className: 'bg-white rounded-lg border border-slate-200 p-6' },
         React.createElement('h3', { className: 'text-lg font-semibold text-gray-900 mb-4' }, 'Feedback Ratings'),
-        analytics.feedback.total_feedback > 0 
+        analytics.feedback.total_feedback > 0
           ? React.createElement('div', { className: 'h-64' },
-              React.createElement('canvas', { ref: feedbackChartRef })
-            )
+            React.createElement('canvas', { ref: feedbackChartRef })
+          )
           : React.createElement('div', { className: 'h-64 flex items-center justify-center text-gray-400' },
-              'No feedback data yet'
-            )
+            'No feedback data yet'
+          )
       ),
-      
+
       // Monthly Trends
       React.createElement('div', { className: 'bg-white rounded-lg border border-slate-200 p-6' },
         React.createElement('h3', { className: 'text-lg font-semibold text-gray-900 mb-4' }, 'Event Trends (6 Months)'),
@@ -359,7 +359,49 @@ window.AnalyticsDashboard = function AnalyticsDashboard() {
         )
       )
     ),
-    
+
+    // Recent Feedback Table
+    analytics.feedback.per_event && analytics.feedback.per_event.length > 0 && React.createElement('div', { className: 'bg-white rounded-lg border border-slate-200 p-6' },
+      React.createElement('h3', { className: 'text-lg font-semibold text-gray-900 mb-4' }, 'Recent Event Feedback'),
+      React.createElement('div', { className: 'overflow-x-auto' },
+        React.createElement('table', { className: 'min-w-full' },
+          React.createElement('thead', null,
+            React.createElement('tr', { className: 'border-b border-gray-200' },
+              React.createElement('th', { className: 'text-left py-3 px-4 text-sm font-semibold text-gray-700' }, 'Event'),
+              React.createElement('th', { className: 'text-left py-3 px-4 text-sm font-semibold text-gray-700' }, 'Date'),
+              React.createElement('th', { className: 'text-center py-3 px-4 text-sm font-semibold text-gray-700' }, 'Rating'),
+              React.createElement('th', { className: 'text-right py-3 px-4 text-sm font-semibold text-gray-700' }, 'Responses')
+            )
+          ),
+          React.createElement('tbody', null,
+            analytics.feedback.per_event.map((event, idx) => {
+              const ratingColor = event.avg_rating >= 4.5 ? 'text-emerald-600 bg-emerald-50 border-emerald-200' :
+                event.avg_rating >= 4.0 ? 'text-blue-600 bg-blue-50 border-blue-200' :
+                  event.avg_rating >= 3.0 ? 'text-amber-600 bg-amber-50 border-amber-200' :
+                    'text-red-600 bg-red-50 border-red-200';
+
+              const date = new Date(event.start_datetime);
+              const formattedDate = date.toLocaleDateString();
+
+              return React.createElement('tr', { key: idx, className: 'border-b border-gray-100 hover:bg-gray-50' },
+                React.createElement('td', { className: 'py-3 px-4 text-sm font-medium text-gray-900' }, event.name),
+                React.createElement('td', { className: 'py-3 px-4 text-sm text-gray-500' }, formattedDate),
+                React.createElement('td', { className: 'py-3 px-4 text-center' },
+                  React.createElement('span', { className: `inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border ${ratingColor}` },
+                    event.avg_rating.toFixed(1),
+                    React.createElement('svg', { className: 'w-3 h-3 ml-1', fill: 'currentColor', viewBox: '0 0 20 20' },
+                      React.createElement('path', { d: 'M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z' })
+                    )
+                  )
+                ),
+                React.createElement('td', { className: 'py-3 px-4 text-sm text-gray-700 text-right' }, event.response_count)
+              );
+            })
+          )
+        )
+      )
+    ),
+
     // Top Venues Table
     analytics.top_venues.length > 0 && React.createElement('div', { className: 'bg-white rounded-lg border border-slate-200 p-6' },
       React.createElement('h3', { className: 'text-lg font-semibold text-gray-900 mb-4' }, 'Top 5 Venues'),
@@ -382,7 +424,7 @@ window.AnalyticsDashboard = function AnalyticsDashboard() {
                 React.createElement('td', { className: 'py-3 px-4 text-right' },
                   React.createElement('div', { className: 'flex items-center justify-end gap-2' },
                     React.createElement('div', { className: 'w-24 bg-gray-200 rounded-full h-2' },
-                      React.createElement('div', { 
+                      React.createElement('div', {
                         className: 'bg-indigo-600 h-2 rounded-full',
                         style: { width: `${percentage}%` }
                       })

@@ -171,6 +171,32 @@ def get_dashboard_analytics():
             LIMIT 5
         """.format(dept_condition)
         top_venues = get_db().execute_query(venue_query, tuple(params) if params else ())
+
+        # 11. FEEDBACK PER EVENT (Recent 10)
+        feedback_events_query = """
+            SELECT 
+                e.id,
+                e.name,
+                e.start_datetime,
+                AVG(ef.overall_rating) as avg_rating,
+                COUNT(ef.id) as response_count
+            FROM events e
+            JOIN event_feedback ef ON e.id = ef.event_id
+            WHERE e.deleted_at IS NULL
+            {}
+            GROUP BY e.id
+            ORDER BY e.start_datetime DESC
+            LIMIT 10
+        """.format(dept_condition)
+        feedback_events = get_db().execute_query(feedback_events_query, tuple(params) if params else ())
+        
+        # Format per_event ratings
+        for event in feedback_events:
+            if event.get('avg_rating'):
+                event['avg_rating'] = float(event['avg_rating'])
+            else:
+                event['avg_rating'] = 0.0
+
         
         return jsonify({
             'success': True,
@@ -191,7 +217,8 @@ def get_dashboard_analytics():
                     'avg_activities': round(feedback_stats.get('avg_activities', 0) or 0, 1),
                     'avg_organization': round(feedback_stats.get('avg_organization', 0) or 0, 1),
                     'total_feedback': feedback_stats.get('total_feedback', 0) or 0,
-                    'by_type': feedback_by_type
+                    'by_type': feedback_by_type,
+                    'per_event': feedback_events
                 },
                 'budget': {
                     'total': float(budget_stats.get('total_budget', 0) or 0),

@@ -23,7 +23,7 @@ attendance_bp = Blueprint('attendance', __name__, url_prefix='/api/attendance')
 # ============================================================================
 
 @attendance_bp.route('/generate-qr/<int:registration_id>', methods=['GET'])
-@require_role(['Participant'])
+@require_role(['Participant', 'Student', 'Student Organization Officer'])
 def generate_qr_code(registration_id):
     """
     Generate QR code for a registration
@@ -352,7 +352,7 @@ def get_event_attendance(event_id):
 
 
 @attendance_bp.route('/my-history', methods=['GET'])
-@require_role(['Participant'])
+@require_role(['Participant', 'Student', 'Student Organization Officer'])
 def get_my_attendance_history():
     """
     Get current user's attendance history
@@ -433,3 +433,77 @@ def get_full_attendance_report(event_id):
     except Exception as e:
         logger.error(f"Get full attendance report error: {e}")
         return jsonify({'error': 'Failed to generate attendance report'}), 500
+
+
+@attendance_bp.route('/event/<int:event_id>/detailed-list', methods=['GET'])
+@require_role(['Super Admin', 'Admin', 'Staff', 'Department Head'])
+def get_detailed_attendance_list(event_id):
+    """
+    Get detailed attendance list for monitoring (includes Section/Course)
+    GET /api/attendance/event/123/detailed-list
+    """
+    try:
+        db = get_db()
+        
+        # Get event info for header
+        event = db.execute_one(
+            "SELECT name, start_datetime FROM events WHERE id = %s",
+            (event_id,)
+        )
+        if not event:
+            return jsonify({'error': 'Event not found'}), 404
+
+        # Get participants with Student details (Section/Course)
+        # Using LEFT JOIN on students to include non-student participants if any
+        query = """
+            SELECT 
+                u.id, u.first_name, u.last_name, u.username, u.email,
+                s.course, s.section,
+                r.registration_status,
+                a.check_in_datetime, a.check_in_method
+            FROM event_registrations r
+            JOIN users u ON r.user_id = u.id
+            LEFT JOIN students s ON u.id = s.user_id
+            LEFT JOIN event_attendance a ON r.event_id = a.event_id AND r.user_id = a.user_id
+            WHERE r.event_id = %s AND r.registration_status = 'Registered'
+            ORDER BY s.section, u.last_name, u.first_name
+        """
+        
+        attendees = db.execute_query(query, (event_id,))
+
+        formatted_list = []
+        checked_in_count = 0
+        
+        for p in attendees:
+            is_present = p['check_in_datetime'] is not None
+            if is_present:
+                checked_in_count += 1
+                
+            formatted_list.append({
+                'id': p['id'],
+                'name': f"{p['first_name']} {p['last_name']}",
+                'username': p['username'],
+                'section': p['section'] or 'N/A',
+                'course': p['course'] or 'N/A',
+                'status': 'Present' if is_present else 'Absent',
+                'check_in_time': p['check_in_datetime'].strftime('%I:%M %p') if p['check_in_datetime'] else None,
+                'check_in_method': p['check_in_method']
+            })
+
+        return jsonify({
+            'success': True,
+            'event': {
+                'name': event['name'],
+                'date': event['start_datetime'].strftime('%Y-%m-%d')
+            },
+            'stats': {
+                'total': len(formatted_list),
+                'present': checked_in_count,
+                'absent': len(formatted_list) - checked_in_count
+            },
+            'attendees': formatted_list
+        }), 200
+
+    except Exception as e:
+        logger.error(f"Get detailed attendance list error: {e}")
+        return jsonify({'error': 'Failed to fetch attendance list'}), 500

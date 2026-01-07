@@ -335,7 +335,7 @@ def check_availability():
 # ============================================================================
 
 @events_bp.route('', methods=['GET'])
-@require_role(['Super Admin', 'Admin', 'Staff', 'Requestor', 'Participant'])
+@require_role(['Super Admin', 'Admin', 'Staff', 'Requestor', 'Participant', 'Student Organization Officer'])
 def get_events():
     """
     Get all events (with optional filters)
@@ -387,9 +387,15 @@ def get_events():
         
         if user_role == 'Admin' and user_department:
             # Admin is department-restricted
-            query += " AND e.organizing_department = %s"
-            params.append(user_department)
-            logger.info(f"Filtering events for Admin department: {user_department}")
+            if user_department == 'IT Department':
+                 # IT Department sees BSIT, BSCS, BSIS events too
+                 query += " AND (e.organizing_department = %s OR e.organizing_department IN ('BSIT', 'BSCS', 'BSIS'))"
+                 params.append(user_department)
+                 logger.info(f"Filtering events for Admin department: {user_department} (incl. sub-departments)")
+            else:
+                 query += " AND e.organizing_department = %s"
+                 params.append(user_department)
+                 logger.info(f"Filtering events for Admin department: {user_department}")
         elif user_role == 'Requestor':
             # Requestors see only their own events
             query += " AND e.requestor_id = %s"
@@ -578,7 +584,7 @@ def get_event(event_id):
 
 
 @events_bp.route('', methods=['POST'])
-@require_role(['Super Admin', 'Admin', 'Requestor'])
+@require_role(['Super Admin', 'Admin', 'Requestor', 'Student Organization Officer'])
 def create_event():
     """
     Create new event
@@ -600,7 +606,7 @@ def create_event():
         data = request.get_json()
         
         # Validation
-        required_fields = ['name', 'event_type', 'start_datetime', 'end_datetime']
+        required_fields = ['name', 'event_type', 'start_datetime', 'end_datetime', 'venue']
         for field in required_fields:
             if not data.get(field):
                 return jsonify({'error': f'Missing required field: {field}'}), 400
@@ -628,9 +634,25 @@ def create_event():
         # Determine organizing department and status based on role
         user_role = session.get('role_name')
         user_department = session.get('department')
+        user_id = session.get('user_id')
         
         # Get organizing_department from request or default to user's department
         organizing_dept = data.get('organizing_department') or user_department
+        
+        # Fallback: If no department found and user is a student/officer, check students table
+        if not organizing_dept and user_role in ['Student Organization Officer', 'Student', 'Requestor']:
+            student_record = db.execute_one("SELECT course FROM students WHERE user_id = %s", (user_id,))
+            if student_record and student_record.get('course'):
+                mapped_dept = student_record['course']
+                # Map course codes to Departments if needed
+                course_map = {
+                    'BSIT': 'IT Department',
+                    'BSCS': 'IT Department', 
+                    'BSIS': 'IT Department',
+                    # Add others as needed
+                }
+                organizing_dept = course_map.get(mapped_dept, mapped_dept)
+                logger.info(f"Resolved organizing_department from student course: {mapped_dept} -> {organizing_dept}")
         
         # Role-based initial status:
         # - Admin/Super Admin: Auto-approve (status='Approved')
@@ -702,7 +724,7 @@ def create_event():
 
 
 @events_bp.route('/<int:event_id>', methods=['PUT'])
-@require_role(['Super Admin', 'Admin', 'Requestor'])
+@require_role(['Super Admin', 'Admin', 'Requestor', 'Student Organization Officer'])
 def update_event(event_id):
     """
     Update existing event
@@ -799,7 +821,7 @@ def update_event(event_id):
 
 
 @events_bp.route('/<int:event_id>', methods=['DELETE'])
-@require_role(['Super Admin', 'Admin', 'Requestor'])
+@require_role(['Super Admin', 'Admin', 'Requestor', 'Student Organization Officer'])
 def delete_event(event_id):
     """
     Soft delete event
@@ -874,7 +896,7 @@ def get_event_history(event_id):
 # ============================================================================
 
 @events_bp.route('/<int:event_id>/submit', methods=['POST'])
-@require_role(['Super Admin', 'Admin', 'Requestor'])
+@require_role(['Super Admin', 'Admin', 'Requestor', 'Student Organization Officer'])
 def submit_event(event_id):
     """Submit draft event for approval: Draft → Pending"""
     try:
@@ -1019,7 +1041,7 @@ def get_status_config():
 
 
 @events_bp.route('/approved', methods=['GET'])
-@require_role(['Super Admin', 'Admin', 'Staff', 'Requestor', 'Participant'])
+@require_role(['Super Admin', 'Admin', 'Staff', 'Requestor', 'Participant', 'Student', 'Student Organization Officer'])
 def get_approved_events():
     """
     Get approved events for calendar display
@@ -1041,7 +1063,7 @@ def get_approved_events():
             end_date = f"{year:04d}-{month+1:02d}-01"
 
         query = """
-            SELECT e.id, e.name, e.event_type, e.description,
+            SELECT e.id, e.name, e.event_type, e.description, e.status,
                    e.start_datetime, e.end_datetime,
                    e.venue, e.expected_attendees, e.max_attendees,
                    COALESCE(b.total_budget, 0) as budget,
@@ -1049,7 +1071,7 @@ def get_approved_events():
             FROM events e
             JOIN users u ON e.requestor_id = u.id
             LEFT JOIN budgets b ON e.id = b.event_id
-            WHERE e.status = 'Approved'
+            WHERE e.status IN ('Approved', 'Completed', 'Ongoing')
               AND e.deleted_at IS NULL
               AND e.start_datetime >= %s
               AND e.start_datetime < %s
@@ -1060,6 +1082,12 @@ def get_approved_events():
 
         # Convert Decimal types to float for JSON serialization
         for event in events:
+            # Format dates to ISO strings (without timezone) to ensure frontend treats as local time
+            if event.get('start_datetime'):
+                event['start_datetime'] = event['start_datetime'].isoformat()
+            if event.get('end_datetime'):
+                event['end_datetime'] = event['end_datetime'].isoformat()
+
             if event.get('budget') is not None:
                 event['budget'] = float(event['budget'])
 
@@ -1357,7 +1385,7 @@ def export_event_pdf(event_id):
         t = Table(event_info, colWidths=[2*inch, 4.5*inch])
         t.setStyle(TableStyle([
             ('FONTNAME', (0, 0), (0, -1), 'Helvetica-Bold'),
-            ('FONTNAME', (1, 0), (1, -1), 'Helvetica'),
+            ('FONTNAME', (1, 0), (1, -1), peso_font),
             ('FONTSIZE', (0, 0), (-1, -1), 10),
             ('TEXTCOLOR', (0, 0), (0, -1), colors.HexColor('#475569')),
             ('TEXTCOLOR', (1, 0), (1, -1), colors.HexColor('#1e293b')),
@@ -1558,10 +1586,12 @@ def export_event_pdf(event_id):
         buffer.seek(0)
         filename = f"Event_Guideline_{event['name'].replace(' ', '_')}_{datetime.now().strftime('%Y%m%d')}.pdf"
         
+        is_preview = request.args.get('preview') == 'true'
+        
         return send_file(
             buffer,
             mimetype='application/pdf',
-            as_attachment=True,
+            as_attachment=not is_preview,
             download_name=filename
         )
         

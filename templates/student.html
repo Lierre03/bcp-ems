@@ -37,14 +37,14 @@
     <script src="/static/js/auth.js"></script>
 
     <!-- Components -->
-    <script type="text/babel" src="/static/js/components/Sidebar.js"></script>
-    <script type="text/babel" src="/static/js/components/NotificationBell.js"></script>
-    <script type="text/babel" src="/static/js/components/StudentEventCalendar.js"></script>
-    <script type="text/babel" src="/static/js/components/StatusBadge.js"></script>
-    <script type="text/babel" src="/static/js/components/SmartBudgetBreakdown.js"></script>
-    <script type="text/babel" src="/static/js/components/ResourceRequirementsChecklist.js"></script>
-    <script type="text/babel" src="/static/js/components/EventTimelineGenerator.js"></script>
-    <script type="text/babel" src="/static/js/components/EventFormModal.js"></script>
+    <script type="text/babel" src="/static/js/components/Sidebar.js?v=3.1"></script>
+    <script type="text/babel" src="/static/js/components/NotificationBell.js?v=3.1"></script>
+    <script type="text/babel" src="/static/js/components/StudentEventCalendar.js?v=3.9"></script>
+    <script type="text/babel" src="/static/js/components/StatusBadge.js?v=3.1"></script>
+    <script type="text/babel" src="/static/js/components/SmartBudgetBreakdown.js?v=3.1"></script>
+    <script type="text/babel" src="/static/js/components/ResourceRequirementsChecklist.js?v=3.1"></script>
+    <script type="text/babel" src="/static/js/components/EventTimelineGenerator.js?v=3.1"></script>
+    <script type="text/babel" src="/static/js/components/EventFormModal.js?v=3.5"></script>
 
     <!-- Main Dashboard Script -->
     <script type="text/babel">
@@ -58,6 +58,8 @@
             const [user, setUser] = useState(null);
             const [activeView, setActiveView] = useState('calendar');
             const [showEventModal, setShowEventModal] = useState(false);
+            const [proposals, setProposals] = useState([]);
+            const [proposalsLoading, setProposalsLoading] = useState(false);
 
             // AI Enhancement States - Same as Admin
             const [aiSuggestions, setAiSuggestions] = useState(null);
@@ -148,7 +150,16 @@
                     if (res.ok) {
                         const data = await res.json();
                         if (data.success && data.venues) {
-                            setVenueOptions(data.venues.map(v => v.name));
+                            const venueNames = data.venues.map(v => v.name);
+                            setVenueOptions(venueNames);
+
+                            // Initialize default venue if not set
+                            if (venueNames.length > 0) {
+                                setFormData(prev => {
+                                    if (!prev.venue) return { ...prev, venue: venueNames[0] };
+                                    return prev;
+                                });
+                            }
                         }
                     }
                 } catch (err) {
@@ -156,7 +167,36 @@
                 }
             };
 
-            // AI Auto-fill function - Same as Admin
+            const loadMyProposals = async () => {
+                const userJson = localStorage.getItem('user');
+                if (!userJson) return;
+                const userData = JSON.parse(userJson);
+
+                setProposalsLoading(true);
+                try {
+                    // Fetch events created by this user
+                    const response = await fetch(`/api/events?requestor_id=${userData.id}`);
+                    const data = await response.json();
+                    if (data.success) {
+                        setProposals(data.events);
+                    }
+                } catch (error) {
+                    console.error('Failed to load proposals', error);
+                } finally {
+                    setProposalsLoading(false);
+                }
+            };
+
+            // Expose globally for form submission callback
+            window.loadMyProposals = loadMyProposals;
+
+            useEffect(() => {
+                if (activeView === 'proposals') {
+                    loadMyProposals();
+                }
+            }, [activeView]);
+
+            // AI Auto-fill function - Updated to match Admin logic
             const handleAutoFill = async () => {
                 if (!formData.name.trim()) {
                     alert('Please enter an event name first!');
@@ -192,108 +232,24 @@
                     const aiData = await response.json();
 
                     if (aiData.success) {
-                        const breakdownStr = aiData.budgetBreakdown
-                            ? Object.entries(aiData.budgetBreakdown)
-                                .map(([k, v]) => `${k}: ₱${typeof v === 'number' ? v.toLocaleString() : v}`)
-                                .join(', ')
-                            : '';
-
+                        // Store complete AI data for sidebar suggestions
+                        // DO NOT auto-apply to form data to allow user selection
                         setAiSuggestions({
                             success: true,
                             confidence: aiData.confidence,
                             estimatedBudget: aiData.estimatedBudget,
-                            budgetBreakdown: breakdownStr,
-                            suggestedAttendees: aiData.suggestedAttendees
+                            budgetBreakdown: aiData.budgetBreakdown, // Store FULL Object for sidebar
+                            timeline: aiData.timeline || [],
+                            equipment: aiData.equipment || aiData.resources || [],
+                            additionalResources: aiData.additionalResources || [],
+                            description: aiData.description,
+                            suggestedAttendees: aiData.suggestedAttendees,
+                            eventType: aiData.eventType
                         });
 
-                        const totalBudget = aiData.estimatedBudget || 50000;
+                        // Only notify success - let user choose from sidebar
+                        console.log("AI Analysis complete. Suggestions available in sidebar.");
 
-                        let updatedFormData = {
-                            ...formData,
-                            description: aiData.description || formData.description,
-                            attendees: aiData.suggestedAttendees || formData.attendees,
-                            budget: totalBudget
-                        };
-
-                        if (aiData.resources && aiData.resources.length > 0) {
-                            const existingEquipment = updatedFormData.equipment || [];
-                            const combinedEquipment = [...new Set([...existingEquipment, ...aiData.resources])];
-                            updatedFormData = { ...updatedFormData, equipment: combinedEquipment };
-                        }
-
-                        if (aiData.additionalResources && aiData.additionalResources.length > 0) {
-                            updatedFormData = { ...updatedFormData, additionalResources: aiData.additionalResources };
-                        }
-
-                        if (aiData.eventType && aiData.eventType !== formData.type) {
-                            updatedFormData = { ...updatedFormData, type: aiData.eventType };
-                        }
-
-                        const budgetBreakdown = aiData.budgetBreakdown || {};
-                        const categories = Object.keys(budgetBreakdown);
-                        const breakdown = {};
-                        const percentages = [];
-                        let totalPercentage = 0;
-
-                        categories.forEach(cat => {
-                            const catData = budgetBreakdown[cat] || {};
-                            const percentage = typeof catData === 'object' ? catData.percentage || 0 : catData;
-                            totalPercentage += percentage;
-                            const amount = Math.round((totalBudget * percentage) / 100);
-                            breakdown[cat] = { percentage: percentage, amount: amount };
-                            percentages.push(percentage);
-                        });
-
-                        if (totalPercentage > 100) {
-                            const normalizedBreakdown = {};
-                            const normalizedPercentages = [];
-                            categories.forEach(cat => {
-                                const normalizedPct = Math.round((breakdown[cat].percentage / totalPercentage) * 100);
-                                const amount = Math.round((totalBudget * normalizedPct) / 100);
-                                normalizedBreakdown[cat] = { percentage: normalizedPct, amount: amount };
-                                normalizedPercentages.push(normalizedPct);
-                            });
-                            setBudgetData({
-                                totalBudget: totalBudget,
-                                categories: categories,
-                                breakdown: normalizedBreakdown,
-                                percentages: normalizedPercentages
-                            });
-                        } else {
-                            setBudgetData({
-                                totalBudget: totalBudget,
-                                categories: categories,
-                                breakdown: breakdown,
-                                percentages: percentages
-                            });
-                        }
-
-                        setResourceData({
-                            checklist: {
-                                'Equipment': (aiData.equipment || aiData.resources || []).map(r => ({ name: r, status: 'available' })),
-                                'Additional Resources': (aiData.additionalResources || []).map(r => ({ name: r, status: 'available' }))
-                            }
-                        });
-
-                        setTimelineData({ timeline: aiData.timeline || [] });
-
-                        if (aiData.timeline && aiData.timeline.length > 0) {
-                            const firstPhase = aiData.timeline[0];
-                            const lastPhase = aiData.timeline[aiData.timeline.length - 1];
-                            updatedFormData = {
-                                ...updatedFormData,
-                                startTime: firstPhase.startTime,
-                                endTime: lastPhase.endTime,
-                                activities: aiData.timeline.map(t => `${t.startTime} - ${t.endTime}: ${t.phase}`)
-                            };
-                        } else if (aiData.activities && aiData.activities.length > 0) {
-                            updatedFormData = {
-                                ...updatedFormData,
-                                activities: aiData.activities
-                            };
-                        }
-
-                        setFormData(updatedFormData);
                     } else {
                         alert('AI analysis failed. Please try again.');
                     }
@@ -317,6 +273,7 @@
                     ? checkedResources.filter(r => r !== item)
                     : [...checkedResources, item];
                 setCheckedResources(newResources);
+                setFormData(prev => ({ ...prev, additionalResources: newResources }));
             };
 
             const toggleEquipment = (item) => {
@@ -367,13 +324,45 @@
                 }
 
                 try {
+                    const startDt = `${formData.date} ${formData.startTime}:00`;
+                    const endDt = `${formData.endDate || formData.date} ${formData.endTime}:00`;
+
+                    // Filter out empty categories from budget breakdown
+                    const filteredBudgetBreakdown = {};
+                    if (budgetData && budgetData.breakdown) {
+                        Object.entries(budgetData.breakdown).forEach(([category, details]) => {
+                            if (category.trim() && details.amount > 0) {
+                                filteredBudgetBreakdown[category] = details;
+                            }
+                        });
+                    }
+
+                    const payload = {
+                        name: formData.name,
+                        event_type: formData.type || 'Academic', // Ensure event_type is never empty
+                        start_datetime: startDt,
+                        end_datetime: endDt,
+                        venue: formData.venue || '',
+                        organizer: formData.organizer || (user ? (user.full_name || user.username) : ''),
+                        description: formData.description || '',
+                        expected_attendees: parseInt(formData.attendees) || 0,
+                        budget: parseFloat(formData.budget) || 0,
+                        equipment: formData.equipment || [],
+                        activities: formData.activities || [], // Fallback if no detailed timeline
+                        timeline: (timelineData && timelineData.timeline && timelineData.timeline.length > 0) ? timelineData.timeline : [],
+                        budget_breakdown: filteredBudgetBreakdown,
+                        additional_resources: formData.additionalResources || []
+                    };
+
+                    console.log('Submitting payload:', payload);
+
                     const response = await fetch('/api/events', {
                         method: 'POST',
                         headers: {
                             'Content-Type': 'application/json'
                         },
                         credentials: 'include',
-                        body: JSON.stringify(formData)
+                        body: JSON.stringify(payload)
                     });
 
                     const data = await response.json();
@@ -381,11 +370,14 @@
                     if (response.ok && data.success) {
                         alert('Event proposal submitted successfully! It will be reviewed by the admin.');
                         setShowEventModal(false);
-                        // Optionally reload proposals list if viewing proposals
-                        if (activeView === 'proposals') {
-                            // Could add a function to reload proposals here
+                        // Reload data
+                        if (activeView === 'proposals' && window.loadMyProposals) {
+                            window.loadMyProposals();
+                        } else if (typeof loadMyRegistrations === 'function') {
+                            loadMyRegistrations();
                         }
                     } else {
+                        console.error('Server error:', data);
                         alert(data.error || 'Failed to submit event proposal');
                     }
                 } catch (error) {
@@ -718,213 +710,324 @@
                         `;
                         pendingContainer.appendChild(pendingHeader);
 
+                        // Mockup-Matched Professional Evaluation
                         pendingData.pending_events.forEach(event => {
                             const feedbackForm = document.createElement('div');
-                            feedbackForm.className = 'bg-orange-50 border border-orange-200 rounded-lg p-6 mb-4';
+                            feedbackForm.className = 'bg-white border border-gray-300 rounded-lg shadow-sm overflow-hidden mb-8 font-sans';
                             feedbackForm.innerHTML = `
-                                <div class="flex items-center gap-3 mb-4">
-                                    <div class="w-10 h-10 bg-orange-100 rounded-full flex items-center justify-center">
-                                        <svg class="w-5 h-5 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
-                                        </svg>
-                                    </div>
+                                <!-- Header -->
+                                <div class="bg-slate-800 px-6 py-4 flex justify-between items-center text-white border-b border-slate-700">
                                     <div>
-                                        <h4 class="font-semibold text-gray-900">${event.name}</h4>
-                                        <p class="text-sm text-gray-600">${new Date(event.start_datetime).toLocaleDateString()} • ${event.venue}</p>
+                                        <div class="flex items-center gap-3">
+                                            <span class="text-xs font-bold text-blue-200 border border-blue-400/30 px-1.5 py-0.5 rounded uppercase tracking-wider">Event Feedback</span>
+                                            <h4 class="text-lg font-semibold tracking-tight text-white">${event.name}</h4>
+                                        </div>
+                                        <div class="flex gap-3 text-xs text-slate-400 mt-1 pl-[108px]">
+                                            <span class="border-r border-slate-600 pr-3">Date: ${new Date(event.start_datetime).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}</span>
+                                            <span>Location: ${event.venue}</span>
+                                        </div>
                                     </div>
                                 </div>
 
-                                <form class="feedback-form-${event.id} space-y-4">
-                                    <!-- Overall Rating - Required -->
-                                    <div>
-                                        <label class="block text-sm font-medium text-gray-700 mb-2">
-                                            Overall Experience <span class="text-red-500">*</span>
-                                        </label>
-                                        <div class="flex gap-1">
-                                            ${[1, 2, 3, 4, 5].map(star => `
-                                                <button type="button" class="star-btn-${event.id} text-2xl transition text-gray-300 hover:text-yellow-400" data-rating="${star}">
-                                                    ★
-                                                </button>
-                                            `).join('')}
-                                            <span class="ml-2 text-sm text-gray-600 rating-text-${event.id}">Not rated</span>
+                                <form class="feedback-form-${event.id}">
+                                    <!-- 3-Column Grid -->
+                                    <div class="grid grid-cols-1 md:grid-cols-3 divide-y md:divide-y-0 md:divide-x divide-gray-200 bg-white">
+                                        
+                                        <!-- COL 1: LOGISTICS -->
+                                        <div class="p-5">
+                                            <h5 class="text-xs font-bold text-slate-500 uppercase tracking-wider mb-4 border-b border-gray-100 pb-2">LOGISTICS</h5>
+                                            
+                                            <div class="space-y-6">
+                                                <!-- Registration -->
+                                                <div>
+                                                    <div class="flex justify-between mb-1">
+                                                        <label class="text-sm font-medium text-slate-700">Registration Process</label>
+                                                        <span class="text-xs font-bold text-slate-400 reg-val-${event.id}"></span>
+                                                    </div>
+                                                    <div class="flex gap-1" id="reg-stars-${event.id}">
+                                                        ${[1, 2, 3, 4, 5].map(n => `<button type="button" class="reg-star-${event.id} text-slate-300 hover:text-slate-500 transition-colors" data-rating="${n}"><svg class="w-6 h-6 drop-shadow-sm" fill="currentColor" viewBox="0 0 24 24"><path d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z"/></svg></button>`).join('')}
+                                                    </div>
+                                                </div>
+
+                                                <!-- Organization (Timeliness) -->
+                                                <div>
+                                                    <div class="flex justify-between mb-1">
+                                                        <label class="text-sm font-medium text-slate-700">Timeliness & Organization</label>
+                                                        <span class="text-xs font-bold text-slate-400 org-val-${event.id}"></span>
+                                                    </div>
+                                                    <div class="flex gap-1" id="org-stars-${event.id}">
+                                                        ${[1, 2, 3, 4, 5].map(n => `<button type="button" class="org-star-${event.id} text-slate-300 hover:text-slate-500 transition-colors" data-rating="${n}"><svg class="w-6 h-6 drop-shadow-sm" fill="currentColor" viewBox="0 0 24 24"><path d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z"/></svg></button>`).join('')}
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <!-- COL 2: CONTENT -->
+                                        <div class="p-5">
+                                            <h5 class="text-xs font-bold text-slate-500 uppercase tracking-wider mb-4 border-b border-gray-100 pb-2">CONTENT</h5>
+                                            
+                                            <div class="space-y-6">
+                                                <!-- Speaker -->
+                                                <div>
+                                                    <div class="flex justify-between mb-1">
+                                                        <label class="text-sm font-medium text-slate-700">Keynote Speakers</label>
+                                                        <span class="text-xs font-bold text-slate-400 speaker-val-${event.id}"></span>
+                                                    </div>
+                                                    <div class="flex gap-1" id="speaker-stars-${event.id}">
+                                                        ${[1, 2, 3, 4, 5].map(n => `<button type="button" class="speaker-star-${event.id} text-slate-300 hover:text-slate-500 transition-colors" data-rating="${n}"><svg class="w-6 h-6 drop-shadow-sm" fill="currentColor" viewBox="0 0 24 24"><path d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z"/></svg></button>`).join('')}
+                                                    </div>
+                                                </div>
+
+                                                <!-- Content Relevance -->
+                                                <div>
+                                                    <div class="flex justify-between mb-1">
+                                                        <label class="text-sm font-medium text-slate-700">Relevance of Topics</label>
+                                                        <span class="text-xs font-bold text-slate-400 content-val-${event.id}"></span>
+                                                    </div>
+                                                    <div class="flex gap-1" id="content-stars-${event.id}">
+                                                        ${[1, 2, 3, 4, 5].map(n => `<button type="button" class="content-star-${event.id} text-slate-300 hover:text-slate-500 transition-colors" data-rating="${n}"><svg class="w-6 h-6 drop-shadow-sm" fill="currentColor" viewBox="0 0 24 24"><path d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z"/></svg></button>`).join('')}
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <!-- COL 3: FACILITIES -->
+                                        <div class="p-5">
+                                            <h5 class="text-xs font-bold text-slate-500 uppercase tracking-wider mb-4 border-b border-gray-100 pb-2">FACILITIES</h5>
+                                            
+                                            <div class="space-y-6">
+                                                <!-- Venue -->
+                                                <div>
+                                                    <div class="flex justify-between mb-1">
+                                                        <label class="text-sm font-medium text-slate-700">Venue Comfort</label>
+                                                        <span class="text-xs font-bold text-slate-400 venue-val-${event.id}"></span>
+                                                    </div>
+                                                    <div class="flex gap-1" id="venue-stars-${event.id}">
+                                                        ${[1, 2, 3, 4, 5].map(n => `<button type="button" class="venue-star-${event.id} text-slate-300 hover:text-slate-500 transition-colors" data-rating="${n}"><svg class="w-6 h-6 drop-shadow-sm" fill="currentColor" viewBox="0 0 24 24"><path d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z"/></svg></button>`).join('')}
+                                                    </div>
+                                                </div>
+
+                                                <!-- Activities / Amenities -->
+                                                <div>
+                                                    <div class="flex justify-between mb-1">
+                                                        <label class="text-sm font-medium text-slate-700">Overall Activities</label>
+                                                        <span class="text-xs font-bold text-slate-400 activities-val-${event.id}"></span>
+                                                    </div>
+                                                    <div class="flex gap-1" id="activities-stars-${event.id}">
+                                                        ${[1, 2, 3, 4, 5].map(n => `<button type="button" class="activities-star-${event.id} text-slate-300 hover:text-slate-500 transition-colors" data-rating="${n}"><svg class="w-6 h-6 drop-shadow-sm" fill="currentColor" viewBox="0 0 24 24"><path d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z"/></svg></button>`).join('')}
+                                                    </div>
+                                                </div>
+                                            </div>
                                         </div>
                                     </div>
 
-                                    <!-- Optional ratings in a grid -->
-                                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-                                        <div>
-                                            <label class="block text-sm font-medium text-gray-700 mb-2">Venue Quality</label>
-                                            <div class="flex gap-1">
-                                                ${[1, 2, 3, 4, 5].map(star => `
-                                                    <button type="button" class="venue-star-btn-${event.id} text-xl transition text-gray-300 hover:text-yellow-400" data-rating="${star}">
-                                                        ★
-                                                    </button>
-                                                `).join('')}
+                                    <!-- Footer: OVERALL SATISFACTION & NPS -->
+                                    <div class="bg-gray-200/80 border-t border-gray-300 p-6">
+                                        <!-- 3-Column Grid -->
+                                        <div class="grid grid-cols-1 md:grid-cols-3 gap-8 mb-6">
+                                            
+                                            <!-- Col 1: Overall Rating -->
+                                            <div class="flex flex-col justify-center border-r border-gray-300 pr-4">
+                                                <div class="text-xs font-bold text-slate-500 mb-2 uppercase tracking-wide">Overall Rating</div>
+                                                <div class="flex items-center gap-4">
+                                                    <div class="flex gap-1" id="overall-stars-${event.id}">
+                                                        ${[1, 2, 3, 4, 5].map(n => `<button type="button" class="overall-star-${event.id} text-slate-400 hover:text-slate-600 transition-transform active:scale-95" data-rating="${n}"><svg class="w-8 h-8 drop-shadow-sm" fill="currentColor" viewBox="0 0 24 24"><path d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z"/></svg></button>`).join('')}
+                                                    </div>
+                                                    <div class="text-3xl font-bold text-slate-700 overall-display-${event.id}">0.0</div>
+                                                </div>
                                             </div>
-                                        </div>
-                                        <div>
-                                            <label class="block text-sm font-medium text-gray-700 mb-2">Activities & Content</label>
-                                            <div class="flex gap-1">
-                                                ${[1, 2, 3, 4, 5].map(star => `
-                                                    <button type="button" class="activities-star-btn-${event.id} text-xl transition text-gray-300 hover:text-yellow-400" data-rating="${star}">
-                                                        ★
-                                                    </button>
-                                                `).join('')}
-                                            </div>
-                                        </div>
-                                        <div>
-                                            <label class="block text-sm font-medium text-gray-700 mb-2">Organization & Management</label>
-                                            <div class="flex gap-1">
-                                                ${[1, 2, 3, 4, 5].map(star => `
-                                                    <button type="button" class="organization-star-btn-${event.id} text-xl transition text-gray-300 hover:text-yellow-400" data-rating="${star}">
-                                                        ★
-                                                    </button>
-                                                `).join('')}
-                                            </div>
-                                        </div>
-                                    </div>
 
-                                    <!-- Comments -->
-                                    <div>
-                                        <label class="block text-sm font-medium text-gray-700 mb-2">Additional Comments (Optional)</label>
-                                        <textarea class="comments-${event.id} w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none" rows="3" placeholder="Share your thoughts about the event..." maxlength="500"></textarea>
-                                        <p class="text-xs text-gray-500 mt-1 char-count-${event.id}">0/500 characters</p>
-                                    </div>
+                                            <!-- Col 2: NPS -->
+                                            <div class="flex flex-col justify-center border-r border-gray-300 pr-4 pl-4">
+                                                <div class="flex justify-between items-end mb-2">
+                                                    <div>
+                                                        <div class="text-xs font-bold text-slate-800 uppercase">Recommendation Score</div>
+                                                        <div class="text-[10px] text-slate-500">Recommend us?</div>
+                                                    </div>
+                                                    <div class="nps-display-${event.id} bg-blue-100 text-blue-700 text-xs font-bold px-2 py-0.5 rounded hidden">
+                                                        <span class="val"></span>
+                                                    </div>
+                                                </div>
+                                                <div class="flex justify-between gap-1 mb-1">
+                                                    ${[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(n => `
+                                                        <button type="button" class="nps-btn-${event.id} h-7 w-full rounded border border-slate-300 bg-white text-slate-500 text-[10px] font-bold hover:border-blue-500 hover:text-blue-600 transition-all focus:outline-none" data-val="${n}">${n}</button>
+                                                    `).join('')}
+                                                </div>
+                                                <div class="flex justify-between text-[8px] font-bold text-slate-400 uppercase">
+                                                    <span>Not Likely</span>
+                                                    <span>Very Likely</span>
+                                                </div>
+                                            </div>
 
-                                    <!-- Submit Button -->
-                                    <div class="flex justify-end gap-3 pt-4 border-t border-orange-200">
-                                        <button type="button" class="skip-btn-${event.id} px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition">
-                                            Skip for Now
-                                        </button>
-                                        <button type="submit" class="submit-feedback-btn-${event.id} px-6 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition disabled:opacity-50 disabled:cursor-not-allowed">
-                                            Submit Feedback
-                                        </button>
+                                            <!-- Col 3: Comments -->
+                                            <div class="flex flex-col pl-4">
+                                                <textarea class="comments-${event.id} w-full h-full min-h-[80px] p-2 bg-white border border-gray-300 rounded text-xs focus:outline-none focus:border-blue-500 shadow-inner resize-none" placeholder="Additional Comments (Optional)"></textarea>
+                                                <!-- Hidden Logic Fields -->
+                                                <textarea class="hidden takeaways-${event.id}"></textarea>
+                                                <input type="checkbox" class="hidden future-check-${event.id}">
+                                            </div>
+                                        </div>
+
+                                        <!-- Actions -->
+                                        <div class="flex justify-end gap-3 pt-4 border-t border-gray-300">
+                                             <button type="button" class="skip-btn-${event.id} px-4 py-2 text-xs font-bold text-slate-500 uppercase hover:bg-gray-300 rounded transition-colors">Cancel</button>
+                                             <button type="submit" disabled class="submit-feedback-btn-${event.id} px-6 py-2 bg-slate-700 text-white text-xs font-bold uppercase rounded hover:bg-slate-800 shadow-md transition-all disabled:opacity-50 disabled:shadow-none">Submit Feedback</button>
+                                        </div>
                                     </div>
                                 </form>
                             `;
                             pendingContainer.appendChild(feedbackForm);
                         });
 
-                        // Add event listeners for feedback forms
+                        // Logic
                         pendingData.pending_events.forEach(event => {
                             const form = document.querySelector(`.feedback-form-${event.id}`);
-                            const starBtns = document.querySelectorAll(`.star-btn-${event.id}`);
-                            const venueStarBtns = document.querySelectorAll(`.venue-star-btn-${event.id}`);
-                            const activitiesStarBtns = document.querySelectorAll(`.activities-star-btn-${event.id}`);
-                            const organizationStarBtns = document.querySelectorAll(`.organization-star-btn-${event.id}`);
-                            const ratingText = document.querySelector(`.rating-text-${event.id}`);
-                            const commentsTextarea = document.querySelector(`.comments-${event.id}`);
-                            const charCount = document.querySelector(`.char-count-${event.id}`);
+
+                            // State
+                            let ratings = {
+                                overall: 0,
+                                venue: 0,
+                                activities: 0,
+                                org: 0,
+                                speaker: 0,
+                                content: 0,
+                                reg: 0,
+                                nps: null
+                            };
+
                             const submitBtn = document.querySelector(`.submit-feedback-btn-${event.id}`);
-                            const skipBtn = document.querySelector(`.skip-btn-${event.id}`);
+                            const overallDisplay = document.querySelector(`.overall-display-${event.id}`);
 
-                            let overallRating = 0;
-                            let venueRating = 0;
-                            let activitiesRating = 0;
-                            let organizationRating = 0;
+                            const checkValidity = () => {
+                                if (ratings.overall > 0) submitBtn.disabled = false;
+                            };
 
-                            // Overall rating stars
-                            starBtns.forEach((btn, index) => {
-                                btn.addEventListener('click', () => {
-                                    overallRating = index + 1;
-                                    starBtns.forEach((b, i) => {
-                                        b.className = `star-btn-${event.id} text-2xl transition ${i <= index ? 'text-yellow-400' : 'text-gray-300'} hover:text-yellow-400`;
+                            // Star Logic
+                            const setupStars = (name, selector) => {
+                                const buttons = document.querySelectorAll(`.${selector}-${event.id}`);
+                                const valDisplay = document.querySelector(`.${name === 'overall' ? 'none' : selector.split('-')[0] + '-val-' + event.id}`);
+
+                                buttons.forEach((btn, idx) => {
+                                    const rating = parseInt(btn.dataset.rating);
+                                    btn.addEventListener('mouseenter', () => renderStars(buttons, rating, name === 'overall'));
+                                    btn.addEventListener('mouseleave', () => renderStars(buttons, ratings[name], name === 'overall'));
+                                    btn.addEventListener('click', () => {
+                                        ratings[name] = rating;
+                                        renderStars(buttons, rating, name === 'overall');
+                                        if (valDisplay) {
+                                            valDisplay.textContent = rating + '.0/5';
+                                        }
+                                        if (name === 'overall' && overallDisplay) {
+                                            overallDisplay.textContent = rating + '.0';
+                                        }
+                                        checkValidity();
                                     });
-                                    ratingText.textContent = `${overallRating}/5`;
-                                    submitBtn.disabled = false;
+                                });
+                            };
+
+                            const renderStars = (buttons, activeRating, isOverall) => {
+                                buttons.forEach((btn, idx) => {
+                                    const rating = idx + 1;
+                                    const isActive = rating <= activeRating;
+                                    if (isActive) {
+                                        btn.classList.add('text-blue-600');
+                                        btn.classList.remove('text-slate-300', 'text-slate-400');
+                                    } else {
+                                        btn.classList.remove('text-slate-500');
+                                        btn.classList.add(isOverall ? 'text-slate-400' : 'text-slate-300');
+                                    }
+                                });
+                            };
+
+                            // NPS Button Logic
+                            const npsButtons = document.querySelectorAll(`.nps-btn-${event.id}`);
+                            const npsDisplay = document.querySelector(`.nps-display-${event.id}`);
+                            const npsValSpan = npsDisplay ? npsDisplay.querySelector('.val') : null;
+
+                            npsButtons.forEach(btn => {
+                                btn.addEventListener('click', () => {
+                                    const val = parseInt(btn.dataset.val);
+                                    ratings.nps = val;
+
+                                    // Update UI
+                                    npsButtons.forEach(b => {
+                                        const bVal = parseInt(b.dataset.val);
+                                        // Reset classes
+                                        b.className = `nps-btn-${event.id} h-7 w-full rounded border font-bold text-[10px] transition-all focus:outline-none`;
+
+                                        if (bVal === val) {
+                                            // Active State
+                                            b.classList.add('bg-blue-600', 'text-white', 'border-blue-600', 'shadow-md');
+                                        } else {
+                                            // Inactive State
+                                            b.classList.add('bg-white', 'text-slate-500', 'border-slate-300', 'hover:border-blue-500', 'hover:text-blue-600');
+                                        }
+                                    });
+
+                                    if (npsDisplay) npsDisplay.classList.remove('hidden');
+                                    if (npsValSpan) npsValSpan.textContent = val;
                                 });
                             });
 
-                            // Venue rating stars
-                            venueStarBtns.forEach((btn, index) => {
-                                btn.addEventListener('click', () => {
-                                    venueRating = index + 1;
-                                    venueStarBtns.forEach((b, i) => {
-                                        b.className = `venue-star-btn-${event.id} text-xl transition ${i <= index ? 'text-yellow-400' : 'text-gray-300'} hover:text-yellow-400`;
-                                    });
-                                });
-                            });
+                            // Setup 
+                            setupStars('overall', 'overall-star');
+                            setupStars('venue', 'venue-star');
+                            setupStars('activities', 'activities-star');
+                            setupStars('org', 'org-star');
+                            setupStars('speaker', 'speaker-star');
+                            setupStars('content', 'content-star');
+                            setupStars('reg', 'reg-star');
 
-                            // Activities rating stars
-                            activitiesStarBtns.forEach((btn, index) => {
-                                btn.addEventListener('click', () => {
-                                    activitiesRating = index + 1;
-                                    activitiesStarBtns.forEach((b, i) => {
-                                        b.className = `activities-star-btn-${event.id} text-xl transition ${i <= index ? 'text-yellow-400' : 'text-gray-300'} hover:text-yellow-400`;
-                                    });
-                                });
-                            });
-
-                            // Organization rating stars
-                            organizationStarBtns.forEach((btn, index) => {
-                                btn.addEventListener('click', () => {
-                                    organizationRating = index + 1;
-                                    organizationStarBtns.forEach((b, i) => {
-                                        b.className = `organization-star-btn-${event.id} text-xl transition ${i <= index ? 'text-yellow-400' : 'text-gray-300'} hover:text-yellow-400`;
-                                    });
-                                });
-                            });
-
-                            // Comments character counter
-                            commentsTextarea.addEventListener('input', (e) => {
-                                charCount.textContent = `${e.target.value.length}/500 characters`;
-                            });
-
-                            // Submit feedback
+                            // Submit
                             form.addEventListener('submit', async (e) => {
                                 e.preventDefault();
 
-                                if (overallRating === 0) {
-                                    alert('Please provide an overall rating');
+                                if (ratings.overall === 0) {
+                                    alert('Overall Rating Required');
                                     return;
                                 }
 
                                 submitBtn.disabled = true;
-                                submitBtn.textContent = 'Submitting...';
+                                submitBtn.innerText = 'Submitting...';
+
+                                const payload = {
+                                    overall_rating: ratings.overall,
+                                    venue_rating: ratings.venue || null,
+                                    activities_rating: ratings.activities || null,
+                                    organization_rating: ratings.org || null,
+                                    registration_process: ratings.reg || null,
+                                    speaker_effectiveness: ratings.speaker || null,
+                                    content_relevance: ratings.content || null,
+                                    net_promoter_score: ratings.nps,
+                                    key_takeaways: 'Generated via Mockup UI',
+                                    comments: document.querySelector(`.comments-${event.id}`).value,
+                                    future_interest: false
+                                };
 
                                 try {
-                                    const feedbackData = {
-                                        overall_rating: overallRating,
-                                        venue_rating: venueRating || null,
-                                        activities_rating: activitiesRating || null,
-                                        organization_rating: organizationRating || null,
-                                        comments: commentsTextarea.value.trim() || null
-                                    };
-
-                                    const response = await fetch(`/api/feedback/submit/${event.id}`, {
+                                    const res = await fetch(`/api/feedback/submit/${event.id}`, {
                                         method: 'POST',
-                                        headers: {
-                                            'Content-Type': 'application/json',
-                                        },
-                                        credentials: 'include',
-                                        body: JSON.stringify(feedbackData)
+                                        headers: { 'Content-Type': 'application/json' },
+                                        body: JSON.stringify(payload)
                                     });
-
-                                    const data = await response.json();
-
-                                    if (response.ok && data.success) {
-                                        alert('Thank you for your feedback!');
-                                        loadMyFeedback(); // Reload the feedback tab
+                                    if (res.ok) {
+                                        submitBtn.innerText = 'Submitted';
+                                        setTimeout(() => loadMyFeedback(), 500);
                                     } else {
-                                        alert(data.error || 'Failed to submit feedback');
                                         submitBtn.disabled = false;
-                                        submitBtn.textContent = 'Submit Feedback';
+                                        alert('Failed');
                                     }
-                                } catch (error) {
-                                    console.error('Feedback submission error:', error);
-                                    alert('Failed to submit feedback. Please try again.');
+                                } catch (e) {
+                                    console.error(e);
                                     submitBtn.disabled = false;
-                                    submitBtn.textContent = 'Submit Feedback';
                                 }
                             });
-
                             // Skip feedback
-                            skipBtn.addEventListener('click', () => {
+                            document.querySelector(`.skip-btn-${event.id}`).addEventListener('click', () => {
                                 if (confirm('Are you sure you want to skip this feedback? You can return to it later.')) {
-                                    const feedbackForm = document.querySelector(`[class*="bg-orange-50"][class*="border-orange-200"]`);
-                                    if (feedbackForm) {
-                                        feedbackForm.remove();
-                                    }
+                                    const feedbackForm = document.querySelector(`.feedback-form-${event.id}`).closest('.mb-8');
+                                    if (feedbackForm) feedbackForm.remove();
+                                    if (document.querySelectorAll('[class*="feedback-form-"]').length === 0) loadMyFeedback();
                                 }
                             });
                         });
@@ -944,44 +1047,339 @@
                         historyData.feedback.forEach(feedback => {
                             const feedbackCard = document.createElement('div');
                             feedbackCard.className = 'border border-gray-200 rounded-lg p-4 mb-4 hover:shadow-md transition';
+
+                            // Define categories to show
+                            const categories = [
+                                { label: 'Registration', key: 'registration_process' },
+                                { label: 'Organization', key: 'organization_rating' },
+                                { label: 'Speakers', key: 'speaker_effectiveness' },
+                                { label: 'Content', key: 'content_relevance' },
+                                { label: 'Venue', key: 'venue_rating' },
+                                { label: 'Activities', key: 'activities_rating' }
+                            ];
+
                             feedbackCard.innerHTML = `
                                 <div class="flex justify-between items-start mb-3">
                                     <div class="flex-1">
                                         <h4 class="font-semibold text-gray-900 mb-1">${feedback.event_name}</h4>
-                                        <p class="text-sm text-gray-600 mb-2">${new Date(feedback.created_at).toLocaleDateString()}</p>
-                                        <div class="grid grid-cols-2 gap-4 text-sm">
-                                            <div>
-                                                <span class="text-gray-600">Overall:</span>
-                                                <div class="flex mt-1">
+                                        <p class="text-xs text-gray-500 mb-3 uppercase tracking-wide">${new Date(feedback.created_at).toLocaleDateString()} • Overall Rating</p>
+                                        
+                                        <!-- Overall & NPS -->
+                                        <div class="flex items-center gap-4 mb-4">
+                                            <div class="flex items-center gap-2">
+                                                <div class="flex">
                                                     ${[1, 2, 3, 4, 5].map(star => `
-                                                        <span class="text-yellow-400 text-lg">${star <= feedback.overall_rating ? '★' : '☆'}</span>
+                                                        <span class="text-yellow-400 text-2xl drop-shadow-sm">${star <= feedback.overall_rating ? '★' : '☆'}</span>
                                                     `).join('')}
-                                                    <span class="ml-2 text-gray-500">(${feedback.overall_rating}/5)</span>
                                                 </div>
+                                                <span class="text-xl font-bold text-gray-700">${feedback.overall_rating}.0</span>
                                             </div>
-                                            ${feedback.venue_rating ? `
-                                            <div>
-                                                <span class="text-gray-600">Venue:</span>
-                                                <div class="flex mt-1">
-                                                    ${[1, 2, 3, 4, 5].map(star => `
-                                                        <span class="text-yellow-400 text-lg">${star <= feedback.venue_rating ? '★' : '☆'}</span>
-                                                    `).join('')}
-                                                </div>
+                                            ${feedback.net_promoter_score !== null ? `
+                                            <div class="bg-blue-50 px-3 py-1 rounded border border-blue-100 flex flex-col items-center">
+                                                <span class="text-[10px] uppercase font-bold text-blue-400">NPS</span>
+                                                <span class="font-bold text-blue-700">${feedback.net_promoter_score}</span>
                                             </div>` : ''}
                                         </div>
+
+                                        <!-- Detailed Categories Grid -->
+                                        <div class="grid grid-cols-2 md:grid-cols-3 gap-y-3 gap-x-6 bg-slate-50 p-3 rounded-lg border border-slate-100">
+                                            ${categories.map(cat => feedback[cat.key] ? `
+                                                <div class="flex flex-col">
+                                                    <span class="text-[10px] uppercase font-bold text-slate-400 mb-0.5">${cat.label}</span>
+                                                    <div class="flex items-center gap-1">
+                                                        <div class="flex">
+                                                            ${[1, 2, 3, 4, 5].map(star => `
+                                                                <span class="text-yellow-400 text-sm">${star <= feedback[cat.key] ? '★' : '☆'}</span>
+                                                            `).join('')}
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            ` : '').join('')}
+                                        </div>
                                     </div>
-                                    <div class="flex flex-col items-end gap-2">
-                                        ${feedback.can_edit ? '<span class="text-xs text-green-600 bg-green-100 px-2 py-1 rounded-full">Editable</span>' : '<span class="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded-full">Locked</span>'}
+
+                                    <div class="flex flex-col items-end gap-2 ml-4">
+                                        ${feedback.can_edit ? `
+                                            <span class="text-[10px] font-bold text-green-600 bg-green-100 px-2 py-0.5 rounded-full mb-1 border border-green-200">EDITABLE</span>
+                                            <button onclick='enableEditing(${JSON.stringify(feedback).replace(/'/g, "&#39;")})' class="text-xs font-medium bg-white text-blue-600 border border-blue-200 px-3 py-1.5 rounded hover:bg-blue-50 transition shadow-sm">Edit Feedback</button>
+                                        ` : '<span class="text-[10px] font-bold text-gray-500 bg-gray-100 px-2 py-0.5 rounded-full border border-gray-200">LOCKED</span>'}
                                     </div>
                                 </div>
                                 ${feedback.comments ? `
-                                <div class="border-t border-gray-100 pt-3">
-                                    <p class="text-sm text-gray-700 italic">"${feedback.comments}"</p>
+                                <div class="mt-3 text-sm text-gray-600 border-t border-gray-100 pt-3">
+                                    <span class="text-xs font-bold text-slate-400 uppercase">Comments</span>
+                                    <p class="mt-1">"${feedback.comments}"</p>
                                 </div>` : ''}
                             `;
+                            feedbackCard.id = `feedback-card-${feedback.event_id}`;
                             historyContainer.appendChild(feedbackCard);
                         });
                     }
+
+                    // Enable Editing Function
+                    window.enableEditing = (feedback) => {
+                        const card = document.getElementById(`feedback-card-${feedback.event_id}`);
+                        if (!card) return;
+
+                        // Helper for criteria rows
+                        const renderCriteriaRow = (label, key, val) => `
+                            <div>
+                                <div class="flex justify-between mb-1">
+                                    <label class="text-sm font-medium text-slate-700">${label}</label>
+                                    <span class="text-xs font-bold text-slate-400 ${key}-val-${feedback.event_id}">${val + '.0'}</span>
+                                </div>
+                                <div class="flex gap-1">
+                                    ${[1, 2, 3, 4, 5].map(n => `
+                                        <button type="button" 
+                                            class="criteria-star-${key}-${feedback.event_id} transition-colors ${n <= val ? 'text-blue-600' : 'text-slate-300'} hover:text-slate-500" 
+                                            data-rating="${n}"
+                                            data-key="${key}"
+                                            onclick="selectCriteria(this, '${key}', ${feedback.event_id})">
+                                            <svg class="w-6 h-6 drop-shadow-sm" fill="currentColor" viewBox="0 0 24 24"><path d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z"/></svg>
+                                        </button>
+                                    `).join('')}
+                                </div>
+                                <input type="hidden" id="${key}-${feedback.event_id}" value="${val}">
+                            </div>
+                        `;
+
+                        card.innerHTML = `
+                            <div class="bg-gray-200/80 border border-gray-300 rounded-lg p-0 mb-4 overflow-hidden">
+                                <form onsubmit="submitEdit(event, ${feedback.event_id})">
+                                    <div class="bg-white p-4 border-b border-gray-200 flex justify-between items-center">
+                                        <h3 class="font-bold text-gray-900">Edit Feedback: ${feedback.event_name}</h3>
+                                        <button type="button" onclick="loadMyFeedback()" class="text-gray-400 hover:text-gray-600">✕</button>
+                                    </div>
+
+                                    <!-- Criteria Section (3 Cols) -->
+                                    <div class="grid grid-cols-1 md:grid-cols-3 gap-0 divide-y md:divide-y-0 md:divide-x divide-gray-300 border-b border-gray-300">
+                                        <!-- LOGISTICS -->
+                                        <div class="p-5">
+                                            <h5 class="text-xs font-bold text-slate-500 uppercase tracking-wider mb-4 border-b border-gray-300 pb-2">LOGISTICS</h5>
+                                            <div class="space-y-6">
+                                                ${renderCriteriaRow('Registration Process', 'reg', feedback.registration_process || 0)}
+                                                ${renderCriteriaRow('Timeliness & Organization', 'org', feedback.organization_rating || 0)}
+                                            </div>
+                                        </div>
+                                        <!-- CONTENT -->
+                                        <div class="p-5">
+                                            <h5 class="text-xs font-bold text-slate-500 uppercase tracking-wider mb-4 border-b border-gray-300 pb-2">CONTENT</h5>
+                                            <div class="space-y-6">
+                                                ${renderCriteriaRow('Keynote Speakers', 'speaker', feedback.speaker_effectiveness || 0)}
+                                                ${renderCriteriaRow('Relevance of Topics', 'content', feedback.content_relevance || 0)}
+                                            </div>
+                                        </div>
+                                        <!-- FACILITIES -->
+                                        <div class="p-5">
+                                            <h5 class="text-xs font-bold text-slate-500 uppercase tracking-wider mb-4 border-b border-gray-300 pb-2">FACILITIES</h5>
+                                            <div class="space-y-6">
+                                                ${renderCriteriaRow('Venue Comfort', 'venue', feedback.venue_rating || 0)}
+                                                ${renderCriteriaRow('Overall Activities', 'activities', feedback.activities_rating || 0)}
+                                            </div>
+                                        </div>
+                                    </div>
+                                    
+                                    <!-- Footer (Overall & NPS & Comments) -->
+                                    <div class="p-6">
+                                        <div class="grid grid-cols-1 md:grid-cols-3 gap-8 mb-6">
+                                            
+                                            <!-- Col 1: Overall Rating -->
+                                            <div class="flex flex-col justify-center border-r border-gray-300 pr-4">
+                                                <div class="text-xs font-bold text-slate-500 mb-2 uppercase tracking-wide">Overall Rating</div>
+                                                <div class="flex items-center gap-4">
+                                                    <div class="flex gap-1">
+                                                        ${[1, 2, 3, 4, 5].map(star => `
+                                                            <button type="button" 
+                                                                class="text-slate-400 hover:text-slate-600 transition-transform active:scale-95 text-3xl focus:outline-none star-rating-${feedback.event_id}" 
+                                                                data-value="${star}"
+                                                                onclick="selectStar(this, ${feedback.event_id})">
+                                                                <svg class="w-8 h-8 drop-shadow-sm" fill="currentColor" viewBox="0 0 24 24"><path d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z"/></svg>
+                                                            </button>
+                                                        `).join('')}
+                                                    </div>
+                                                    <div class="text-3xl font-bold text-slate-700 overall-display-${feedback.event_id}">${feedback.overall_rating}.0</div>
+                                                </div>
+                                                <input type="hidden" id="overall-${feedback.event_id}" value="${feedback.overall_rating}">
+                                            </div>
+
+                                            <!-- Col 2: NPS -->
+                                            <div class="flex flex-col justify-center border-r border-gray-300 pr-4 pl-4">
+                                                <div class="flex justify-between items-end mb-2">
+                                                    <div>
+                                                        <div class="text-xs font-bold text-slate-800 uppercase">Recommendation Score</div>
+                                                        <div class="text-[10px] text-slate-500">Recommend us?</div>
+                                                    </div>
+                                                    <div class="nps-display-${feedback.event_id} ${feedback.net_promoter_score !== null ? '' : 'hidden'} bg-blue-100 text-blue-700 text-xs font-bold px-2 py-0.5 rounded">
+                                                        <span class="val">${feedback.net_promoter_score !== null ? feedback.net_promoter_score : ''}</span>
+                                                    </div>
+                                                </div>
+                                                <div class="flex justify-between gap-1 mb-1">
+                                                    ${[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(n => `
+                                                        <button type="button" 
+                                                            class="nps-btn-${feedback.event_id} h-7 w-full rounded border border-slate-300 text-[10px] font-bold transition-all focus:outline-none ${feedback.net_promoter_score === n ? 'bg-blue-600 text-white border-blue-600 shadow-md' : 'bg-white text-slate-500 hover:border-blue-500 hover:text-blue-600'}" 
+                                                            data-val="${n}"
+                                                            onclick="selectNPS(this, ${feedback.event_id})">${n}</button>
+                                                    `).join('')}
+                                                </div>
+                                                <div class="flex justify-between text-[8px] font-bold text-slate-400 uppercase">
+                                                    <span>Not Likely</span>
+                                                    <span>Very Likely</span>
+                                                </div>
+                                                <input type="hidden" id="nps-${feedback.event_id}" value="${feedback.net_promoter_score !== null ? feedback.net_promoter_score : ''}">
+                                            </div>
+
+                                            <!-- Col 3: Comments -->
+                                            <div class="flex flex-col pl-4">
+                                                <textarea 
+                                                    class="comments-${feedback.event_id} w-full h-full min-h-[80px] p-2 bg-white border border-gray-300 rounded text-xs focus:outline-none focus:border-blue-500 shadow-inner resize-none" 
+                                                    placeholder="Additional Comments (Optional)"
+                                                >${feedback.comments || ''}</textarea>
+                                            </div>
+                                        </div>
+
+                                        <div class="flex justify-end gap-3 pt-4 border-t border-gray-300">
+                                            <button type="button" onclick="loadMyFeedback()" class="px-4 py-2 text-xs font-bold text-slate-500 uppercase hover:bg-gray-300 rounded transition-colors">Cancel</button>
+                                            <button 
+                                                type="submit"
+                                                class="submit-edit-${feedback.event_id} px-6 py-2 bg-slate-700 text-white text-xs font-bold uppercase rounded hover:bg-slate-800 shadow-md transition-all">
+                                                Update Feedback
+                                            </button>
+                                        </div>
+                                    </div>
+                                </form>
+                            </div>
+                        `;
+
+                        // Initialize stars color (Overall)
+                        const stars = card.querySelectorAll(`.star-rating-${feedback.event_id}`);
+                        stars.forEach(s => {
+                            if (parseInt(s.dataset.value) <= feedback.overall_rating) {
+                                s.classList.add('text-blue-600');
+                                s.classList.remove('text-slate-400');
+                            } else {
+                                s.classList.remove('text-blue-600');
+                                s.classList.add('text-slate-400');
+                            }
+                        });
+                    };
+
+                    // Criteria Selection Helper
+                    window.selectCriteria = (btn, key, eventId) => {
+                        const val = parseInt(btn.dataset.rating);
+                        document.getElementById(`${key}-${eventId}`).value = val;
+                        document.querySelector(`.${key}-val-${eventId}`).textContent = val + '.0';
+
+                        const stars = document.querySelectorAll(`.criteria-star-${key}-${eventId}`);
+                        stars.forEach(s => {
+                            if (parseInt(s.dataset.rating) <= val) {
+                                s.classList.add('text-blue-600');
+                                s.classList.remove('text-slate-300');
+                            } else {
+                                s.classList.remove('text-blue-600');
+                                s.classList.add('text-slate-300');
+                            }
+                        });
+                    };
+
+                    // Star Selection Helper (Overall)
+                    window.selectStar = (btn, eventId) => {
+                        const val = parseInt(btn.dataset.value);
+                        document.getElementById(`overall-${eventId}`).value = val;
+                        document.querySelector(`.overall-display-${eventId}`).textContent = val + '.0';
+
+                        const stars = document.querySelectorAll(`.star-rating-${eventId}`);
+                        stars.forEach(s => {
+                            if (parseInt(s.dataset.value) <= val) {
+                                s.classList.add('text-blue-600');
+                                s.classList.remove('text-slate-400');
+                            } else {
+                                s.classList.remove('text-blue-600');
+                                s.classList.add('text-slate-400');
+                            }
+                        });
+                    };
+
+                    // NPS Selection Helper
+                    window.selectNPS = (btn, eventId) => {
+                        const val = parseInt(btn.dataset.val);
+                        document.getElementById(`nps-${eventId}`).value = val;
+
+                        // Update display badge
+                        const display = document.querySelector(`.nps-display-${eventId}`);
+                        display.classList.remove('hidden');
+                        display.querySelector('.val').textContent = val;
+
+                        // Update buttons
+                        const buttons = document.querySelectorAll(`.nps-btn-${eventId}`);
+                        buttons.forEach(b => {
+                            const bVal = parseInt(b.dataset.val);
+                            if (bVal === val) {
+                                b.className = `nps-btn-${eventId} h-7 w-full rounded border font-bold text-[10px] transition-all focus:outline-none bg-blue-600 text-white border-blue-600 shadow-md`;
+                            } else {
+                                b.className = `nps-btn-${eventId} h-7 w-full rounded border border-slate-300 bg-white text-slate-500 text-[10px] font-bold hover:border-blue-500 hover:text-blue-600 transition-all focus:outline-none`;
+                            }
+                        });
+                    };
+
+                    // Submit Edit Function
+                    window.submitEdit = async (e, eventId) => {
+                        if (e) e.preventDefault();
+                        const submitBtn = document.querySelector(`.submit-edit-${eventId}`);
+
+                        const overall = document.getElementById(`overall-${eventId}`).value;
+                        const nps = document.getElementById(`nps-${eventId}`).value;
+                        const comments = document.querySelector(`.comments-${eventId}`).value;
+
+                        // Criteria
+                        const venue = document.getElementById(`venue-${eventId}`).value;
+                        const activities = document.getElementById(`activities-${eventId}`).value;
+                        const org = document.getElementById(`org-${eventId}`).value;
+                        const reg = document.getElementById(`reg-${eventId}`).value;
+                        const speaker = document.getElementById(`speaker-${eventId}`).value;
+                        const content = document.getElementById(`content-${eventId}`).value;
+
+                        if (!overall || parseInt(overall) === 0) {
+                            alert('Overall Rating Required');
+                            return;
+                        }
+
+                        submitBtn.disabled = true;
+                        submitBtn.innerText = 'Updating...';
+
+                        try {
+                            const payload = {
+                                overall_rating: parseInt(overall),
+                                comments: comments,
+                                net_promoter_score: nps ? parseInt(nps) : null,
+                                venue_rating: venue ? parseInt(venue) : null,
+                                activities_rating: activities ? parseInt(activities) : null,
+                                organization_rating: org ? parseInt(org) : null,
+                                registration_process: reg ? parseInt(reg) : null,
+                                speaker_effectiveness: speaker ? parseInt(speaker) : null,
+                                content_relevance: content ? parseInt(content) : null
+                            };
+
+                            const res = await fetch(`/api/feedback/submit/${eventId}`, {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify(payload)
+                            });
+
+                            if (res.ok) {
+                                submitBtn.innerText = 'Updated';
+                                setTimeout(() => loadMyFeedback(), 500);
+                            } else {
+                                const err = await res.json();
+                                alert(err.error || 'Failed to update');
+                                submitBtn.disabled = false;
+                                submitBtn.innerText = 'Update Feedback';
+                            }
+                        } catch (e) {
+                            console.error(e);
+                            alert('Network error');
+                            submitBtn.disabled = false;
+                        }
+                    };
 
                     // Show no feedback message if nothing to show
                     if ((!pendingData.success || !pendingData.pending_events || pendingData.pending_events.length === 0) &&
@@ -1039,7 +1437,7 @@
 
                                 <div className="border-t border-gray-100 pt-4">
                                     <div className="text-sm text-gray-500">
-                                        Checked in at ${new Date(record.check_in_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                        Checked in at ${new Date(record.check_in_time).toString() !== 'Invalid Date' ? new Date(record.check_in_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : record.check_in_time}
                                     </div>
                                 </div>
                             `;
@@ -1100,41 +1498,92 @@
                                         </p>
                                     </div>
 
-                                    {/* Status Tabs */}
-                                    <div className="flex gap-2 mb-6">
-                                        <button className="px-4 py-2 bg-yellow-100 text-yellow-800 rounded-lg text-sm font-medium">
-                                            Pending Approval (0)
+                                    {/* Status Info */}
+                                    <div className="flex gap-2 mb-6 overflow-x-auto pb-2">
+                                        <button className="px-4 py-2 bg-yellow-100 text-yellow-800 rounded-lg text-sm font-medium whitespace-nowrap">
+                                            Pending Approval ({proposals.filter(p => p.status === 'Pending').length})
                                         </button>
-                                        <button className="px-4 py-2 bg-green-100 text-green-800 rounded-lg text-sm font-medium">
-                                            Approved (0)
+                                        <button className="px-4 py-2 bg-blue-100 text-blue-800 rounded-lg text-sm font-medium whitespace-nowrap">
+                                            Under Review ({proposals.filter(p => p.status === 'Under Review').length})
                                         </button>
-                                        <button className="px-4 py-2 bg-red-100 text-red-800 rounded-lg text-sm font-medium">
-                                            Rejected (0)
+                                        <button className="px-4 py-2 bg-green-100 text-green-800 rounded-lg text-sm font-medium whitespace-nowrap">
+                                            Approved ({proposals.filter(p => p.status === 'Approved').length})
                                         </button>
-                                        <button className="px-4 py-2 bg-gray-100 text-gray-800 rounded-lg text-sm font-medium">
-                                            Draft (0)
+                                        <button className="px-4 py-2 bg-red-100 text-red-800 rounded-lg text-sm font-medium whitespace-nowrap">
+                                            Rejected ({proposals.filter(p => p.status === 'Rejected').length})
                                         </button>
                                     </div>
 
-                                    {/* Placeholder for event proposals */}
-                                    <div className="text-center py-12">
-                                        <div className="text-gray-400 mb-4">
-                                            <svg className="w-20 h-20 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                                            </svg>
+                                    {/* Proposals List */}
+                                    {proposalsLoading ? (
+                                        <div className="text-center py-12">
+                                            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+                                            <p className="text-gray-500">Loading your proposals...</p>
                                         </div>
-                                        <h3 className="text-lg font-medium text-gray-900 mb-2">No Event Proposals Yet</h3>
-                                        <p className="text-gray-600 mb-4">Get started by submitting your first event proposal for your organization.</p>
-                                        <button
-                                            onClick={handleCreateEventProposal}
-                                            className="bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition inline-flex items-center gap-2"
-                                        >
-                                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4" />
-                                            </svg>
-                                            Create Event Proposal
-                                        </button>
-                                    </div>
+                                    ) : proposals.length > 0 ? (
+                                        <div className="space-y-4">
+                                            {proposals.map(proposal => (
+                                                <div key={proposal.id} className="border border-gray-200 rounded-lg p-6 hover:shadow-md transition bg-white">
+                                                    <div className="flex justify-between items-start mb-4">
+                                                        <div>
+                                                            <div className="flex items-center gap-2 mb-1">
+                                                                <h3 className="font-semibold text-xl text-gray-900">{proposal.name}</h3>
+                                                                <span className={`px-2.5 py-0.5 rounded-full text-xs font-medium border ${proposal.status === 'Approved' ? 'bg-green-100 text-green-800 border-green-200' :
+                                                                    proposal.status === 'Pending' ? 'bg-yellow-100 text-yellow-800 border-yellow-200' :
+                                                                        proposal.status === 'Rejected' ? 'bg-red-100 text-red-800 border-red-200' :
+                                                                            'bg-blue-100 text-blue-800 border-blue-200'
+                                                                    }`}>
+                                                                    {proposal.status}
+                                                                </span>
+                                                            </div>
+                                                            <p className="text-sm text-gray-600">
+                                                                {new Date(proposal.date).toLocaleDateString()} • {proposal.venue} • {proposal.startTime} - {proposal.endTime}
+                                                            </p>
+                                                        </div>
+                                                        <div className="text-right">
+                                                            <div className="text-sm font-medium text-gray-900">Budget: ₱{proposal.budget ? proposal.budget.toLocaleString() : '0'}</div>
+                                                            <div className="text-xs text-gray-500">{proposal.attendees} Attendees</div>
+                                                        </div>
+                                                    </div>
+
+                                                    {proposal.description && (
+                                                        <p className="text-sm text-gray-600 mb-4 line-clamp-2">{proposal.description}</p>
+                                                    )}
+
+                                                    <div className="flex justify-between items-center border-t border-gray-100 pt-4">
+                                                        <div className="text-xs text-gray-500">
+                                                            Submitted on {new Date().toLocaleDateString()} {/* Date fallback */}
+                                                        </div>
+                                                        <div className="flex gap-2">
+                                                            <button className="text-blue-600 text-sm font-medium hover:text-blue-800">View Details</button>
+                                                            {proposal.status === 'Pending' && (
+                                                                <button className="text-red-600 text-sm font-medium hover:text-red-800">Cancel</button>
+                                                            )}
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    ) : (
+                                        <div className="text-center py-12">
+                                            <div className="text-gray-400 mb-4">
+                                                <svg className="w-20 h-20 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                                                </svg>
+                                            </div>
+                                            <h3 className="text-lg font-medium text-gray-900 mb-2">No Event Proposals Yet</h3>
+                                            <p className="text-gray-600 mb-4">Get started by submitting your first event proposal for your organization.</p>
+                                            <button
+                                                onClick={handleCreateEventProposal}
+                                                className="bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition inline-flex items-center gap-2"
+                                            >
+                                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4" />
+                                                </svg>
+                                                Create Event Proposal
+                                            </button>
+                                        </div>
+                                    )}
                                 </div>
                             </div>
                         );
@@ -1278,13 +1727,7 @@
                     case 'feedback':
                         return (
                             <div>
-                                <div className="mb-6">
-                                    <p className="text-blue-600 text-sm font-medium mb-1">Student Portal</p>
-                                    <p className="text-gray-500 text-sm mb-2">
-                                        View your feedback history for completed events
-                                    </p>
-                                    <h1 className="text-3xl font-bold text-gray-900">My Feedback</h1>
-                                </div>
+
 
                                 <div className="bg-white rounded-lg shadow p-6">
                                     <div className="mb-6">

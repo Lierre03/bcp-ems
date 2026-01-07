@@ -16,6 +16,7 @@ window.AdminEventsManager = function AdminEventsManager({ eventIdToOpen }) {
   const [budgetData, setBudgetData] = useState(null);
   const [resourceData, setResourceData] = useState(null);
   const [selectedEventHistory, setSelectedEventHistory] = useState(null);
+  // const [selectedEventAttendance, setSelectedEventAttendance] = useState(null); // Deprecated: Moved to dedicated tab
   const [timelineData, setTimelineData] = useState(null);
   const [activeEquipmentTab, setActiveEquipmentTab] = useState('Audio & Visual');
   const [checkedActivities, setCheckedActivities] = useState([]);
@@ -254,18 +255,29 @@ window.AdminEventsManager = function AdminEventsManager({ eventIdToOpen }) {
     });
 
     // Load budget breakdown if exists
+    // Load budget breakdown if exists
     if (event.budget_breakdown) {
-      // Convert budget_breakdown object to the format expected by SmartBudgetBreakdown
-      const categories = Object.keys(event.budget_breakdown);
-      const breakdown = event.budget_breakdown;
-      const percentages = categories.map(cat => breakdown[cat]?.percentage || 0);
+      const breakdownData = event.budget_breakdown;
+      // Check if it's the full structure (has categories/breakdown keys)
+      if (breakdownData.categories && breakdownData.breakdown) {
+        setBudgetData({
+          totalBudget: event.budget || 0,
+          categories: breakdownData.categories,
+          breakdown: breakdownData.breakdown,
+          percentages: breakdownData.percentages || []
+        });
+      } else {
+        // Legacy: Convert budget_breakdown object (dictionary) to the format
+        const categories = Object.keys(breakdownData);
+        const percentages = categories.map(cat => breakdownData[cat]?.percentage || 0);
 
-      setBudgetData({
-        totalBudget: event.budget || 0,
-        categories,
-        breakdown,
-        percentages
-      });
+        setBudgetData({
+          totalBudget: event.budget || 0,
+          categories,
+          breakdown: breakdownData,
+          percentages
+        });
+      }
     } else {
       setBudgetData(null);
     }
@@ -438,7 +450,7 @@ window.AdminEventsManager = function AdminEventsManager({ eventIdToOpen }) {
         activities: formData.activities || [],
         budget_breakdown: filteredBudgetBreakdown,
 
-        additional_resources: checkedResources || []
+        additional_resources: formData.additionalResources || []
       };
 
       console.log('=== Saving Event Data ===');
@@ -528,109 +540,42 @@ window.AdminEventsManager = function AdminEventsManager({ eventIdToOpen }) {
             .join(', ')
           : '';
 
+        // Identify equipment and resources
+        const rawEquipment = aiData.equipment || aiData.resources || [];
+        // Fix: Normalize equipment strings to objects so EventFormModal can render .name
+        const equipment = rawEquipment.map(item => {
+          return typeof item === 'string' ? { name: item, quantity: 1 } : item;
+        });
+
+        // Filter additional resources to remove any items that are already in equipment
+        const rawResources = aiData.additionalResources || [];
+        const additionalResources = rawResources.filter(r => {
+          const rName = typeof r === 'string' ? r : r.name;
+          return !equipment.some(e => e.name === rName);
+        });
+
         setAiSuggestions({
           success: true,
           confidence: aiData.confidence,
           estimatedBudget: aiData.estimatedBudget,
-          budgetBreakdown: breakdownStr, // Passed as formatted string
-          suggestedAttendees: aiData.suggestedAttendees // Store for proportional calculation
+          budgetBreakdown: aiData.budgetBreakdown, // Store FULL Object for sidebar
+          timeline: aiData.timeline || [],
+          equipmentSuggestions: equipment, // Now guaranteed to be objects with .name
+          additionalResources: additionalResources, // Fix: Use filtered resources
+          description: aiData.description,
+          suggestedAttendees: aiData.suggestedAttendees,
+          eventType: aiData.eventType
         });
 
-        // --- 2. Update Form Data (Auto-fill) ---
-        const totalBudget = aiData.estimatedBudget || 50000;
-
-        let updatedFormData = {
-          ...formData,
-          description: aiData.description || formData.description,
-          attendees: aiData.suggestedAttendees || formData.attendees,
-          budget: totalBudget
-        };
-
-        if (aiData.resources && aiData.resources.length > 0) {
-          // Add AI-suggested equipment to existing selections, avoiding duplicates
-          const existingEquipment = updatedFormData.equipment || [];
-          const combinedEquipment = [...new Set([...existingEquipment, ...aiData.resources])];
-          updatedFormData = { ...updatedFormData, equipment: combinedEquipment };
-        }
-
-        if (aiData.additionalResources && aiData.additionalResources.length > 0) {
-          // Set AI-suggested additional resources
-          updatedFormData = { ...updatedFormData, additionalResources: aiData.additionalResources };
-        }
-
+        // FIX: Automatically update the accepted event type if it differs and confidence is adequate
         if (aiData.eventType && aiData.eventType !== formData.type) {
-          updatedFormData = { ...updatedFormData, type: aiData.eventType };
+          console.log(`[Auto-Fill] Auto-switching type from ${formData.type} to ${aiData.eventType}`);
+          setFormData(prev => ({
+            ...prev,
+            type: aiData.eventType
+          }));
         }
 
-        // --- 3. Set Child Component Data ---
-        // Budget Breakdown Logic (Matching your original)
-        const budgetBreakdown = aiData.budgetBreakdown || {};
-        const categories = Object.keys(budgetBreakdown);
-        const breakdown = {};
-        const percentages = [];
-        let totalPercentage = 0;
-
-        categories.forEach(cat => {
-          const catData = budgetBreakdown[cat] || {};
-          const percentage = typeof catData === 'object' ? catData.percentage || 0 : catData;
-          totalPercentage += percentage;
-          const amount = Math.round((totalBudget * percentage) / 100);
-          breakdown[cat] = { percentage: percentage, amount: amount };
-          percentages.push(percentage);
-        });
-
-        // Normalize logic
-        if (totalPercentage > 100) {
-          const normalizedBreakdown = {};
-          const normalizedPercentages = [];
-          categories.forEach(cat => {
-            const normalizedPct = Math.round((breakdown[cat].percentage / totalPercentage) * 100);
-            const amount = Math.round((totalBudget * normalizedPct) / 100);
-            normalizedBreakdown[cat] = { percentage: normalizedPct, amount: amount };
-            normalizedPercentages.push(normalizedPct);
-          });
-          setBudgetData({
-            totalBudget: totalBudget,
-            categories: categories,
-            breakdown: normalizedBreakdown,
-            percentages: normalizedPercentages
-          });
-        } else {
-          setBudgetData({
-            totalBudget: totalBudget,
-            categories: categories,
-            breakdown: breakdown,
-            percentages: percentages
-          });
-        }
-
-        setResourceData({
-          checklist: {
-            'Equipment': (aiData.equipment || aiData.resources || []).map(r => ({ name: r, status: 'available' })),
-            'Additional Resources': (aiData.additionalResources || []).map(r => ({ name: r, status: 'available' }))
-          }
-        });
-
-        setTimelineData({ timeline: aiData.timeline || [] });
-
-        // Map timeline to form activities
-        if (aiData.timeline && aiData.timeline.length > 0) {
-          const firstPhase = aiData.timeline[0];
-          const lastPhase = aiData.timeline[aiData.timeline.length - 1];
-          updatedFormData = {
-            ...updatedFormData,
-            startTime: firstPhase.startTime,
-            endTime: lastPhase.endTime,
-            activities: aiData.timeline.map(t => `${t.startTime} - ${t.endTime}: ${t.phase}`)
-          };
-        } else if (aiData.activities && aiData.activities.length > 0) {
-          updatedFormData = {
-            ...updatedFormData,
-            activities: aiData.activities
-          };
-        }
-
-        setFormData(updatedFormData);
 
         // AI suggestions will be shown in side panel, no need to force tab switch
         // User can navigate tabs freely while viewing AI suggestions
@@ -682,41 +627,9 @@ window.AdminEventsManager = function AdminEventsManager({ eventIdToOpen }) {
     }
   };
 
-  const handleExportPDF = async (eventId) => {
-    try {
-      const response = await fetch(`/api/events/${eventId}/export-pdf`, {
-        method: 'GET',
-        credentials: 'include'
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to generate PDF');
-      }
-
-      // Get the filename from Content-Disposition header or use default
-      const contentDisposition = response.headers.get('Content-Disposition');
-      let filename = `Event_Guideline_${eventId}.pdf`;
-      if (contentDisposition) {
-        const filenameMatch = contentDisposition.match(/filename="?(.+)"?/);
-        if (filenameMatch) {
-          filename = filenameMatch[1];
-        }
-      }
-
-      // Download the PDF
-      const blob = await response.blob();
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = filename;
-      document.body.appendChild(a);
-      a.click();
-      window.URL.revokeObjectURL(url);
-      document.body.removeChild(a);
-    } catch (error) {
-      console.error('PDF export error:', error);
-      alert('Failed to export PDF. Please try again.');
-    }
+  const handleExportPDF = (eventId) => {
+    // Open in new tab with preview=true to view inline
+    window.open(`/api/events/${eventId}/export-pdf?preview=true`, '_blank');
   };
 
   const toggleEquipment = (item) => {
@@ -948,6 +861,13 @@ window.AdminEventsManager = function AdminEventsManager({ eventIdToOpen }) {
                         📄 PDF
                       </button>
                       <button
+                        onClick={() => window.openEventAttendance && window.openEventAttendance(event.id)}
+                        className="px-2.5 py-1.5 text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors border border-transparent hover:border-emerald-200 text-xs font-medium"
+                        title="Attendance List"
+                      >
+                        👥 Attendance
+                      </button>
+                      <button
                         onClick={() => setSelectedEventHistory(event.id)}
                         className="px-2.5 py-1.5 text-slate-600 hover:bg-slate-100 rounded-lg transition-colors border border-transparent hover:border-slate-200 text-xs font-medium"
                         title="History"
@@ -982,6 +902,11 @@ window.AdminEventsManager = function AdminEventsManager({ eventIdToOpen }) {
           </div>
         </div>
       )}
+
+      {/* Attendance Modal - DEPRECATED: Now using dedicated tab */}
+      {/* {selectedEventAttendance && (
+        window.AttendanceModal && <AttendanceModal eventId={selectedEventAttendance} onClose={() => setSelectedEventAttendance(null)} />
+      )} */}
 
       {/* Modal Overlay */}
       {showModal && (

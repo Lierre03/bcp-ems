@@ -1,0 +1,60 @@
+DEBUG: About to register blueprints
+DEBUG: Attendance blueprint registered
+DEBUG: Auth blueprint registered
+DEBUG: Events blueprint registered
+DEBUG: Feedback blueprint registered
+DEBUG: Registration blueprint registered
+DEBUG: ML blueprint registered
+DEBUG: Venues blueprint registered
+DEBUG: Users blueprint registered
+DEBUG: Notifications blueprint registered
+DEBUG: Analytics blueprint registered
+================================================================================
+SCHOOL EVENT MANAGEMENT SYSTEM - REBUILD
+================================================================================
+Server starting on http://localhost:5001
+Admin Dashboard: http://localhost:5001/admin
+================================================================================
+ * Serving Flask app 'app'
+ * Debug mode: on
+2026-01-06 20:57:56,522 - werkzeug - INFO - [31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
+ * Running on all addresses (0.0.0.0)
+ * Running on http://127.0.0.1:5001
+ * Running on http://192.168.100.18:5001
+2026-01-06 20:57:56,522 - werkzeug - INFO - [33mPress CTRL+C to quit[0m
+2026-01-06 20:57:56,523 - werkzeug - INFO -  * Restarting with stat
+2026-01-06 20:57:57,649 - werkzeug - WARNING -  * Debugger is active!
+2026-01-06 20:57:57,660 - werkzeug - INFO -  * Debugger PIN: 965-531-348
+2026-01-06 20:58:00,565 - database.db - INFO - Database connection established
+2026-01-06 20:58:00,842 - backend.auth - INFO - User logged in: admin (Role: Super Admin)
+2026-01-06 20:58:00,843 - werkzeug - INFO - 127.0.0.1 - - [06/Jan/2026 20:58:00] "POST /api/auth/login HTTP/1.1" 200 -
+2026-01-06 20:58:00,866 - werkzeug - INFO - 127.0.0.1 - - [06/Jan/2026 20:58:00] "GET /api/analytics/dashboard HTTP/1.1" 200 -
+2026-01-06 20:58:19,285 - werkzeug - INFO -  * Detected change in '/home/ivy/Documents/School-Event-Management-Commision/rebuild/insert_dummy_feedback.py', reloading
+DEBUG: About to register blueprints
+DEBUG: Attendance blueprint registered
+DEBUG: Auth blueprint registered
+DEBUG: Events blueprint registered
+DEBUG: Feedback blueprint registered
+DEBUG: Registration blueprint registered
+DEBUG: ML blueprint registered
+DEBUG: Venues blueprint registered
+DEBUG: Users blueprint registered
+DEBUG: Notifications blueprint registered
+DEBUG: Analytics blueprint registered
+================================================================================
+SCHOOL EVENT MANAGEMENT SYSTEM - REBUILD
+================================================================================
+Server starting on http://localhost:5001
+Admin Dashboard: http://localhost:5001/admin
+================================================================================
+DEBUG: Login attempt - username: admin
+DEBUG: Database connection established
+DEBUG: User query result: {'id': 1, 'username': 'admin', 'email': 'admin@school.edu', 'password_hash': '$2b$12$fnmWD9TvM.Gpr..PiwVTROJpKXFLulWPed4dfMEHfos12wSVY5Ik6', 'first_name': 'System', 'last_name': 'Administrator', 'is_active': 1, 'department': None, 'account_status': 'Approved', 'role_id': 1, 'role_name': 'Super Admin'}
+DEBUG: About to verify password
+DEBUG: Password verified, creating session
+DEBUG: Session created successfully
+2026-01-06 20:58:19,914 - werkzeug - INFO -  * Restarting with stat
+2026-01-06 20:58:21,933 - werkzeug - WARNING -  * Debugger is active!
+2026-01-06 20:58:21,935 - werkzeug - INFO -  * Debugger PIN: 965-531-348
+2026-01-06 20:58:21,980 - database.db - INFO - Database connection established
+2026-01-06 20:58:21,993 - werkzeug - INFO - 127.0.0.1 - - [06/Jan/2026 20:58:21] "GET /api/analytics/dashboard HTTP/1.1" 200 -

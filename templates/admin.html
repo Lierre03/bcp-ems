@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -14,9 +15,22 @@
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr@4.6.13/dist/flatpickr.min.css">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        html, body, #root { width: 100%; height: 100%; }
-        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif; }
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        html,
+        body,
+        #root {
+            width: 100%;
+            height: 100%;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+        }
 
         /* Flatpickr Custom Styling */
         .flatpickr-input {
@@ -45,7 +59,7 @@
         }
 
         .flatpickr-calendar {
-            box-shadow: 0 10px 25px rgba(0,0,0,0.1) !important;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1) !important;
             border-radius: 8px !important;
             border: none !important;
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
@@ -67,24 +81,25 @@
         }
     </style>
 </head>
+
 <body>
     <div id="root"></div>
-    
+
     <!-- Authentication utilities -->
     <script src="/static/js/auth.js"></script>
-    
+
     <!-- Combined components script - all in one block to share scope -->
     <script type="text/babel">
         // Include all components inline so they share scope
     </script>
-    
+
     <script type="text/babel" src="/static/js/components/StatusBadge.js"></script>
     <script type="text/babel" src="/static/js/components/SmartBudgetBreakdown.js"></script>
     <script type="text/babel" src="/static/js/components/ResourceRequirementsChecklist.js"></script>
     <script type="text/babel" src="/static/js/components/EventTimelineGenerator.js"></script>
     <script type="text/babel" src="/static/js/components/EventStatusTimeline.js"></script>
     <script type="text/babel" src="/static/js/components/ApprovalActions.js"></script>
-    <script type="text/babel" src="/static/js/components/EventFormModal.js"></script>
+    <script type="text/babel" src="/static/js/components/EventFormModal.js?v=3.5"></script>
     <script type="text/babel" src="/static/js/components/VenueCalendar.js"></script>
     <script type="text/babel" src="/static/js/components/EquipmentInventory.js"></script>
     <script type="text/babel" src="/static/js/components/ConflictResolutionPanel.js"></script>
@@ -97,11 +112,14 @@
     <script type="text/babel" src="/static/js/components/EquipmentApprovalReview.js"></script>
     <script type="text/babel" src="/static/js/components/AnalyticsDashboard.js"></script>
     <script type="text/babel" src="/static/js/components/Sidebar.js"></script>
-    <script type="text/babel" src="/static/js/pages/RescheduleEvent.js"></script>
+    <script type="text/babel" src="/static/js/components/ApprovalActions.js?v=2.8"></script>
+    <script type="text/babel" src="/static/js/AdminEventsManager.js?v=3.5"></script>
+    <script type="text/babel" src="/static/js/components/DepartmentFeedback.js?v=2.8"></script>
     <script type="text/babel" src="/static/js/ResourceManagement.js"></script>
-    <script type="text/babel" src="/static/js/AdminEventsManager.js"></script>
-    <script type="text/babel" src="/static/js/AdminDashboard.js"></script>
-    
+    <script type="text/babel" src="/static/js/pages/RescheduleEvent.js"></script>
+    <script type="text/babel" src="/static/js/components/AttendanceDashboard.js"></script>
+    <script type="text/babel" src="/static/js/AdminDashboard.js?v=2.8"></script>
+
     <!-- Application Initialization -->
     <script type="text/babel">
         // Authentication check on page load
@@ -112,4 +130,5 @@
         root.render(<AdminDashboard />);
     </script>
 </body>
+
 </html>

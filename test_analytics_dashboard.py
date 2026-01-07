@@ -115,6 +115,18 @@ def test_analytics():
         print(f"\n📊 FEEDBACK BY EVENT TYPE:")
         for type_data in feedback_by_type:
             print(f"  • {type_data['event_type']}: {type_data['avg_rating']:.2f}/5 ({type_data['count']} responses)")
+
+    # Feedback Per Event (New Feature)
+    per_event = data.get('feedback_per_event', []) # Wait, I stuck it inside 'feedback' object in my implementation
+    feedback_data = data.get('feedback', {})
+    per_event = feedback_data.get('per_event', [])
+    
+    if per_event:
+        print(f"\n📝 RECENT EVENT FEEDBACK (New Feature):")
+        for event in per_event:
+            print(f"  • {event['name']} ({event['start_datetime']}): {event['avg_rating']:.1f}/5 ({event['response_count']} responses)")
+    else:
+        print(f"\n⚠️ No recent event feedback found (or field missing)")
     
     print("\n" + "="*70)
     print("✅ Analytics Dashboard Test Completed Successfully!")

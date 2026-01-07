@@ -14,6 +14,18 @@ const RescheduleEvent = () => {
   const [loadingSuggestions, setLoadingSuggestions] = React.useState(false);
   const [appliedSuggestion, setAppliedSuggestion] = React.useState(null);
 
+  // Get eventId from URL hash
+  const getEventId = () => {
+    const hash = window.location.hash;
+    if (hash.startsWith('#/reschedule/')) {
+      return hash.split('/')[2];
+    }
+    return null;
+  };
+
+  const eventId = getEventId();
+
+
   // Helper function to format date as "Month Day, Year"
   const formatDate = (dateString) => {
     if (!dateString) return '';
@@ -477,5 +489,6 @@ const RescheduleEvent = () => {
     );
 };
 
-// Export to global scope
+// Export to window
+window.RescheduleEvent = RescheduleEvent;
 window.RescheduleEvent = RescheduleEvent;

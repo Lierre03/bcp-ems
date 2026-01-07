@@ -20,7 +20,7 @@ registration_bp = Blueprint('registration', __name__, url_prefix='/api/registrat
 # ============================================================================
 
 @registration_bp.route('/register/<int:event_id>', methods=['POST'])
-@require_role(['Participant'])
+@require_role(['Participant', 'Student', 'Student Organization Officer'])
 def register_for_event(event_id):
     """
     Register current user for an event
@@ -103,7 +103,7 @@ def register_for_event(event_id):
 
 
 @registration_bp.route('/unregister/<int:event_id>', methods=['POST'])
-@require_role(['Participant'])
+@require_role(['Participant', 'Student', 'Student Organization Officer'])
 def unregister_from_event(event_id):
     """
     Unregister/cancel registration for an event
@@ -143,7 +143,7 @@ def unregister_from_event(event_id):
 
 
 @registration_bp.route('/my-registrations', methods=['GET'])
-@require_role(['Participant'])
+@require_role(['Participant', 'Student', 'Student Organization Officer'])
 def get_my_registrations():
     """
     Get current user's event registrations
@@ -181,7 +181,7 @@ def get_my_registrations():
 
 
 @registration_bp.route('/check-status/<int:event_id>', methods=['GET'])
-@require_role(['Participant'])
+@require_role(['Participant', 'Student', 'Student Organization Officer'])
 def check_registration_status(event_id):
     """
     Check user's registration status for an event

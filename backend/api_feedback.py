@@ -1,4 +1,4 @@
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    # ============================================================================
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        # ============================================================================
 # FEEDBACK API MODULE
 # Event feedback collection, analytics, and management
 # ============================================================================
@@ -20,18 +20,14 @@ feedback_bp = Blueprint('feedback', __name__, url_prefix='/api/feedback')
 # ============================================================================
 
 @feedback_bp.route('/submit/<int:event_id>', methods=['POST'])
-@require_role(['Participant'])
+@require_role(['Participant', 'Student', 'Student Organization Officer'])
 def submit_feedback(event_id):
     """
-    Submit feedback for an attended event
+    Submit comprehensive feedback for an attended event
     POST /api/feedback/submit/123
-    Body: {
-        "overall_rating": 5,
-        "venue_rating": 4,
-        "activities_rating": 5,
-        "organization_rating": 4,
-        "comments": "Great event!..."
-    }
+    Body: includes overall, venue, activities, organization, PLUS
+          registration_process, speaker_effectiveness, content_relevance, net_promoter_score,
+          key_takeaways, future_interest
     """
     try:
         data = request.get_json()
@@ -42,13 +38,27 @@ def submit_feedback(event_id):
             if field not in data:
                 return jsonify({'error': f'Missing required field: {field}'}), 400
 
-        # Validate rating ranges (1-5)
-        rating_fields = ['overall_rating', 'venue_rating', 'activities_rating', 'organization_rating']
+        # Validate standard rating ranges (1-5)
+        rating_fields = ['overall_rating', 'venue_rating', 'activities_rating', 'organization_rating', 
+                         'registration_process', 'speaker_effectiveness', 'content_relevance']
         for field in rating_fields:
-            if field in data:
+            if field in data and data[field] is not None:
                 rating = data[field]
-                if not isinstance(rating, int) or rating < 1 or rating > 5:
-                    return jsonify({'error': f'{field} must be an integer between 1 and 5'}), 400
+                try:
+                    rating = int(rating)
+                    if rating < 1 or rating > 5:
+                        return jsonify({'error': f'{field} must be between 1 and 5'}), 400
+                except (ValueError, TypeError):
+                     return jsonify({'error': f'{field} must be an integer'}), 400
+
+        # Validate NPS (0-10)
+        if 'net_promoter_score' in data and data['net_promoter_score'] is not None:
+             try:
+                nps = int(data['net_promoter_score'])
+                if nps < 0 or nps > 10:
+                    return jsonify({'error': 'Net Promoter Score must be between 0 and 10'}), 400
+             except (ValueError, TypeError):
+                return jsonify({'error': 'NPS must be an integer'}), 400
 
         # Check if user attended this event
         db = get_db()
@@ -60,7 +70,7 @@ def submit_feedback(event_id):
         if not attendance:
             return jsonify({'error': 'You must attend the event before submitting feedback'}), 403
 
-        # Check if event has ended (allow feedback for past events)
+        # Check if event has ended
         event = db.execute_one(
             "SELECT end_datetime FROM events WHERE id = %s AND status IN ('Completed', 'Ongoing')",
             (event_id,)
@@ -82,11 +92,17 @@ def submit_feedback(event_id):
             # Update existing feedback
             update_fields = []
             params = []
+            
+            all_fields = [
+                'overall_rating', 'venue_rating', 'activities_rating', 'organization_rating',
+                'registration_process', 'speaker_effectiveness', 'content_relevance', 
+                'net_promoter_score', 'key_takeaways', 'future_interest', 'comments'
+            ]
 
-            for field in ['overall_rating', 'venue_rating', 'activities_rating', 'organization_rating', 'comments']:
+            for field in all_fields:
                 if field in data:
                     update_fields.append(f"{field} = %s")
-                    params.append(data[field])
+                    params.append(data.get(field))
 
             params.append(event_id)
             params.append(session['user_id'])
@@ -99,12 +115,17 @@ def submit_feedback(event_id):
 
         else:
             # Insert new feedback
-            query = """
-                INSERT INTO event_feedback (
-                    event_id, user_id, overall_rating, venue_rating,
-                    activities_rating, organization_rating, comments
-                ) VALUES (%s, %s, %s, %s, %s, %s, %s)
-            """
+            fields = [
+                'event_id', 'user_id', 'overall_rating', 'venue_rating',
+                'activities_rating', 'organization_rating', 'comments',
+                'registration_process', 'speaker_effectiveness', 'content_relevance', 
+                'net_promoter_score', 'key_takeaways', 'future_interest'
+            ]
+            
+            placeholders = ', '.join(['%s'] * len(fields))
+            columns = ', '.join(fields)
+            
+            query = f"INSERT INTO event_feedback ({columns}) VALUES ({placeholders})"
 
             db.execute_insert(query, (
                 event_id,
@@ -113,7 +134,13 @@ def submit_feedback(event_id):
                 data.get('venue_rating'),
                 data.get('activities_rating'),
                 data.get('organization_rating'),
-                data.get('comments', '')
+                data.get('comments', ''),
+                data.get('registration_process'),
+                data.get('speaker_effectiveness'),
+                data.get('content_relevance'),
+                data.get('net_promoter_score'),
+                data.get('key_takeaways', ''),
+                data.get('future_interest') # Boolean or None
             ))
 
             logger.info(f"Feedback submitted: Event {event_id}, User {session['username']}")
@@ -125,7 +152,7 @@ def submit_feedback(event_id):
 
 
 @feedback_bp.route('/my-feedback', methods=['GET'])
-@require_role(['Participant'])
+@require_role(['Participant', 'Student', 'Student Organization Officer'])
 def get_my_feedback():
     """
     Get user's own feedback history
@@ -147,7 +174,12 @@ def get_my_feedback():
         # Format the results
         for feedback in feedback_list:
             # Convert ratings to integers
-            rating_fields = ['overall_rating', 'venue_rating', 'activities_rating', 'organization_rating']
+            # Convert ratings to integers
+            rating_fields = [
+                'overall_rating', 'venue_rating', 'activities_rating', 'organization_rating',
+                'registration_process', 'speaker_effectiveness', 'content_relevance', 
+                'net_promoter_score'
+            ]
             for field in rating_fields:
                 if feedback.get(field) is not None:
                     feedback[field] = int(feedback[field])
@@ -257,6 +289,149 @@ def get_event_feedback(event_id):
         logger.error(f"Get event feedback error: {e}")
         return jsonify({'error': 'Failed to retrieve event feedback'}), 500
 
+@feedback_bp.route('/department', methods=['GET'])
+@require_role(['Super Admin', 'Admin'])
+def get_department_feedback():
+    """
+    Get all feedback for events in the user's department
+    GET /api/feedback/department
+    """
+    try:
+        db = get_db()
+        user_role = session.get('role_name')
+        user_dept = session.get('department')
+        print(f"DEBUG: Feedback Request - Role: {user_role}, Dept: {user_dept}")
+        
+        # Super Admin sees all
+        dept_condition = ""
+        params = []
+        
+        if user_role != 'Super Admin':
+            if not user_dept:
+                return jsonify({'success': True, 'feedback': []}), 200 # No department assigned
+            
+            # Special case for IT Department (sees BSIT, BSCS, BSIS)
+            if user_dept == 'IT Department':
+                 dept_condition = "AND (e.organizing_department = %s OR e.organizing_department IN ('BSIT', 'BSCS', 'BSIS'))"
+                 params.append(user_dept)
+            else:
+                 dept_condition = "AND e.organizing_department = %s"
+                 params.append(user_dept)
+
+        query = """
+            SELECT f.*, e.name as event_name, e.start_datetime, e.end_datetime,
+                   u.first_name, u.last_name, u.username
+            FROM event_feedback f
+            JOIN events e ON f.event_id = e.id
+            JOIN users u ON f.user_id = u.id
+            WHERE e.deleted_at IS NULL
+            {}
+            ORDER BY f.created_at DESC
+        """.format(dept_condition)
+
+        feedback_list = db.execute_query(query, tuple(params))
+
+        # Aggregate results by event
+        events_map = {}
+        
+        for f in feedback_list:
+            eid = f['event_id']
+            if eid not in events_map:
+                events_map[eid] = {
+                    'event_id': eid,
+                    'event_name': f['event_name'],
+                    'start_datetime': f['start_datetime'],
+                    'end_datetime': f['end_datetime'],
+                    'venue': f.get('venue', ''), # Ensure venue exists in query if needed
+                    'response_count': 0,
+                    'ratings_sum': {
+                        'overall': 0, 'venue': 0, 'activities': 0, 'organization': 0,
+                        'registration': 0, 'speakers': 0, 'content': 0
+                    },
+                    'ratings_count': {
+                         'overall': 0, 'venue': 0, 'activities': 0, 'organization': 0,
+                         'registration': 0, 'speakers': 0, 'content': 0
+                    },
+                    'comments': []
+                }
+            
+            event = events_map[eid]
+            event['response_count'] += 1
+            
+            # Collect Rating Stats
+            rating_map = {
+                'overall': 'overall_rating', 'venue': 'venue_rating', 
+                'activities': 'activities_rating', 'organization': 'organization_rating',
+                'registration': 'registration_process', 'speakers': 'speaker_effectiveness',
+                'content': 'content_relevance'
+            }
+            
+            for key, db_col in rating_map.items():
+                val = f.get(db_col)
+                if val is not None:
+                    try:
+                        val = int(val)
+                        event['ratings_sum'][key] += val
+                        event['ratings_count'][key] += 1
+                    except (ValueError, TypeError):
+                        pass
+
+            # Collect Comment
+            if f.get('comments'):
+                event['comments'].append({
+                    'user': "Student", # Anonymized for privacy
+                    # 'username': f['username'], # Removed for privacy
+                    'text': f['comments'],
+                    'rating': int(f['overall_rating']) if f.get('overall_rating') else None,
+                    'date': f['created_at'].strftime('%Y-%m-%d') if f.get('created_at') else None
+                })
+
+        # Calculate Averages and Final List
+        aggregated_list = []
+        for eid, event in events_map.items():
+            final_event = {
+                'event_id': event['event_id'],
+                'event_name': event['event_name'],
+                'start_datetime': event['start_datetime'],
+                'end_datetime': event['end_datetime'],
+                'response_count': event['response_count'],
+                'comments': event['comments']
+            }
+            
+            # Compute avgs
+            for key in event['ratings_sum']:
+                count = event['ratings_count'][key]
+                if count > 0:
+                    final_event[f'{key}_rating'] = round(event['ratings_sum'][key] / count, 1)
+                else:
+                    final_event[f'{key}_rating'] = None # Or 0
+            
+            # Map specific keys for frontend compatibility
+            final_event['overall_rating'] = final_event['overall_rating']
+            final_event['venue_rating'] = final_event['venue_rating']
+            final_event['activities_rating'] = final_event['activities_rating']
+            final_event['organization_rating'] = final_event['organization_rating']
+            final_event['speaker_effectiveness'] = final_event['speakers_rating']
+            final_event['content_relevance'] = final_event['content_rating']
+            final_event['registration_process'] = final_event['registration_rating']
+
+            # Date Formatting
+            if final_event.get('start_datetime'):
+                 # Ensure it's treated as string/iso for JSON
+                 pass 
+
+            aggregated_list.append(final_event)
+
+        return jsonify({
+            'success': True,
+            'feedback': aggregated_list,
+            'department': user_dept if user_role != 'Super Admin' else 'All'
+        }), 200
+
+    except Exception as e:
+        logger.error(f"Get department feedback error: {e}")
+        return jsonify({'error': 'Failed to retrieve department feedback'}), 500
+
 
 @feedback_bp.route('/analytics/overview', methods=['GET'])
 @require_role(['Super Admin', 'Admin'])
@@ -323,7 +498,7 @@ def get_feedback_analytics():
 
 
 @feedback_bp.route('/check-eligibility/<int:event_id>', methods=['GET'])
-@require_role(['Participant'])
+@require_role(['Participant', 'Student', 'Student Organization Officer'])
 def check_feedback_eligibility(event_id):
     """
     Check if user can submit feedback for an event
@@ -389,7 +564,7 @@ def check_feedback_eligibility(event_id):
 
 
 @feedback_bp.route('/pending', methods=['GET'])
-@require_role(['Participant'])
+@require_role(['Participant', 'Student', 'Student Organization Officer'])
 def get_pending_feedback():
     """
     Get events that need feedback from the student
@@ -412,7 +587,7 @@ def get_pending_feedback():
             WHERE ea.user_id = %s
               AND e.status IN ('Completed', 'Ongoing')
               AND e.deleted_at IS NULL
-              AND (f.id IS NULL OR (f.can_edit = TRUE AND f.created_at > DATE_SUB(NOW(), INTERVAL 24 HOUR)))
+              AND (f.id IS NULL)
             ORDER BY e.end_datetime DESC
         """
 

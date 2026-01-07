@@ -8,6 +8,10 @@ window.UserManagement = function UserManagement() {
   const [filterRole, setFilterRole] = useState('all');
   const [showModal, setShowModal] = useState(false);
   const [editingUser, setEditingUser] = useState(null);
+  // Success Modal State
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [successMessage, setSuccessMessage] = useState('');
+
   const [formData, setFormData] = useState({
     username: '',
     full_name: '',
@@ -19,6 +23,12 @@ window.UserManagement = function UserManagement() {
 
   const roles = ['Super Admin', 'Admin', 'Staff', 'Student Organization Officer', 'Participant'];
 
+  // Helper to handle success
+  const handleSuccess = (message) => {
+    setSuccessMessage(message);
+    setShowSuccessModal(true);
+    loadUsers();
+  };
   useEffect(() => {
     loadUsers();
   }, []);
@@ -102,9 +112,12 @@ window.UserManagement = function UserManagement() {
 
       const data = await res.json();
       if (data.success) {
-        alert(editingUser ? 'User updated successfully' : 'User created successfully');
+        let msg = editingUser ? 'User updated successfully' : 'User created successfully';
+        if (data.email_sent) {
+          msg += '. Notification email sent.';
+        }
+        handleSuccess(msg);
         setShowModal(false);
-        loadUsers();
       } else {
         alert(data.message || 'Failed to save user');
       }
@@ -128,7 +141,7 @@ window.UserManagement = function UserManagement() {
       });
       const data = await res.json();
       if (data.success) {
-        loadUsers();
+        handleSuccess(data.message || 'Status updated successfully');
       } else {
         alert(data.message || 'Failed to update status');
       }
@@ -150,7 +163,7 @@ window.UserManagement = function UserManagement() {
       });
       const data = await res.json();
       if (data.success) {
-        alert('Password reset successfully');
+        handleSuccess('Password reset successfully');
       } else {
         alert(data.message || 'Failed to reset password');
       }
@@ -172,8 +185,7 @@ window.UserManagement = function UserManagement() {
       const data = await res.json();
 
       if (data.success) {
-        alert('User deleted successfully');
-        loadUsers();
+        handleSuccess('User deleted successfully');
       } else {
         alert(data.message || 'Failed to delete user');
       }
@@ -466,6 +478,29 @@ window.UserManagement = function UserManagement() {
                 className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm font-semibold transition disabled:opacity-50"
               >
                 {loading ? 'Saving...' : editingUser ? 'Update User' : 'Create User'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* Success Modal */}
+      {showSuccessModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[70] p-4">
+          <div className="bg-white rounded-xl shadow-xl max-w-sm w-full transform transition-all scale-100 overflow-hidden">
+            <div className="p-6 text-center">
+              <div className="mx-auto flex items-center justify-center h-16 w-16 rounded-full bg-blue-100 mb-6">
+                <svg className="h-8 w-8 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
+                </svg>
+              </div>
+              <h3 className="text-xl font-bold text-slate-900 mb-2">Success!</h3>
+              <p className="text-slate-600 mb-8">{successMessage}</p>
+              <button
+                type="button"
+                className="w-full inline-flex justify-center rounded-lg border border-transparent shadow-sm px-4 py-2.5 bg-blue-600 text-base font-semibold text-white hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors"
+                onClick={() => setShowSuccessModal(false)}
+              >
+                Okay, got it
               </button>
             </div>
           </div>

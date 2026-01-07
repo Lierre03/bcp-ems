@@ -1,0 +1,147 @@
+{
+  "data": {
+    "attendance": {
+      "attendance_rate": 40.0,
+      "late_count": 0,
+      "present_count": 2,
+      "total_attendees": 2,
+      "total_registrations": 5
+    },
+    "budget": {
+      "average": 11250.0,
+      "completed": 13000.0,
+      "max": 18500.0,
+      "min": 5000.0,
+      "total": 67500.0
+    },
+    "department_distribution": [
+      {
+        "count": 4,
+        "department": "BSIT"
+      },
+      {
+        "count": 1,
+        "department": "General"
+      },
+      {
+        "count": 1,
+        "department": "Science Department"
+      },
+      {
+        "count": 1,
+        "department": "IT Department"
+      }
+    ],
+    "feedback": {
+      "avg_activities": 0,
+      "avg_organization": 0,
+      "avg_overall": 0,
+      "avg_venue": 0,
+      "by_type": [
+        {
+          "avg_rating": "5.0000",
+          "event_type": "Cultural",
+          "feedback_count": 1
+        }
+      ],
+      "per_event": [
+        {
+          "avg_rating": "5.0000",
+          "id": 25,
+          "name": "Christmas Celebration 2025",
+          "response_count": 1,
+          "start_datetime": "Sat, 20 Dec 2025 13:00:00 GMT"
+        }
+      ],
+      "total_feedback": 0
+    },
+    "status_distribution": [
+      {
+        "count": 1,
+        "status": "Pending"
+      },
+      {
+        "count": 1,
+        "status": "Under Review"
+      },
+      {
+        "count": 1,
+        "status": "Approved"
+      },
+      {
+        "count": 1,
+        "status": "Rejected"
+      },
+      {
+        "count": 2,
+        "status": "Completed"
+      },
+      {
+        "count": 1,
+        "status": "Conflict_Rejected"
+      }
+    ],
+    "top_venues": [
+      {
+        "usage_count": 2,
+        "venue": "Computer Laboratory & Auditorium"
+      },
+      {
+        "usage_count": 2,
+        "venue": "Main Auditorium"
+      },
+      {
+        "usage_count": 1,
+        "venue": "School Gymnasium"
+      },
+      {
+        "usage_count": 1,
+        "venue": "Computer Lab A"
+      },
+      {
+        "usage_count": 1,
+        "venue": "Gymnasium"
+      }
+    ],
+    "trends": {
+      "monthly": [
+        {
+          "event_count": 1,
+          "month": "2025-12",
+          "total_attendees": "250"
+        },
+        {
+          "event_count": 3,
+          "month": "2026-01",
+          "total_attendees": "160"
+        },
+        {
+          "event_count": 2,
+          "month": "2026-02",
+          "total_attendees": "680"
+        },
+        {
+          "event_count": 1,
+          "month": "2026-03",
+          "total_attendees": "250"
+        }
+      ],
+      "upcoming_events": 1
+    },
+    "type_distribution": [
+      {
+        "count": 2,
+        "event_type": "Academic"
+      },
+      {
+        "count": 1,
+        "event_type": "Cultural"
+      },
+      {
+        "count": 4,
+        "event_type": "Workshop"
+      }
+    ]
+  },
+  "success": true
+}

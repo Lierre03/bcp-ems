@@ -380,9 +380,11 @@ def train_models():
 
         # --- 4. Train Event Classifier (TF-IDF + Logistic Regression) ---
         if 'event_name' in df.columns:
-            vectorizer = TfidfVectorizer(max_features=1000, stop_words='english')
-            # Use Random Forest for better confidence on small datasets
-            classifier = RandomForestClassifier(n_estimators=100, random_state=42)
+            vectorizer = TfidfVectorizer(max_features=1000, stop_words='english', ngram_range=(1, 2))
+        if 'event_name' in df.columns:
+            vectorizer = TfidfVectorizer(max_features=1000, stop_words='english', ngram_range=(1, 2))
+            # Use LogisticRegression which often works better for small text datasets
+            classifier = LogisticRegression(random_state=42, class_weight='balanced', max_iter=1000)
             
             X_text = vectorizer.fit_transform(df['event_name'])
             y_type = df['event_type']
@@ -540,7 +542,17 @@ def predict_resources():
                     probs = classifier.predict_proba(text_vec)[0]
                     type_confidence = round(max(probs) * 100, 1)  # Round to 1 decimal place
                     predictions['confidence'] = type_confidence
-                    print(f"[TYPE ML] Event type classification confidence: {type_confidence:.1f}%")
+                    
+                    # FIX: Actually USE the predicted event type if confidence is good
+                    predicted_class_index = probs.argmax()
+                    predicted_type = classifier.classes_[predicted_class_index]
+                    
+                    if type_confidence > 40.0:  # Threshold to override user input/default
+                        print(f"[TYPE ML] 🚀 overriding event type to: {predicted_type}")
+                        predictions['eventType'] = predicted_type
+                        event_type = predicted_type  # Update local var for subsequent lookups
+                        type_mapping = {'Academic': 0, 'Sports': 1, 'Cultural': 2, 'Workshop': 3, 'Seminar': 4}
+                        event_type_encoded = type_mapping.get(event_type, 0)
         except Exception as e:
             print(f"[TYPE ML] Could not get type confidence: {e}")
 
@@ -637,6 +649,51 @@ def predict_resources():
                 'Cultural': ['Stage', 'Sound System', 'Microphone', 'Lighting']
             }
             predictions['resources'] = defaults.get(event_type, ['Projector'])
+
+        # ========================================================================
+        # STEP 2.5: ADDITIONAL RESOURCES PREDICTION - Learn from ALL events
+        # ========================================================================
+        print(f"\n[ADDITIONAL RL] Learning additional resource patterns...")
+        
+        try:
+            # Collect ALL additional resources
+            all_additional_counts = {}
+            type_additional_counts = {}
+            
+            for idx, row in df.iterrows():
+                res_list = row.get('additional_resources_list', [])
+                event_type_row = row.get('event_type', '')
+                
+                for item in res_list:
+                    # Count frequency
+                    all_additional_counts[item] = all_additional_counts.get(item, 0) + 1
+                    
+                    if event_type_row not in type_additional_counts:
+                        type_additional_counts[event_type_row] = {}
+                    type_additional_counts[event_type_row][item] = type_additional_counts[event_type_row].get(item, 0) + 1
+            
+            # Calculate probability
+            additional_probs = {}
+            if event_type in type_additional_counts:
+                type_total_events = len(df[df['event_type'] == event_type])
+                for item, count in type_additional_counts[event_type].items():
+                    probability = count / type_total_events
+                    additional_probs[item] = probability
+            
+            # Select items with >20% probability (lower threshold for extras)
+            predicted_additional = [item for item, prob in additional_probs.items() if prob > 0.2]
+            
+            # Add high-frequency items from ALL events (>40%)
+            for item, count in all_additional_counts.items():
+                if count / len(df) > 0.4 and item not in predicted_additional:
+                    predicted_additional.append(item)
+            
+            predictions['additionalResources'] = predicted_additional
+            print(f"[ADDITIONAL RL] Predicted {len(predicted_additional)} items")
+            
+        except Exception as e:
+            print(f"[ADDITIONAL RL] Error: {e}")
+            predictions['additionalResources'] = []
 
         # ========================================================================
         # STEP 3: BUDGET BREAKDOWN - Learn from TOP 3 similar events ONLY

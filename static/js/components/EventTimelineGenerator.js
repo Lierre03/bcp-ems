@@ -2,12 +2,12 @@
 window.EventTimelineGenerator = function EventTimelineGenerator({ timelineData, onTimelineUpdate, initialEditMode = false }) {
   const [expandedPhase, setExpandedPhase] = React.useState(0);
   const [isEditing, setIsEditing] = React.useState(initialEditMode);
-  
+
   // Initialize editedTimeline immediately if initialEditMode is true
   // If timeline is empty, start with one empty phase for user input
   const getInitialEditedTimeline = () => {
     if (!initialEditMode) return null;
-    
+
     const timeline = timelineData?.timeline || [];
     if (timeline.length === 0) {
       // Return one empty phase if starting with empty timeline
@@ -19,9 +19,21 @@ window.EventTimelineGenerator = function EventTimelineGenerator({ timelineData, 
         duration: 60
       }];
     }
+
+    // Handle legacy string array format
+    if (typeof timeline[0] === 'string') {
+      return timeline.map((item, index) => ({
+        phase: item,
+        description: '',
+        startTime: '09:00', // Default start
+        endTime: '10:00',   // Default end
+        duration: 60
+      }));
+    }
+
     return JSON.parse(JSON.stringify(timeline));
   };
-  
+
   const [editedTimeline, setEditedTimeline] = React.useState(getInitialEditedTimeline());
   const [currentTimeline, setCurrentTimeline] = React.useState(timelineData?.timeline || []);
 
@@ -107,12 +119,12 @@ window.EventTimelineGenerator = function EventTimelineGenerator({ timelineData, 
     }
 
     updated[index] = phase;
-    setEditedTimeline(updated);    
+    setEditedTimeline(updated);
     // Auto-save changes immediately
     setCurrentTimeline(updated);
     if (onTimelineUpdate) {
       onTimelineUpdate({ ...timelineData, timeline: updated });
-    }    
+    }
     // Auto-save changes immediately
     setCurrentTimeline(updated);
     if (onTimelineUpdate) {
@@ -132,7 +144,7 @@ window.EventTimelineGenerator = function EventTimelineGenerator({ timelineData, 
     };
     const updated = [...editedTimeline, newPhase];
     setEditedTimeline(updated);
-    
+
     // Auto-save changes immediately
     setCurrentTimeline(updated);
     if (onTimelineUpdate) {
@@ -145,7 +157,7 @@ window.EventTimelineGenerator = function EventTimelineGenerator({ timelineData, 
     if (!editedTimeline || editedTimeline.length <= 1) return;
     const updated = editedTimeline.filter((_, i) => i !== index);
     setEditedTimeline(updated);
-    
+
     // Auto-save changes immediately
     setCurrentTimeline(updated);
     if (onTimelineUpdate) {
@@ -155,9 +167,23 @@ window.EventTimelineGenerator = function EventTimelineGenerator({ timelineData, 
 
   // Use edited timeline if in edit mode, otherwise use current timeline
   // Fallback to empty array if both are null/undefined
-  const displayTimeline = isEditing 
+  const displayTimeline = isEditing
     ? (editedTimeline || currentTimeline || [])
     : (currentTimeline || []);
+
+  // Normalize displayTimeline for rendering if it contains strings
+  const normalizedTimeline = displayTimeline.map(item => {
+    if (typeof item === 'string') {
+      return {
+        phase: item,
+        description: '',
+        startTime: '09:00',
+        endTime: '10:00',
+        duration: 60
+      };
+    }
+    return item;
+  });
 
   // Convert 24-hour time to 12-hour format with AM/PM
   const formatTime12Hour = (time) => {
@@ -181,7 +207,7 @@ window.EventTimelineGenerator = function EventTimelineGenerator({ timelineData, 
       </div>
       <div className="p-4 bg-gradient-to-b from-slate-50 to-white">
         <div className="space-y-2">
-          {displayTimeline.map((phase, idx) => (
+          {normalizedTimeline.map((phase, idx) => (
             <div key={idx} className="border border-slate-200 rounded overflow-hidden">
               {!isEditing ? (
                 <button onClick={() => setExpandedPhase(expandedPhase === idx ? -1 : idx)} className="w-full px-3 py-2 bg-slate-100 hover:bg-slate-200 transition flex items-center justify-between">
@@ -231,7 +257,7 @@ window.EventTimelineGenerator = function EventTimelineGenerator({ timelineData, 
                   </div>
                   <button
                     onClick={() => removePhase(idx)}
-                    disabled={displayTimeline.length <= 1}
+                    disabled={normalizedTimeline.length <= 1}
                     className="text-red-500 hover:text-red-700 p-1 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
@@ -260,11 +286,11 @@ window.EventTimelineGenerator = function EventTimelineGenerator({ timelineData, 
             </div>
           ))}
         </div>
-        
+
         {/* Add Phase Button */}
         {isEditing && (
           <div className="mt-3">
-            <button 
+            <button
               onClick={addPhase}
               className="w-full py-2.5 px-4 bg-white hover:bg-gray-50 border border-gray-300 hover:border-gray-400 rounded-lg text-gray-700 hover:text-gray-900 font-medium text-sm transition-all flex items-center justify-center gap-2"
             >
