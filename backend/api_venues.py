@@ -82,7 +82,7 @@ def get_equipment():
                         for item in equipment_data:
                             if isinstance(item, dict) and 'name' in item and 'quantity' in item:
                                 eq_name = item['name']
-                                qty = int(item.get('quantity', 0))
+                                qty = int(item.get('approved_quantity', item.get('quantity', 0)))
                                 
                                 if eq_name not in equipment_usage:
                                     equipment_usage[eq_name] = {'quantity': 0, 'events': []}
@@ -531,10 +531,14 @@ def get_equipment_requests():
                     else:
                         available = total - used
                     
-                    # Determine item approval status based on event status
-                    # Pending = waiting for staff approval
-                    # Under Review or higher = staff has approved equipment
-                    item_status = 'Approved' if row['event_status'] in ['Approved', 'Ongoing', 'Under Review'] else 'Pending'
+                    # Determine item approval status
+                    # Priority: 1. Item-specific status (from JSON) 2. Overall event status logic
+                    saved_status = item.get('status')
+                    if saved_status:
+                        item_status = saved_status
+                    else:
+                        # Fallback logic for legacy data or new items
+                        item_status = 'Approved' if row['event_status'] in ['Approved', 'Ongoing', 'Under Review'] else 'Pending'
                     
                     items.append({
                         'name': name,
@@ -624,8 +628,11 @@ def update_request_status(event_id):
         data = request.json
         status = data.get('status')  # 'Approved' or 'Rejected'
         approval_type = data.get('type')  # 'venue' or 'equipment'
+        reason = data.get('reason')
+        rejected_item_name = data.get('rejected_item_name')
+        equipment_list_payload = data.get('equipment_list') # For batch review
         
-        if status not in ['Approved', 'Rejected']:
+        if not equipment_list_payload and status not in ['Approved', 'Rejected']:
             return jsonify({'error': 'Invalid status'}), 400
             
         if approval_type not in ['venue', 'equipment']:
@@ -650,151 +657,109 @@ def update_request_status(event_id):
                 (status, event_id)
             )
             message = f'Venue {status.lower()} successfully'
-            log_reason = f'Venue {status.lower()} by Staff'
+            log_reason = f'Venue {status.lower()} by Staff. Reason: {reason}' if reason else f'Venue {status.lower()} by Staff'
         else:  # equipment
-            # If approving equipment, implement flexible approval (auto-adjust quantities)
-            if status == 'Approved':
-                # Get event's equipment JSON
-                event_full = db.execute_one(
-                    "SELECT equipment, requestor_id FROM events WHERE id = %s", 
-                    (event_id,)
-                )
-                
+            # Handle Batch Review (Full List Update)
+            if equipment_list_payload:
+                try:
+                    # Validate list structure
+                    if not isinstance(equipment_list_payload, list):
+                        return jsonify({'error': 'Invalid equipment list format'}), 400
+                    
+                    # Update event equipment
+                    db.execute_update(
+                        "UPDATE events SET equipment = %s WHERE id = %s",
+                        (json.dumps(equipment_list_payload), event_id)
+                    )
+                    
+                    # Determine overall status
+                    # If all items are Rejected -> Rejected
+                    # If some items are Rejected -> Approved (with rejections)
+                    # If all items are Approved -> Approved
+                    
+                    all_rejected = all(item.get('status') == 'Rejected' for item in equipment_list_payload)
+                    any_rejected = any(item.get('status') == 'Rejected' for item in equipment_list_payload)
+                    
+                    new_status = 'Rejected' if all_rejected else 'Approved'
+                    
+                    # Construct Notification Summary
+                    approved_items = []
+                    rejected_items = []
+                    
+                    for i in equipment_list_payload:
+                        name = i.get('name', 'Unknown Item')
+                        if i.get('status') == 'Rejected':
+                            rejected_items.append(f"{name} ({i.get('rejection_reason', 'No reason provided')})")
+                        elif i.get('status') == 'Approved':
+                            qty_requested = i.get('requested', i.get('quantity', 0))
+                            qty_approved = i.get('approved_quantity', qty_requested)
+                            
+                            # If approved quantity is different from requested, show both
+                            if str(qty_approved) != str(qty_requested):
+                                approved_items.append(f"{name} (Approved: {qty_approved}/{qty_requested})")
+                            else:
+                                approved_items.append(f"{name} (Qty: {qty_approved})")
+
+                    notification_msg = "Your equipment request has been reviewed.\n\n"
+                    if approved_items:
+                        notification_msg += f"✅ APPROVED:\n" + "\n".join(f"- {i}" for i in approved_items) + "\n\n"
+                    if rejected_items:
+                        notification_msg += f"❌ REJECTED:\n" + "\n".join(f"- {i}" for i in rejected_items)
+                    
+                    # Update status
+                    db.execute_update(
+                        "UPDATE events SET equipment_approval_status = %s, updated_at = NOW() WHERE id = %s",
+                        (new_status, event_id)
+                    )
+                    
+                    # Send Notification
+                    event_full = db.execute_one("SELECT requestor_id, name FROM events WHERE id = %s", (event_id,))
+                    if event_full:
+                        db.execute_insert(
+                            """INSERT INTO notifications (user_id, event_id, type, title, message, created_at)
+                               VALUES (%s, %s, %s, %s, %s, NOW())""",
+                            (
+                                event_full['requestor_id'], 
+                                event_id, 
+                                'status_update', 
+                                f"Equipment Review Complete: {event_full['name']}",
+                                notification_msg
+                            )
+                        )
+                    
+                    return jsonify({'success': True, 'message': f'Equipment review submitted. Status: {new_status}'})
+
+                except Exception as e:
+                    logger.error(f"Batch review error: {e}")
+                    return jsonify({'success': False, 'error': str(e)}), 500
+
+            # Handle Item-Specific Rejection
+            if rejected_item_name and status == 'Rejected':
+                event_full = db.execute_one("SELECT equipment, requestor_id, name FROM events WHERE id = %s", (event_id,))
                 if event_full and event_full['equipment']:
                     try:
                         equipment_list = json.loads(event_full['equipment'])
-                        adjusted_equipment = []
-                        adjustments = []  # Track what was changed
-                        
-                        # Get all equipment from equipment table
-                        all_equipment = db.execute_query("SELECT name, total_quantity FROM equipment WHERE status = 'Available'")
-                        equipment_map = {eq['name']: eq['total_quantity'] for eq in all_equipment}
-                        
-                        # Calculate current usage (from Approved/Ongoing/Under Review events)
-                        usage_query = """
-                            SELECT equipment
-                            FROM events
-                            WHERE status IN ('Approved', 'Ongoing', 'Under Review')
-                            AND deleted_at IS NULL
-                            AND id != %s
-                        """
-                        usage_rows = db.execute_query(usage_query, (event_id,))
-                        
-                        usage_map = {}
-                        for row in usage_rows:
-                            try:
-                                eq_list = json.loads(row['equipment'] or '[]')
-                                for item in eq_list:
-                                    name = item.get('name')
-                                    qty = item.get('quantity', 0)
-                                    if name:
-                                        usage_map[name] = usage_map.get(name, 0) + qty
-                            except:
-                                continue
-                        
-                        # Process each equipment item
+                        item_found = False
                         for item in equipment_list:
-                            name = item.get('name')
-                            requested_qty = item.get('quantity', 0)
-                            
-                            if not name or requested_qty <= 0:
-                                continue
-                                
-                            # Calculate availability
-                            total_stock = equipment_map.get(name, 0)
-                            used_qty = usage_map.get(name, 0)
-                            available_qty = max(0, total_stock - used_qty)
-                            
-                            if available_qty >= requested_qty:
-                                # Fully available - approve as requested
-                                adjusted_equipment.append({'name': name, 'quantity': requested_qty})
-                            elif available_qty > 0:
-                                # Partially available - approve reduced quantity
-                                adjusted_equipment.append({'name': name, 'quantity': available_qty})
-                                adjustments.append(f"{name}: {available_qty}/{requested_qty} available")
-                            else:
-                                # Not available - skip this item
-                                adjustments.append(f"{name}: unavailable (requested {requested_qty})")
+                            if item.get('name') == rejected_item_name:
+                                item['status'] = 'Rejected'
+                                item['rejection_reason'] = reason
+                                item_found = True
+                                break
                         
-                        # Update event with adjusted equipment
-                        if adjusted_equipment != equipment_list:
+                        if item_found:
                             db.execute_update(
                                 "UPDATE events SET equipment = %s WHERE id = %s",
-                                (json.dumps(adjusted_equipment), event_id)
+                                (json.dumps(equipment_list), event_id)
                             )
-                        
-                        # Create notification for requestor if adjustments were made
-                        if adjustments and event_full.get('requestor_id'):
-                            event_name = event_full.get('name', 'Your Event')
-                            notification_title = "Equipment Approval - Adjustments Made"
-                            notification_msg = (
-                                f"Your equipment request for '{event_name}' has been approved with adjustments:\n\n" +
-                                "\n".join(f"• {adj}" for adj in adjustments) +
-                                "\n\nPlease review the updated equipment list."
-                            )
-                            
-                            db.execute_insert(
-                                """INSERT INTO notifications (user_id, event_id, type, title, message, created_at)
-                                   VALUES (%s, %s, %s, %s, %s, NOW())""",
-                                (event_full['requestor_id'], event_id, 'equipment_adjusted', notification_title, notification_msg)
-                            )
-                        
-                    except (json.JSONDecodeError, Exception) as e:
-                        logger.error(f"Equipment adjustment error: {str(e)}")
+                    except Exception as e:
+                        logger.error(f"Item rejection error: {e}")
+                        return jsonify({'success': False, 'error': 'Failed to reject item'}), 500
             
-            db.execute_update(
-                "UPDATE events SET equipment_approval_status = %s, updated_at = NOW() WHERE id = %s",
-                (status, event_id)
-            )
-            message = f'Equipment {status.lower()} successfully'
-            log_reason = f'Equipment {status.lower()} by Staff'
-        
-        # Get updated approval statuses
-        updated_event = db.execute_one(
-            "SELECT venue_approval_status, equipment_approval_status FROM events WHERE id = %s", 
-            (event_id,)
-        )
-        
-        # Update overall event status based on both approvals
-        new_event_status = old_event_status
-        
-        if status == 'Rejected':
-            # If either is rejected, reject the whole event
-            new_event_status = 'Rejected'
-            db.execute_update(
-                "UPDATE events SET status = %s WHERE id = %s",
-                (new_event_status, event_id)
-            )
-        elif updated_event['venue_approval_status'] == 'Approved' and updated_event['equipment_approval_status'] == 'Approved':
-            # Both resources approved - finalize event and reject conflicts
-            if old_event_status == 'Under Review':
-                # Auto-reject soft conflicts BEFORE finalizing
-                from backend.api_events import _auto_reject_soft_conflicts
-                rejected_count = _auto_reject_soft_conflicts(db, event_id)
-                logger.info(f"Auto-rejected {rejected_count} conflicting events")
-                
-                new_event_status = 'Approved'
-                log_reason = 'Resources approved by Staff (auto-rejected conflicts)'
-                db.execute_update(
-                    "UPDATE events SET status = %s WHERE id = %s",
-                    (new_event_status, event_id)
-                )
-        
-        # Log status history if table exists and status changed
-        if new_event_status != old_event_status:
-            try:
-                db.execute_insert(
-                    """INSERT INTO event_status_history (event_id, old_status, new_status, changed_by, reason)
-                       VALUES (%s, %s, %s, %s, %s)""",
-                    (event_id, old_event_status, new_event_status, session.get('user_id'), log_reason)
-                )
-            except:
-                pass  # Table might not exist
-        
-        return jsonify({'success': True, 'message': message})
-        
+            return jsonify({'success': True, 'message': 'Status updated successfully'})
+
     except Exception as e:
-        logger.error(f"Update status error: {str(e)}")
-        import traceback
-        traceback.print_exc()
+        logger.error(f"Error in update_request_status: {e}")
         return jsonify({'success': False, 'error': str(e)}), 500
+
+

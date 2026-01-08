@@ -1,7 +1,7 @@
 import pymysql.cursors
 from config import Config
 
-def inspect_table():
+def inspect_users_table():
     try:
         conf = Config.DB_CONFIG
         conn = pymysql.connect(
@@ -13,13 +13,17 @@ def inspect_table():
             cursorclass=pymysql.cursors.DictCursor
         )
         cursor = conn.cursor()
-        cursor.execute("SHOW CREATE TABLE events")
-        result = cursor.fetchone()
-        print(result['Create Table'])
+        cursor.execute("DESCRIBE users")
+        columns = cursor.fetchall()
+        
+        print("Users table schema:")
+        for col in columns:
+            print(f"  {col['Field']}: {col['Type']}")
+        
         cursor.close()
         conn.close()
     except Exception as e:
         print(e)
 
 if __name__ == "__main__":
-    inspect_table()
+    inspect_users_table()

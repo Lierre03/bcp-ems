@@ -137,6 +137,12 @@ def load_training_data():
          for item in (json.loads(x) if x else [])]
     )
     
+    # NEW: Keep full objects to track quantities
+    df['equipment_objects'] = df['equipment'].apply(lambda x: 
+        [item if isinstance(item, dict) and 'name' in item else {'name': item, 'quantity': 1}
+         for item in (json.loads(x) if x else [])]
+    )
+    
     df['additional_resources_list'] = df['additional_resources'].apply(lambda x:
         [item['name'] if isinstance(item, dict) and 'name' in item else item 
          for item in (json.loads(x) if x else [])]
@@ -598,11 +604,22 @@ def predict_resources():
             # Collect ALL equipment from ALL events
             all_equipment_counts = {}
             type_equipment_counts = {}
+            equipment_quantities = {} # NEW: Track quantities
             
             for idx, row in df.iterrows():
                 eq_list = row.get('equipment_list', [])
+                eq_objects = row.get('equipment_objects', []) # NEW
                 event_type_row = row.get('event_type', '')
                 
+                # Use eq_objects if available to get quantities
+                for item_obj in eq_objects:
+                    name = item_obj.get('name')
+                    qty = int(item_obj.get('quantity', 1))
+                    
+                    if name not in equipment_quantities:
+                        equipment_quantities[name] = []
+                    equipment_quantities[name].append(qty)
+
                 for item in eq_list:
                     # Count across ALL events
                     all_equipment_counts[item] = all_equipment_counts.get(item, 0) + 1
@@ -634,8 +651,19 @@ def predict_resources():
                     if item in all_equipment_counts and item not in predicted_equipment:
                         predicted_equipment.append(item)
             
-            predictions['resources'] = predicted_equipment
-            predictions['equipment'] = predicted_equipment
+            # Format as objects with quantities
+            final_resources = []
+            for item in predicted_equipment:
+                # Calculate average quantity from history
+                avg_qty = 1
+                if item in equipment_quantities and equipment_quantities[item]:
+                    quantities = equipment_quantities[item]
+                    avg_qty = max(1, int(round(sum(quantities) / len(quantities))))
+                
+                final_resources.append({'name': item, 'quantity': avg_qty})
+
+            predictions['resources'] = final_resources
+            predictions['equipment'] = final_resources
             
             print(f"[EQUIPMENT ML] Predicted {len(predicted_equipment)} items based on:")
             print(f"  - {len(type_equipment_counts.get(event_type, {}))} patterns from {event_type} events")
@@ -644,11 +672,11 @@ def predict_resources():
         except Exception as e:
             print(f"[EQUIPMENT ML] Error: {e}, using fallback")
             defaults = {
-                'Academic': ['Projector', 'Microphone', 'Whiteboard'],
-                'Sports': ['Scoreboard', 'First Aid Kit', 'Sound System'],
-                'Cultural': ['Stage', 'Sound System', 'Microphone', 'Lighting']
+                'Academic': [{'name': 'Projector', 'quantity': 1}, {'name': 'Microphone', 'quantity': 1}, {'name': 'Whiteboard', 'quantity': 1}],
+                'Sports': [{'name': 'Scoreboard', 'quantity': 1}, {'name': 'First Aid Kit', 'quantity': 1}, {'name': 'Sound System', 'quantity': 1}],
+                'Cultural': [{'name': 'Stage', 'quantity': 1}, {'name': 'Sound System', 'quantity': 1}, {'name': 'Microphone', 'quantity': 2}, {'name': 'Lighting', 'quantity': 4}]
             }
-            predictions['resources'] = defaults.get(event_type, ['Projector'])
+            predictions['resources'] = defaults.get(event_type, [{'name': 'Projector', 'quantity': 1}])
 
         # ========================================================================
         # STEP 2.5: ADDITIONAL RESOURCES PREDICTION - Learn from ALL events

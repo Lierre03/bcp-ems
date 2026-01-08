@@ -9,8 +9,7 @@
     <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
     <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-    <script src="https://unpkg.com/lucide@latest"></script>
-    <script src="https://unpkg.com/lucide-react@latest"></script>
+    <!-- Lucide scripts removed to prevent forwardRef error -->
     <style>
         * {
             margin: 0;
@@ -41,6 +40,7 @@
     <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js"></script>
 
     <script type="text/babel" src="/static/js/components/Sidebar.js"></script>
+    <script type="text/babel" src="/static/js/components/NotificationBell.js"></script>
     <script type="text/babel" src="/static/js/components/QRScanner.js"></script>
     <script type="text/babel" src="/static/js/pages/StaffEquipmentApprovals.js?v=2.5"></script>
 
@@ -96,15 +96,20 @@
 
             const menuItems = [
                 {
-                    id: 'scanner',
-                    label: 'QR Attendance Scanner',
-                    icon: <svg className="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M12 15h4.01M12 21h4.01M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M12 15h4.01M12 21h4.01M8 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M8 12h4.01M8 15h4.01M8 21h4.01" /></svg>
-                },
-                {
-                    id: 'approvals',
-                    label: 'Resource Approvals',
-                    icon: <svg className="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-                },
+                    title: "Tools",
+                    items: [
+                        {
+                            id: 'scanner',
+                            label: 'QR Attendance Scanner',
+                            icon: <svg className="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M12 15h4.01M12 21h4.01M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M12 15h4.01M12 21h4.01M8 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M8 12h4.01M8 15h4.01M8 21h4.01" /></svg>
+                        },
+                        {
+                            id: 'approvals',
+                            label: 'Resource Approvals',
+                            icon: <svg className="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                        }
+                    ]
+                }
             ];
 
             return (
@@ -119,13 +124,18 @@
 
                     <div className="flex-1 flex flex-col overflow-hidden">
                         <header className="bg-white border-b border-gray-200 px-8 py-4 shadow-sm">
-                            <p className="text-blue-600 text-sm font-medium mb-1">Staff Portal</p>
-                            <p className="text-gray-500 text-sm mb-2">
-                                {activeView === 'scanner' ? 'Scan QR codes for attendance check-in' : activeView === 'approvals' ? 'Review and approve venue & equipment requests for upcoming events' : 'Manage your staff operations'}
-                            </p>
-                            <h1 className="text-3xl font-bold text-gray-900">
-                                {activeView === 'scanner' ? 'QR Attendance Scanner' : activeView === 'approvals' ? 'Resource Approvals' : 'Dashboard'}
-                            </h1>
+                            <div className="flex justify-between items-center">
+                                <div className="flex-1">
+                                    <p className="text-blue-600 text-sm font-medium mb-1">Staff Portal</p>
+                                    <p className="text-gray-500 text-sm mb-2">
+                                        {activeView === 'scanner' ? 'Scan QR codes for attendance check-in' : activeView === 'approvals' ? 'Review and approve venue & equipment requests for upcoming events' : 'Manage your staff operations'}
+                                    </p>
+                                    <h1 className="text-3xl font-bold text-gray-900">
+                                        {activeView === 'scanner' ? 'QR Attendance Scanner' : activeView === 'approvals' ? 'Resource Approvals' : 'Dashboard'}
+                                    </h1>
+                                </div>
+                                {window.NotificationBell && <window.NotificationBell />}
+                            </div>
                         </header>
 
                         <main className="flex-1 overflow-y-auto bg-gray-50 p-8">

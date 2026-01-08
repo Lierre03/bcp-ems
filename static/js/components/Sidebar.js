@@ -11,32 +11,39 @@ window.Sidebar = function Sidebar({ user, menuItems, activeView, onViewChange, o
         </div>
       </div>
 
-      <nav className="flex-1 py-6 space-y-1 overflow-y-auto">
-        <div className="mb-2 px-6 text-xs font-semibold text-blue-400 uppercase tracking-wider">
-          Main Menu
-        </div>
-
-        {menuItems.map((item) => (
-          <button 
-            key={item.id}
-            onClick={() => onViewChange(item.id)}
-            className={`w-full flex items-center px-6 py-3 transition-all duration-200 group ${activeView === item.id ? 'bg-blue-800 text-white border-r-4 border-blue-400' : 'text-blue-300 hover:bg-blue-900/50 hover:text-white'}`}
-          >
-            {item.icon}
-            <span className="text-sm font-medium">{item.label}</span>
-          </button>
+      <nav className="flex-1 py-4 space-y-6 overflow-y-auto">
+        {menuItems.map((group, groupIndex) => (
+          <div key={groupIndex}>
+            {group.title && (
+              <div className="px-6 mb-2 text-xs font-semibold text-blue-400 uppercase tracking-wider">
+                {group.title}
+              </div>
+            )}
+            <div className="space-y-1">
+              {group.items.map((item) => (
+                <button
+                  key={item.id}
+                  onClick={() => onViewChange(item.id)}
+                  className={`w-full flex items-center px-6 py-2.5 transition-all duration-200 group ${activeView === item.id ? 'bg-blue-800 text-white border-r-4 border-blue-400' : 'text-blue-300 hover:bg-blue-900/50 hover:text-white'}`}
+                >
+                  {item.icon}
+                  <span className="text-sm font-medium">{item.label}</span>
+                </button>
+              ))}
+            </div>
+          </div>
         ))}
       </nav>
 
       <div className="p-6 border-t border-blue-800">
-        <button 
-            onClick={onLogout} 
-            className="w-full flex items-center px-6 py-3 text-blue-100 hover:bg-blue-800 hover:text-white transition-all duration-200 rounded-lg group"
+        <button
+          onClick={onLogout}
+          className="w-full flex items-center px-6 py-3 text-blue-100 hover:bg-blue-800 hover:text-white transition-all duration-200 rounded-lg group"
         >
-            <svg className="w-5 h-5 mr-3 text-blue-300 group-hover:text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
-            </svg>
-            <span className="text-sm font-medium">Logout</span>
+          <svg className="w-5 h-5 mr-3 text-blue-300 group-hover:text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+          </svg>
+          <span className="text-sm font-medium">Logout</span>
         </button>
         <p className="text-blue-300 text-xs mt-4 text-center">© 2025 School Event Management</p>
       </div>

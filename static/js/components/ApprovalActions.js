@@ -327,7 +327,8 @@ window.ApprovalActions = function ApprovalActions({ event, onSuccess }) {
       if (status === 'Pending' || status === 'Under Review') {
         actions.push({ label: 'Review & Approve', endpoint: 'superadmin-approve', variant: 'success' });
       }
-      if (status !== 'Archived') {
+      // Only show Reject if not already finalized (Approved, Rejected, Completed, Archived)
+      if (!['Approved', 'Rejected', 'Completed', 'Archived'].includes(status)) {
         actions.push({ label: 'Reject', endpoint: 'reject', variant: 'danger' });
       }
       return actions;
@@ -505,10 +506,58 @@ window.ApprovalActions = function ApprovalActions({ event, onSuccess }) {
   };
 
   const actions = getAvailableActions();
-  if (!actions.length) return null;
+
+  // If no action is available (e.g. Approved, Rejected, Completed), show a status badge or summary
+  // If no action is available, show a clean visual indicator
+  if (!actions.length) {
+    const status = event.status;
+
+    // Default: Waiting (Hourglass) - for states where user has no action but event is ongoing
+    let icon = (
+      <svg className="w-5 h-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+      </svg>
+    );
+    let title = "Waiting for other approvals";
+    let bgClass = "bg-slate-50";
+
+    if (status === 'Approved') {
+      title = "Approved";
+      bgClass = "bg-green-50";
+      icon = (
+        <svg className="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+        </svg>
+      );
+    } else if (status === 'Rejected') {
+      title = "Rejected";
+      bgClass = "bg-red-50";
+      icon = (
+        <svg className="w-5 h-5 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" />
+        </svg>
+      );
+    } else if (status === 'Completed') {
+      title = "Completed";
+      bgClass = "bg-blue-50";
+      icon = (
+        <svg className="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+        </svg>
+      );
+    }
+
+    return (
+      <div className="flex items-center justify-center w-full" title={title}>
+        <div className={`p-1.5 rounded-full ${bgClass} transition-colors`}>
+          {icon}
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <div className="flex gap-1">
+    <div className="flex items-center justify-center gap-1 w-full">
       {actions.map(action => {
         const isReject = action.variant === 'danger';
         const isReview = action.endpoint === 'superadmin-approve';

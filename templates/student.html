@@ -45,6 +45,7 @@
     <script type="text/babel" src="/static/js/components/ResourceRequirementsChecklist.js?v=3.1"></script>
     <script type="text/babel" src="/static/js/components/EventTimelineGenerator.js?v=3.1"></script>
     <script type="text/babel" src="/static/js/components/EventFormModal.js?v=3.5"></script>
+    <script type="text/babel" src="/static/js/pages/RejectionResolutionPage.js?v=1.0"></script>
 
     <!-- Main Dashboard Script -->
     <script type="text/babel">
@@ -53,6 +54,7 @@
         const NotificationBell = window.NotificationBell;
         const StudentEventCalendar = window.StudentEventCalendar;
         const EventFormModal = window.EventFormModal;
+        const RejectionResolutionPage = window.RejectionResolutionPage;
 
         function StudentDashboard() {
             const [user, setUser] = useState(null);
@@ -60,6 +62,7 @@
             const [showEventModal, setShowEventModal] = useState(false);
             const [proposals, setProposals] = useState([]);
             const [proposalsLoading, setProposalsLoading] = useState(false);
+            const [resolvingEventId, setResolvingEventId] = useState(null);
 
             // AI Enhancement States - Same as Admin
             const [aiSuggestions, setAiSuggestions] = useState(null);
@@ -118,6 +121,27 @@
                 loadEquipmentCategories();
                 loadVenues();
                 checkModelStatus();
+
+                // Hash Routing Handling
+                const handleHashChange = () => {
+                    const hash = window.location.hash;
+                    if (hash.startsWith('#/resolve-rejection/')) {
+                        const eventId = hash.split('/')[2];
+                        if (eventId) {
+                            setResolvingEventId(eventId);
+                            setActiveView('resolve-rejection');
+                        }
+                    } else if (hash === '#/my-events') {
+                        setActiveView('proposals');
+                    }
+                };
+
+                // Check on mount
+                handleHashChange();
+
+                // Listen for changes
+                window.addEventListener('hashchange', handleHashChange);
+                return () => window.removeEventListener('hashchange', handleHashChange);
             }, []);
 
             const checkModelStatus = async () => {
@@ -607,68 +631,76 @@
             // Menu items differ based on role
             const menuItems = user?.role_name === 'Student Organization Officer' ? [
                 {
-                    id: 'proposals',
-                    label: 'Event Proposals',
-                    icon: <svg className="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                    </svg>
-                },
-                {
-                    id: 'calendar',
-                    label: 'Event Calendar',
-                    icon: <svg className="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                    </svg>
-                },
-                {
-                    id: 'registrations',
-                    label: 'My Registrations',
-                    icon: <svg className="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                    </svg>
-                },
-                {
-                    id: 'attendance',
-                    label: 'Attendance',
-                    icon: <svg className="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                    </svg>
-                },
-                {
-                    id: 'feedback',
-                    label: 'My Feedback',
-                    icon: <svg className="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
-                    </svg>
+                    items: [
+                        {
+                            id: 'proposals',
+                            label: 'Event Proposals',
+                            icon: <svg className="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                            </svg>
+                        },
+                        {
+                            id: 'calendar',
+                            label: 'Event Calendar',
+                            icon: <svg className="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                            </svg>
+                        },
+                        {
+                            id: 'registrations',
+                            label: 'My Registrations',
+                            icon: <svg className="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                            </svg>
+                        },
+                        {
+                            id: 'attendance',
+                            label: 'Attendance',
+                            icon: <svg className="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
+                        },
+                        {
+                            id: 'feedback',
+                            label: 'My Feedback',
+                            icon: <svg className="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                            </svg>
+                        }
+                    ]
                 }
             ] : [
                 {
-                    id: 'calendar',
-                    label: 'Event Calendar',
-                    icon: <svg className="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                    </svg>
-                },
-                {
-                    id: 'registrations',
-                    label: 'My Registrations',
-                    icon: <svg className="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                    </svg>
-                },
-                {
-                    id: 'attendance',
-                    label: 'Attendance',
-                    icon: <svg className="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                    </svg>
-                },
-                {
-                    id: 'feedback',
-                    label: 'My Feedback',
-                    icon: <svg className="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
-                    </svg>
+                    items: [
+                        {
+                            id: 'calendar',
+                            label: 'Event Calendar',
+                            icon: <svg className="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                            </svg>
+                        },
+                        {
+                            id: 'registrations',
+                            label: 'My Registrations',
+                            icon: <svg className="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                            </svg>
+                        },
+                        {
+                            id: 'attendance',
+                            label: 'Attendance',
+                            icon: <svg className="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
+                        },
+                        {
+                            id: 'feedback',
+                            label: 'My Feedback',
+                            icon: <svg className="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                            </svg>
+                        }
+                    ]
                 }
             ];
 
@@ -1512,6 +1544,9 @@
                                         <button className="px-4 py-2 bg-red-100 text-red-800 rounded-lg text-sm font-medium whitespace-nowrap">
                                             Rejected ({proposals.filter(p => p.status === 'Rejected').length})
                                         </button>
+                                        <button className="px-4 py-2 bg-gray-100 text-gray-600 rounded-lg text-sm font-medium whitespace-nowrap">
+                                            Cancelled ({proposals.filter(p => p.status === 'Cancelled').length})
+                                        </button>
                                     </div>
 
                                     {/* Proposals List */}
@@ -1531,7 +1566,8 @@
                                                                 <span className={`px-2.5 py-0.5 rounded-full text-xs font-medium border ${proposal.status === 'Approved' ? 'bg-green-100 text-green-800 border-green-200' :
                                                                     proposal.status === 'Pending' ? 'bg-yellow-100 text-yellow-800 border-yellow-200' :
                                                                         proposal.status === 'Rejected' ? 'bg-red-100 text-red-800 border-red-200' :
-                                                                            'bg-blue-100 text-blue-800 border-blue-200'
+                                                                            proposal.status === 'Cancelled' ? 'bg-gray-100 text-gray-800 border-gray-200' :
+                                                                                'bg-blue-100 text-blue-800 border-blue-200'
                                                                     }`}>
                                                                     {proposal.status}
                                                                 </span>
@@ -1604,6 +1640,24 @@
                                     <StudentEventCalendar />
                                 </div>
                             </div>
+                        );
+
+                    case 'resolve-rejection':
+                        return (
+                            <React.Suspense fallback={<div>Loading...</div>}>
+                                <RejectionResolutionPage
+                                    eventId={resolvingEventId}
+                                    onBack={() => {
+                                        window.location.hash = '#/my-events';
+                                        setActiveView('proposals'); // Fallback in case hash doesn't trigger
+                                    }}
+                                    onResolveComplete={() => {
+                                        window.location.hash = '#/my-events';
+                                        setActiveView('proposals');
+                                        if (window.loadMyProposals) window.loadMyProposals();
+                                    }}
+                                />
+                            </React.Suspense>
                         );
 
                     case 'registrations':

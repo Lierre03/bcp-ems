@@ -260,7 +260,43 @@ def _change_event_status(event_id, action, reason=None, action_on_conflict=None)
         (event_id, current_status, new_status, session['user_id'], reason or f'Status changed via {action}')
     )
     
-    logger.info(f"Event {event_id} status: {current_status} → {new_status} by {session['username']}")
+    logger.info(f"Event {event_id} status: {current_status} -> {new_status} by {session['username']}")
+    
+    # ------------------------------------------------------------------
+    # NOTIFICATION LOGIC (Added for Student Org Officer & Requestors)
+    # ------------------------------------------------------------------
+    try:
+        if new_status in ['Approved', 'Rejected', 'Under Review']:
+            notif_title = ""
+            notif_message = ""
+            notif_type = ""
+            
+            if new_status == 'Approved':
+                notif_type = 'status_update'
+                notif_title = f"Event Approved: {event['name']}"
+                notif_message = f"Good news! Your event '{event['name']}' has been officially APPROVED. You can now proceed with your preparations."
+            
+            elif new_status == 'Rejected':
+                notif_type = 'status_update'
+                notif_title = f"Event Rejected: {event['name']}"
+                notif_message = f"Your event '{event['name']}' was rejected.\n\nReason: {reason or 'No reason provided.'}"
+            
+            elif new_status == 'Under Review':
+                notif_type = 'status_update'
+                notif_title = f"Proposal Accepted: {event['name']}"
+                notif_message = f"Your event proposal '{event['name']}' has been accepted by the Department Head and is now Under Review for resource approval."
+            
+            # Insert Notification
+            if notif_type:
+                db.execute_insert(
+                    """INSERT INTO notifications (user_id, event_id, type, title, message, is_read, created_at)
+                       VALUES (%s, %s, %s, %s, %s, FALSE, NOW())""",
+                    (event['requestor_id'], event_id, notif_type, notif_title, notif_message)
+                )
+                logger.info(f"Notification sent to user {event['requestor_id']} for event {new_status}")
+
+    except Exception as notif_err:
+        logger.error(f"Failed to send notification: {notif_err}")
     
     return True, f'Event {action}ed successfully', 200
 
@@ -517,7 +553,7 @@ def get_events():
 
 
 @events_bp.route('/<int:event_id>', methods=['GET'])
-@require_role(['Super Admin', 'Admin', 'Staff', 'Requestor', 'Participant'])
+@require_role(['Super Admin', 'Admin', 'Staff', 'Requestor', 'Participant', 'Student Organization Officer'])
 def get_event(event_id):
     """Get single event by ID with all details"""
     try:
@@ -983,6 +1019,25 @@ def superadmin_approve_event(event_id):
                VALUES (%s, %s, %s, %s, %s)""",
             (event_id, current_status, new_status, session['user_id'], 'Super Admin Direct Approval')
         )
+
+        # Send Notification (Super Admin Bypass)
+        try:
+            # Get requestor_id
+            evt_details = db.execute_one("SELECT requestor_id, name FROM events WHERE id=%s", (event_id,))
+            if evt_details:
+                db.execute_insert(
+                    """INSERT INTO notifications (user_id, event_id, type, title, message, is_read, created_at)
+                       VALUES (%s, %s, %s, %s, %s, FALSE, NOW())""",
+                    (
+                        evt_details['requestor_id'], 
+                        event_id, 
+                        'status_update', 
+                        f"Event Approved: {evt_details['name']}", 
+                        f"Good news! Your event '{evt_details['name']}' has been officially APPROVED by Super Admin."
+                    )
+                )
+        except Exception as e:
+            logger.error(f"Failed to send superadmin notification: {e}")
         
         logger.info(f"Event {event_id} Super Admin Approved: {current_status} → {new_status} by {session['username']}")
         
@@ -1601,3 +1656,130 @@ def export_event_pdf(event_id):
         logger.error(f"Event ID: {event_id}")
         traceback.print_exc()
         return jsonify({'error': f'Failed to generate PDF: {str(e)}'}), 500
+@events_bp.route('/<int:event_id>/resolve-rejection', methods=['POST'])
+@require_role(['Super Admin', 'Admin', 'Staff', 'Requestor', 'Student Organization Officer'])
+def resolve_rejection(event_id):
+    """
+    Handle user resolution for rejected equipment items.
+    Actions: 'self_provide', 'remove_item', 'cancel_event'
+    """
+    try:
+        data = request.json
+        action = data.get('action')
+        item_name = data.get('item_name')
+        
+        db = get_db()
+        
+        # Get event
+        event = db.execute_one("SELECT * FROM events WHERE id = %s", (event_id,))
+        if not event:
+            return jsonify({'success': False, 'error': 'Event not found'}), 404
+            
+        # Verify ownership
+        if event['requestor_id'] != session['user_id'] and session.get('role') not in ['Super Admin', 'Admin', 'Staff']:
+             return jsonify({'success': False, 'error': 'Unauthorized'}), 403
+
+        if action == 'cancel_event':
+            # 1. Update event status
+            db.execute_update(
+                "UPDATE events SET status = 'Cancelled', updated_at = %s WHERE id = %s",
+                (datetime.now(), event_id)
+            )
+            
+            # 2. Setup Notification Logic
+            try:
+                # Get all Admin and Staff IDs
+                recipients = db.execute_query("""
+                    SELECT u.id FROM users u
+                    JOIN roles r ON u.role_id = r.id
+                    WHERE r.name IN ('Super Admin', 'Admin', 'Staff')
+                """)
+                
+                if recipients:
+                    notif_sql = """
+                        INSERT INTO notifications (user_id, title, message, type, event_id, is_read, created_at)
+                        VALUES (%s, %s, %s, %s, %s, 0, %s)
+                    """
+                    
+                    event_name = event.get('name', 'Event')
+                    requestor_name = f"{session.get('first_name', 'User')} {session.get('last_name', '')}"
+                    title = "Event Withdrawn"
+                    message = f"{requestor_name} has withdrawn the proposal '{event_name}' due to inability to provide required equipment."
+                    
+                    for r in recipients:
+                        db.execute_update(notif_sql, (
+                            r['id'], 
+                            title, 
+                            message, 
+                            'status_update', 
+                            event_id, 
+                            datetime.now()
+                        ))
+                    logger.info(f"Notified {len(recipients)} admins/staff about withdrawal of event {event_id}")
+            except Exception as notif_err:
+                logger.error(f"Failed to send withdrawal notifications: {notif_err}")
+                # Don't fail the request if notifications fail
+            
+            return jsonify({'success': True, 'message': 'Event cancelled'})
+
+        elif action in ['self_provide', 'remove_item']:
+            # Load equipment list
+            equipment_list = []
+            if event.get('equipment') and isinstance(event['equipment'], str):
+                equipment_list = json.loads(event['equipment'])
+            elif isinstance(event.get('equipment'), list):
+                equipment_list = event['equipment']
+
+            updated_list = []
+            item_found = False
+            
+            for item in equipment_list:
+                if item.get('name') == item_name:
+                    item_found = True
+                    if action == 'remove_item':
+                        continue # Skip adding it to new list
+                    elif action == 'self_provide':
+                        item['status'] = 'Self-Provided'
+                        item['rejection_reason'] = None # Clear reason
+                updated_list.append(item)
+            
+            if not item_found:
+                 return jsonify({'success': False, 'error': 'Item not found'}), 404
+
+            # Update Equipment List
+            db.execute_update(
+                "UPDATE events SET equipment = %s WHERE id = %s",
+                (json.dumps(updated_list), event_id)
+            )
+
+            # Re-evaluate overall status (Wait until ALL rejections are resolved before approving)
+            # FIX: Use case-insensitive check for 'rejected' status to prevent premature approval
+            remaining_rejections = any(
+                str(i.get('status')).strip().lower() == 'rejected' 
+                for i in updated_list
+            )
+            
+            new_status = event.get('equipment_approval_status', 'Pending') 
+            
+            if not remaining_rejections:
+                 # Only approve if ALL items are resolved (no 'rejected' items left)
+                 new_status = 'Approved'
+                 db.execute_update(
+                    "UPDATE events SET equipment_approval_status = 'Approved', updated_at = NOW() WHERE id = %s",
+                    (event_id,)
+                 )
+            else:
+                 # If issues remain, ensure status is NOT Approved (revert to Under Review/Pending if needed)
+                 # Ideally keep it as is, or set to 'Under Review' to indicate ongoing resolution
+                 if new_status == 'Approved':
+                      new_status = 'Under Review'
+                      db.execute_update(
+                        "UPDATE events SET equipment_approval_status = 'Under Review' WHERE id = %s",
+                        (event_id,)
+                      )
+
+            return jsonify({'success': True, 'message': 'Resolution applied', 'new_status': new_status})
+
+    except Exception as e:
+        logger.error(f"Error resolving rejection: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500

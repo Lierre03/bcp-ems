@@ -884,10 +884,10 @@ window.EventFormModal = function EventFormModal({
                         const newItems = suggestions
                           .map(item => {
                             const name = typeof item === 'string' ? item : (item.name || item);
-                            return name;
+                            const quantity = typeof item === 'object' ? (item.quantity || 1) : 1;
+                            return { name, quantity };
                           })
-                          .filter(name => !existingNames.has(name))
-                          .map(name => ({ name: name, quantity: 1 }));
+                          .filter(obj => !existingNames.has(obj.name));
 
                         if (newItems.length > 0) {
                           setUserEquipmentData(prev => ({
