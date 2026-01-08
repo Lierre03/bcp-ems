@@ -411,7 +411,7 @@ const NotificationBell = () => {
                                     onClick={() => onAction(notification)}
                                     className={`px-5 py-2 text-sm font-semibold text-white rounded-lg shadow-sm transition-all flex items-center gap-2 ${style.button}`}
                                 >
-                                    <span>View Details</span>
+                                    <span>{notification.type === 'conflict_rejection' ? 'Reschedule' : 'View Details'}</span>
                                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M14 5l7 7m0 0l-7 7m7-7H3" />
                                     </svg>

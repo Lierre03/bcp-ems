@@ -69,7 +69,7 @@ def _auto_reject_soft_conflicts(db, approved_event_id):
     
     # Get approved event details
     event = db.execute_one(
-        "SELECT name, venue, start_datetime, end_datetime, requestor_id FROM events WHERE id = %s",
+        "SELECT name, venue, start_datetime, end_datetime, requestor_id, event_type FROM events WHERE id = %s",
         (approved_event_id,)
     )
     
@@ -114,19 +114,10 @@ def _auto_reject_soft_conflicts(db, approved_event_id):
             conflict['id']
         ))
         
-        # Get alternative times
-        start_dt = datetime.strptime(str(conflict['start_datetime']), '%Y-%m-%d %H:%M:%S')
-        end_dt = datetime.strptime(str(conflict['end_datetime']), '%Y-%m-%d %H:%M:%S')
-        alternatives = suggest_alternative_times(db, event['venue'], start_dt, end_dt)
-        
-        # Format alternatives text
-        alt_text = ""
-        if alternatives:
-            alt_text = "\n\nSuggested times:"
-            for alt in alternatives:
-                alt_text += f"\n• {alt['day']}, {alt.get('time_display', '')} "
         
         # Create notification for affected student
+        # Note: Suggested dates removed from notification for simplicity
+        # Users will see comprehensive AI suggestions on the reschedule page
         db.execute_insert("""
             INSERT INTO notifications (user_id, type, title, message, event_id, is_read, created_at)
             VALUES (%s, %s, %s, %s, %s, FALSE, NOW())
@@ -138,18 +129,18 @@ def _auto_reject_soft_conflicts(db, approved_event_id):
             f'Another event ("{event["name"]}") was approved for:\n'
             f'• Venue: {event["venue"]}\n'
             f'• Time: {event["start_datetime"]}\n\n'
-            f'Please reschedule your event or cancel it.{alt_text}',
+            f'Please click "Reschedule" to choose a new date.',
             conflict['id']
         ))
         
-        # Log history
+        # Log history (use safe session access)
         db.execute_insert("""
             INSERT INTO event_status_history (event_id, old_status, new_status, changed_by, reason)
             VALUES (%s, %s, 'Conflict_Rejected', %s, %s)
         """, (
             conflict['id'],
             current_status,
-            session['user_id'],
+            session.get('user_id') if session else None,  # Safe session access
             f'Auto-rejected: conflicted with approved event #{approved_event_id}'
         ))
         
