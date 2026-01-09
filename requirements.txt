@@ -6,7 +6,7 @@ pandas
 scikit-learn
 numpy
 bcrypt
-qrcode==7.4.2
-Pillow==10.1.0
+qrcode
+Pillow>=10.2.0
 reportlab
 gunicorn==21.2.0
