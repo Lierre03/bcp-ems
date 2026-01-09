@@ -20,17 +20,20 @@ class Config:
     # Parse DATABASE_URL if available (for Render/Heroku)
     database_url = os.environ.get('DATABASE_URL')
     if database_url:
+        # Debug print
+        masked = database_url.split('@')[-1] if '@' in database_url else '***'
+        print(f"DEBUG: Found DATABASE_URL: ...@{masked}")
+
         # Robust parsing using urllib
         import urllib.parse
         
-        # Check for postgres/postgresql scheme
-        if database_url.startswith('postgres://') or database_url.startswith('postgresql://'):
-            # Fix scheme for parsing if needed, but urlparse handles both fine usually
-            # We standardize on postgresql for the scheme check
-            pass
-            
+        # Ensure scheme is understandable by urlparse
+        parse_url = database_url
+        if parse_url.startswith('postgres://'):
+            parse_url = parse_url.replace('postgres://', 'postgresql://', 1)
+
         try:
-            url = urllib.parse.urlparse(database_url)
+            url = urllib.parse.urlparse(parse_url)
             
             # Extract database name (remove leading /)
             path = url.path[1:] if url.path.startswith('/') else url.path
@@ -48,8 +51,12 @@ class Config:
                 'autocommit': True,
                 'sslmode': sslmode
             }
+            # Verify host is not None
+            if not DB_CONFIG['host']:
+                raise ValueError("Hostname parsing failed (None)")
+
         except Exception as e:
-            print(f"Error parsing DATABASE_URL: {e}")
+            print(f"Error parsing DATABASE_URL: {e}. Falling back to default.")
             # Fallback to default
             DB_CONFIG = {
                 'host': os.environ.get('DB_HOST') or 'localhost',
