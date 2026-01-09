@@ -198,8 +198,11 @@ def create_app(config_name='development'):
 # RUN APPLICATION
 # ============================================================================
 
+# Create app instance for production (gunicorn)
+app = create_app(os.environ.get('FLASK_ENV') or 'production')
+
 if __name__ == '__main__':
-    # Create app with development config
+    # Create app with development config for local development
     app = create_app('development')
     
     # Create necessary directories
