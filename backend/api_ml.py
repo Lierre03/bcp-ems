@@ -75,21 +75,19 @@ def convert_to_24hour(time_str):
 
 def load_training_data():
     """Load and preprocess training data from ai_training_data table AND completed events"""
-    conn = get_db()
-    cursor = conn.cursor(dictionary=True)
+    db = get_db()
 
     # Get dedicated training data
-    cursor.execute("""
+    training_data = db.execute_query("""
         SELECT event_name, event_type, attendees, total_budget,
                equipment, activities, additional_resources,
                budget_breakdown, venue, organizer, description
         FROM ai_training_data
         WHERE is_validated = 1 AND total_budget > 0
     """)
-    training_data = cursor.fetchall()
 
     # ALSO get completed real events to learn from actual usage
-    cursor.execute("""
+    completed_events = db.execute_query("""
         SELECT 
             name as event_name,
             event_type,
@@ -107,10 +105,7 @@ def load_training_data():
           AND budget > 0 
           AND deleted_at IS NULL
     """)
-    completed_events = cursor.fetchall()
     
-    conn.close()
-
     # Combine database training + completed events
     all_data = training_data + completed_events
     
@@ -153,8 +148,7 @@ def add_training_data():
     """Add new training example to MySQL"""
     try:
         data = request.json
-        conn = get_db()
-        cursor = conn.cursor()
+        db = get_db()
 
         # Activities can be:
         # - Single day: [{startTime, endTime, phase}, ...]
@@ -162,7 +156,7 @@ def add_training_data():
         activities = data.get('activities', [])
         activities_json = json.dumps(activities)
 
-        cursor.execute("""
+        db.execute_insert("""
             INSERT INTO ai_training_data
             (event_name, event_type, description, venue, organizer, start_date, end_date,
              attendees, total_budget, budget_breakdown,
@@ -183,9 +177,6 @@ def add_training_data():
             activities_json,
             json.dumps(data.get('additionalResources', []))
         ))
-
-        conn.commit()
-        conn.close()
 
         return jsonify({'success': True, 'message': 'Training data added successfully'})
 
@@ -282,16 +273,13 @@ def training_stats():
 def get_equipment_options():
     try:
         # Get dynamic categories from equipment table
-        conn = get_db()
-        cursor = conn.cursor(dictionary=True)
+        db = get_db()
 
         # Get all unique categories
-        cursor.execute("SELECT DISTINCT category FROM equipment ORDER BY category")
-        category_rows = cursor.fetchall()
+        category_rows = db.execute_query("SELECT DISTINCT category FROM equipment ORDER BY category")
 
         # Get all equipment items grouped by category
-        cursor.execute("SELECT category, STRING_AGG(name, ',' ORDER BY name) as items FROM equipment GROUP BY category ORDER BY category")
-        equipment_rows = cursor.fetchall()
+        equipment_rows = db.execute_query("SELECT category, STRING_AGG(name, ',' ORDER BY name) as items FROM equipment GROUP BY category ORDER BY category")
 
         # Build categories dictionary from database
         categories = {}
@@ -308,9 +296,7 @@ def get_equipment_options():
                 categories[cat_row['category']] = []
 
         # Also include learned items from training data for completeness
-        cursor.execute("SELECT equipment FROM ai_training_data")
-        training_rows = cursor.fetchall()
-        conn.close()
+        training_rows = db.execute_query("SELECT equipment FROM ai_training_data")
 
         learned_items = set()
         existing_items = set(sum(categories.values(), []))
@@ -1000,11 +986,9 @@ def model_status():
         
         # Get training data count
         try:
-            conn = get_db()
-            cursor = conn.cursor(dictionary=True)
-            cursor.execute("SELECT COUNT(*) as total FROM ai_training_data WHERE is_validated = 1")
-            training_samples = cursor.fetchone()['total']
-            conn.close()
+            db = get_db()
+            result = db.execute_one("SELECT COUNT(*) as total FROM ai_training_data WHERE is_validated = 1")
+            training_samples = result['total']
         except:
             training_samples = 0
         
@@ -1075,24 +1059,18 @@ def suggest_reschedule():
         if not all([event_id, venue, original_date]):
             return jsonify({'success': False, 'error': 'Missing required parameters'})
         
-        conn = get_db()
-        cursor = conn.cursor(dictionary=True)
+        
+        db = get_db()
         
         # Fetch the event to get its details
-        cursor.execute("""
+        current_event = db.execute_one("""
             SELECT id, event_type, start_datetime, end_datetime
             FROM events 
             WHERE id = %s
         """, (event_id,))
-        current_event = cursor.fetchone()
         
         if not current_event:
-            cursor.close()
-            conn.close()
             return jsonify({'success': False, 'error': 'Event not found'})
-        
-        cursor.close()
-        conn.close()
         
         # Get event details
         event_start = current_event['start_datetime']
