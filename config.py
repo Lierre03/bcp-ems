@@ -16,6 +16,7 @@ class Config:
     SESSION_COOKIE_SECURE = False  # Set to True in production with HTTPS
     SESSION_COOKIE_HTTPONLY = True
     SESSION_COOKIE_SAMESITE = 'Lax'
+    SESSION_COOKIE_NAME = 'session'
     
     # Parse DATABASE_URL if available (for Render/Heroku)
     database_url = os.environ.get('DATABASE_URL')
@@ -116,6 +117,8 @@ class ProductionConfig(Config):
     TESTING = False
     # Override with stronger secret key in production
     SECRET_KEY = os.environ.get('SECRET_KEY') or os.urandom(32).hex()
+    # Enable secure cookies for HTTPS
+    SESSION_COOKIE_SECURE = True
 
 
 class TestingConfig(Config):
