@@ -112,7 +112,7 @@ def get_dashboard_analytics():
             WHERE e.deleted_at IS NULL
             {}
             GROUP BY e.event_type
-            HAVING feedback_count > 0
+            HAVING COUNT(ef.id) > 0
             ORDER BY avg_rating DESC
         """.format(dept_condition)
         feedback_by_type = get_db().execute_query(feedback_by_type_query, tuple(params) if params else ())
