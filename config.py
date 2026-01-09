@@ -57,7 +57,8 @@ class Config:
                 'password': os.environ.get('DB_PASSWORD') or '',
                 'database': os.environ.get('DB_NAME') or 'school_event_management',
                 'port': int(os.environ.get('DB_PORT') or 5432),
-                'autocommit': True
+                'autocommit': True,
+                'sslmode': 'disable'
             }
     else:
         # Local development

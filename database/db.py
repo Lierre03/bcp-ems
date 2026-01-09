@@ -34,12 +34,15 @@ class Database:
                 port=self.config['port'],
                 row_factory=dict_row,
                 autocommit=self.config.get('autocommit', True),
-                sslmode=self.config.get('sslmode', 'prefer')
+                sslmode=self.config.get('sslmode', 'require')
             )
             logger.info("Database connection established")
             return conn
         except Exception as e:
-            logger.error(f"Database connection failed: {e}")
+            # Log connection params for debugging (safe subset)
+            debug_config = {k: v for k, v in self.config.items() if k != 'password'}
+            logger.error(f"Database connection failed with params: {debug_config}")
+            logger.error(f"Database connection error: {e}")
             raise
     
     def get_connection(self):
