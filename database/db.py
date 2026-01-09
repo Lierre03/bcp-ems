@@ -63,7 +63,7 @@ class Database:
     
     def return_connection(self, conn):
         """Return connection to pool"""
-        if conn and conn.open:
+        if conn and not conn.closed:
             try:
                 # Only return to pool if there's space
                 self._pool.put_nowait(conn)
