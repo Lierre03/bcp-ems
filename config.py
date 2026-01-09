@@ -17,10 +17,8 @@ class Config:
     SESSION_COOKIE_HTTPONLY = True
     SESSION_COOKIE_SAMESITE = 'Lax'
     
-    # Database configuration
     # Parse DATABASE_URL if available (for Render/Heroku)
     database_url = os.environ.get('DATABASE_URL')
-    if database_url:
     if database_url:
         # Robust parsing using urllib
         import urllib.parse
