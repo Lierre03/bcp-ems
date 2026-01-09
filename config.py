@@ -21,19 +21,32 @@ class Config:
     # Parse DATABASE_URL if available (for Render/Heroku)
     database_url = os.environ.get('DATABASE_URL')
     if database_url:
-        # Parse postgres://user:password@host:port/database
-        import re
-        match = re.match(r'postgres://([^:]+):([^@]+)@([^:]+):(\d+)/(.+)', database_url)
-        if match:
+    if database_url:
+        # Robust parsing using urllib
+        import urllib.parse
+        
+        # Check for postgres/postgresql scheme
+        if database_url.startswith('postgres://') or database_url.startswith('postgresql://'):
+            # Fix scheme for parsing if needed, but urlparse handles both fine usually
+            # We standardize on postgresql for the scheme check
+            pass
+            
+        try:
+            url = urllib.parse.urlparse(database_url)
+            
+            # Extract database name (remove leading /)
+            path = url.path[1:] if url.path.startswith('/') else url.path
+            
             DB_CONFIG = {
-                'host': match.group(3),
-                'user': match.group(1),
-                'password': match.group(2),
-                'database': match.group(5),
-                'port': int(match.group(4)),
+                'host': url.hostname,
+                'user': url.username,
+                'password': url.password,
+                'database': path,
+                'port': url.port or 5432,
                 'autocommit': True
             }
-        else:
+        except Exception as e:
+            print(f"Error parsing DATABASE_URL: {e}")
             # Fallback to default
             DB_CONFIG = {
                 'host': os.environ.get('DB_HOST') or 'localhost',
