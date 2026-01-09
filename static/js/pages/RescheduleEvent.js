@@ -360,9 +360,12 @@ const RescheduleEvent = () => {
               React.createElement('select', {
                 value: formData.venue,
                 onChange: (e) => setFormData({ ...formData, venue: e.target.value }),
+                disabled: loadingVenues,
                 className: 'w-full px-3 py-2 border border-gray-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white'
               },
-                venueOptions.map(v => React.createElement('option', { key: v, value: v }, v))
+                loadingVenues
+                  ? React.createElement('option', {}, 'Loading venues...')
+                  : venueOptions.map(v => React.createElement('option', { key: v, value: v }, v))
               )
             ),
 
