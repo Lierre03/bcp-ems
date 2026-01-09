@@ -76,6 +76,35 @@ def create_app(config_name='development'):
     app.register_blueprint(analytics_bp)
     print("DEBUG: Analytics blueprint registered")
     
+    # Debug route for database connection
+    @app.route('/debug-db')
+    def debug_db_route():
+        try:
+            from database.db import get_db
+            db = get_db()
+            # Try a simple query
+            version = db.execute_one("SELECT version()")
+            
+            # Get connection config (masked)
+            import os
+            db_url = os.environ.get('DATABASE_URL', 'Not Set')
+            masked_url = db_url.replace(db_url.split(':')[2].split('@')[0], '******') if '@' in db_url else db_url
+            
+            return f"""
+            <h1>Database Connection Successful!</h1>
+            <p><b>Version:</b> {version}</p>
+            <p><b>DATABASE_URL:</b> {masked_url}</p>
+            <p><b>SSL Mode Check:</b> Connection established.</p>
+            """, 200
+        except Exception as e:
+            import traceback
+            return f"""
+            <h1>Database Connection Failed</h1>
+            <p><b>Error:</b> {str(e)}</p>
+            <h3>Traceback:</h3>
+            <pre>{traceback.format_exc()}</pre>
+            """, 500
+
     # Test route
     @app.route('/test')
     def test():
