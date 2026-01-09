@@ -3,8 +3,8 @@
 # Connection pooling and query helpers
 # ============================================================================
 
-import pymysql
-from pymysql.cursors import DictCursor
+import psycopg2
+import psycopg2.extras
 from contextlib import contextmanager
 import logging
 import threading
@@ -26,16 +26,16 @@ class Database:
     def _create_connection(self):
         """Create a new database connection"""
         try:
-            conn = pymysql.connect(
+            conn = psycopg2.connect(
                 host=self.config['host'],
                 user=self.config['user'],
                 password=self.config['password'],
                 database=self.config['database'],
                 port=self.config['port'],
-                charset=self.config['charset'],
-                cursorclass=DictCursor,
-                autocommit=self.config.get('autocommit', True)
+                cursor_factory=psycopg2.extras.RealDictCursor
             )
+            if self.config.get('autocommit', True):
+                conn.autocommit = True
             logger.info("Database connection established")
             return conn
         except Exception as e:
@@ -48,12 +48,8 @@ class Database:
             # Try to get an existing connection from pool
             conn = self._pool.get_nowait()
             # Verify connection is still alive
-            if conn.open:
-                try:
-                    conn.ping(reconnect=True)
-                    return conn
-                except:
-                    conn.close()
+            if not conn.closed:
+                return conn
             else:
                 conn.close()
         except Empty:

@@ -1,12 +1,12 @@
-Flask
+Flask==3.0.0
 Flask-Cors
+psycopg2-binary==2.9.9
 joblib
 pandas
 scikit-learn
 numpy
-mysql-connector-python
-PyMySQL
 bcrypt
-qrcode
-Pillow
+qrcode==7.4.2
+Pillow==10.1.0
 reportlab
+gunicorn==21.2.0
