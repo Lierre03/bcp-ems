@@ -18,7 +18,7 @@ from sklearn.metrics.pairwise import cosine_similarity
 from sklearn.pipeline import make_pipeline
 from sklearn.model_selection import train_test_split, cross_val_score
 from sklearn.metrics import r2_score, accuracy_score, mean_absolute_error
-import mysql.connector
+from database.db import get_db
 import json
 from datetime import datetime
 
@@ -34,11 +34,6 @@ BUDGET_MODEL_PATH = os.path.join(MODEL_DIR, 'budget_predictor.pkl')
 EQUIPMENT_MODEL_PATH = os.path.join(MODEL_DIR, 'equipment_predictor.pkl')
 BREAKDOWN_PROFILE_PATH = os.path.join(MODEL_DIR, 'budget_profiles.pkl')
 METADATA_PATH = os.path.join(MODEL_DIR, 'model_metadata.pkl')
-
-def get_db():
-    return mysql.connector.connect(
-        host='localhost', user='root', password='', database='school_event_management'
-    )
 
 def convert_to_24hour(time_str):
     """Convert 12-hour AM/PM time to 24-hour format for HTML time input"""
