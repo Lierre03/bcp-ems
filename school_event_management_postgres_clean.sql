@@ -1,0 +1,884 @@
+-- phpMyAdmin SQL Dump
+-- version 5.2.1
+-- https://www.phpmyadmin.net/
+--
+-- Host: localhost
+-- Generation Time: Jan 09, 2026 at 09:51 AM
+-- Server version: 10.4.32-MariaDB
+-- PHP Version: 8.2.12
+
+
+
+
+--
+-- Database: school_event_management
+--
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table ai_model_versions
+--
+
+CREATE TABLE ai_model_versions (
+  id integer NOT NULL,
+  model_name varchar(50) NOT NULL,
+  version varchar(20) NOT NULL,
+  r2_score decimal(5,4) DEFAULT NULL,
+  accuracy_score decimal(5,4) DEFAULT NULL,
+  training_samples integer DEFAULT 0,
+  file_path varchar(255) NOT NULL,
+  is_active tinyinteger DEFAULT 0,
+  created_at timestamp DEFAULT CURRENT_TIMESTAMP
+) ;
+
+--
+-- Dumping data for table ai_model_versions
+--
+
+INSERT INTO ai_model_versions (id, model_name, version, r2_score, accuracy_score, training_samples, file_path, is_active, created_at) VALUES
+(1, 'budget_predictor', '1.0.0-baseline', 0.7500, NULL, 20, 'models/budget_model_baseline.pkl', 1, '2025-12-20 21:12:38');
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table ai_training_data
+--
+
+CREATE TABLE ai_training_data (
+  id integer NOT NULL,
+  event_name varchar(255) NOT NULL,
+  event_type varchar(50) NOT NULL,
+  description text DEFAULT NULL,
+  venue varchar(100) DEFAULT NULL,
+  organizer varchar(100) DEFAULT NULL,
+  start_date date DEFAULT NULL,
+  end_date date DEFAULT NULL,
+  attendees integer NOT NULL,
+  total_budget decimal(10,2) NOT NULL,
+  budget_breakdown longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL CHECK (json_valid(budget_breakdown)),
+  equipment longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL CHECK (json_valid(equipment)),
+  activities longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL CHECK (json_valid(activities)),
+  additional_resources longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL CHECK (json_valid(additional_resources)),
+  is_validated tinyinteger DEFAULT 0,
+  created_at timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP
+) ;
+
+--
+-- Dumping data for table ai_training_data
+--
+
+INSERT INTO ai_training_data (id, event_name, event_type, description, venue, organizer, start_date, end_date, attendees, total_budget, budget_breakdown, equipment, activities, additional_resources, is_validated, created_at) VALUES
+(2, 'College Freshman Orientation', 'Academic', 'A formal academic orientation program for incoming college freshmen and transferees. The event introduces institutional policies, academic procedures, student services, and campus facilities.', 'Auditorium', 'Student Development Office', NULL, NULL, 300, 1500.00, '[{\"name\": \"Printing of orientation materials\", \"amount\": 1500}]', '[{\"name\": \"Microphone\", \"quantity\": 2}, {\"name\": \"Projector\", \"quantity\": 1}, {\"name\": \"Screen\", \"quantity\": 1}, {\"name\": \"Speaker\", \"quantity\": 1}, {\"name\": \"Laptop\", \"quantity\": 1}, {\"name\": \"Camera\", \"quantity\": 1}, {\"name\": \"Podium\", \"quantity\": 1}, {\"name\": \"Tables\", \"quantity\": 1}, {\"name\": \"Chairs\", \"quantity\": 320}]', '[\"08:00 - 08:30: Registration and attendance checking\", \"08:30 - 08:45: Opening prayer and Philippine National Anthem\", \"08:45 - 09:15: Opening Remarks by College Dean\", \"09:15 - 10:15: Academic policies and grading system orientation\", \"10:15 - 11:00: Student services briefing (registrar, library, guidance)\", \"11:00 - 11:30: Campus rules, safety policies, and student organizations\", \"11:30 - 12:00: Closing remarks and dismissal\"]', '[\"Volunteers\", \"Printed Attendance Registration Form\"]', 1, '2025-12-26 08:04:18'),
+(5, 'BCP 7th Year Foundation Day Celebration', 'Academic', 'Annual foundation day celebration with flag ceremony, department performances, games, raffle draws, and awarding. Participants bring own snacks/food.', 'Covered Court', 'Office of Student Affairs & Development', '2025-03-15', '2025-03-15', 400, 8500.00, '[{\"name\": \"Printed Certificates and Medals\", \"amount\": 1200}, {\"name\": \"Cash Prizes (Games & Raffle)\", \"amount\": 4000}, {\"name\": \"Tarpaulin and Signage\", \"amount\": 1800}, {\"name\": \"Printing (Programs, Registration)\", \"amount\": 900}, {\"name\": \"Miscellaneous/Supplies\", \"amount\": 600}]', '[{\"name\": \"Projector\", \"quantity\": 1}, {\"name\": \"Speaker\", \"quantity\": 4}, {\"name\": \"Microphone\", \"quantity\": 6}, {\"name\": \"Laptop\", \"quantity\": 1}, {\"name\": \"Screen\", \"quantity\": 1}, {\"name\": \"Tables\", \"quantity\": 8}, {\"name\": \"Chairs\", \"quantity\": 400}, {\"name\": \"Podium\", \"quantity\": 1}, {\"name\": \"Lighting\", \"quantity\": 8}, {\"name\": \"Camera\", \"quantity\": 2}, {\"name\": \"Water Dispenser\", \"quantity\": 2}, {\"name\": \"Trash Bins\", \"quantity\": 3}, {\"name\": \"First Aid Kits\", \"quantity\": 1}]', '[{\"startTime\": \"08:00 AM\", \"endTime\": \"08:15 AM\", \"phase\": \"Flag Raising & National Anthem\"}, {\"startTime\": \"08:15 AM\", \"endTime\": \"08:45 AM\", \"phase\": \"Opening Remarks & Welcome\"}, {\"startTime\": \"08:45 AM\", \"endTime\": \"10:00 AM\", \"phase\": \"Department/Club Performances\"}, {\"startTime\": \"10:00 AM\", \"endTime\": \"10:30 AM\", \"phase\": \"Games & Contests\"}, {\"startTime\": \"10:30 AM\", \"endTime\": \"11:00 AM\", \"phase\": \"Raffle Draw\"}, {\"startTime\": \"11:00 AM\", \"endTime\": \"11:30 AM\", \"phase\": \"Awarding Ceremony\"}, {\"startTime\": \"11:30 AM\", \"endTime\": \"12:00 PM\", \"phase\": \"Closing Remarks\"}]', '[\"Volunteers\", \"Sound system from school\"]', 1, '2025-12-26 13:49:09'),
+(6, 'BCP 7th Year Foundation Day Celebration', 'Academic', 'Annual foundation day celebration with flag ceremony, department performances, games, raffle draws, and awarding. Participants bring own snacks/food.', 'Covered Court', 'Office of Student Affairs & Development', '2025-03-15', '2025-03-15', 400, 8500.00, '[{\"name\": \"Printed Certificates and Medals\", \"amount\": 1200}, {\"name\": \"Cash Prizes (Games & Raffle)\", \"amount\": 4000}, {\"name\": \"Tarpaulin and Signage\", \"amount\": 1800}, {\"name\": \"Printing (Programs, Registration)\", \"amount\": 900}, {\"name\": \"Miscellaneous/Supplies\", \"amount\": 600}]', '[{\"name\": \"Projector\", \"quantity\": 1}, {\"name\": \"Speaker\", \"quantity\": 4}, {\"name\": \"Microphone\", \"quantity\": 6}, {\"name\": \"Laptop\", \"quantity\": 1}, {\"name\": \"Screen\", \"quantity\": 1}, {\"name\": \"Tables\", \"quantity\": 8}, {\"name\": \"Chairs\", \"quantity\": 400}, {\"name\": \"Podium\", \"quantity\": 1}, {\"name\": \"Lighting\", \"quantity\": 8}, {\"name\": \"Camera\", \"quantity\": 2}, {\"name\": \"Water Dispenser\", \"quantity\": 2}, {\"name\": \"Trash Bins\", \"quantity\": 3}, {\"name\": \"First Aid Kits\", \"quantity\": 1}]', '[{\"startTime\": \"08:00 AM\", \"endTime\": \"08:15 AM\", \"phase\": \"Flag Raising & National Anthem\"}, {\"startTime\": \"08:15 AM\", \"endTime\": \"08:45 AM\", \"phase\": \"Opening Remarks & Welcome\"}, {\"startTime\": \"08:45 AM\", \"endTime\": \"10:00 AM\", \"phase\": \"Department/Club Performances\"}, {\"startTime\": \"10:00 AM\", \"endTime\": \"10:30 AM\", \"phase\": \"Games & Contests\"}, {\"startTime\": \"10:30 AM\", \"endTime\": \"11:00 AM\", \"phase\": \"Raffle Draw\"}, {\"startTime\": \"11:00 AM\", \"endTime\": \"11:30 AM\", \"phase\": \"Awarding Ceremony\"}, {\"startTime\": \"11:30 AM\", \"endTime\": \"12:00 PM\", \"phase\": \"Closing Remarks\"}]', '[\"Volunteers\", \"Raffle tickets\", \"Registration forms\", \"Microphone stands\"]', 1, '2025-12-26 13:50:45'),
+(7, 'BCP Digital Literacy Workshop 2025', 'Workshop', 'Educational workshop on digital literacy skills including online safety, basic coding, social media management, and digital tools for students. Features guest speakers and hands-on activities.', 'Auditorium', 'Computer Studies Department', '2025-04-10', '2025-04-10', 150, 5700.00, '[{\"name\": \"Resource Materials (Handouts)\", \"amount\": 1000}, {\"name\": \"Printed Certificates\", \"amount\": 800}, {\"name\": \"Guest Speaker Honorarium\", \"amount\": 2000}, {\"name\": \"Tarpaulin and Signage\", \"amount\": 900}, {\"name\": \"Printing (Programs, Registration)\", \"amount\": 600}, {\"name\": \"Miscellaneous/Supplies\", \"amount\": 400}]', '[{\"name\": \"Projector\", \"quantity\": 2}, {\"name\": \"Speaker\", \"quantity\": 4}, {\"name\": \"Microphone\", \"quantity\": 4}, {\"name\": \"Laptop\", \"quantity\": 2}, {\"name\": \"Screen\", \"quantity\": 2}, {\"name\": \"Tables\", \"quantity\": 10}, {\"name\": \"Chairs\", \"quantity\": 150}, {\"name\": \"Podium\", \"quantity\": 1}, {\"name\": \"Lighting\", \"quantity\": 6}, {\"name\": \"Camera\", \"quantity\": 1}, {\"name\": \"Water Dispenser\", \"quantity\": 1}, {\"name\": \"Trash Bins\", \"quantity\": 2}]', '[{\"startTime\": \"08:00 AM\", \"endTime\": \"08:30 AM\", \"phase\": \"Registration & Welcome Coffee\"}, {\"startTime\": \"08:30 AM\", \"endTime\": \"09:00 AM\", \"phase\": \"Opening Remarks\"}, {\"startTime\": \"09:00 AM\", \"endTime\": \"10:30 AM\", \"phase\": \"Session 1: Online Safety & Digital Ethics\"}, {\"startTime\": \"10:30 AM\", \"endTime\": \"11:00 AM\", \"phase\": \"Break\"}, {\"startTime\": \"11:00 AM\", \"endTime\": \"12:30 PM\", \"phase\": \"Session 2: Basic Coding & Programming\"}, {\"startTime\": \"12:30 PM\", \"endTime\": \"01:30 PM\", \"phase\": \"Lunch Break (Participants bring own food)\"}, {\"startTime\": \"01:30 PM\", \"endTime\": \"03:00 PM\", \"phase\": \"Session 3: Social Media & Digital Marketing\"}, {\"startTime\": \"03:00 PM\", \"endTime\": \"03:30 PM\", \"phase\": \"Break\"}, {\"startTime\": \"03:30 PM\", \"endTime\": \"04:30 PM\", \"phase\": \"Hands-on Activities & Q&A\"}, {\"startTime\": \"04:30 PM\", \"endTime\": \"05:00 PM\", \"phase\": \"Certificate Distribution & Closing\"}]', '[\"Guest speakers (IT professionals)\", \"WiFi access\", \"Extension cords\"]', 1, '2025-12-26 13:55:29'),
+(8, 'BCP Annual Career Fair 2025', 'Academic', 'Annual career fair connecting students with potential employers, featuring company booths, resume workshops, mock interviews, and networking sessions. Companies from various industries participate.', 'Covered Court', 'Career Services Office', '2025-05-15', '2025-05-15', 250, 5500.00, '[{\"name\": \"Booth Materials (Tablecloths, Signage)\", \"amount\": 2000}, {\"name\": \"Printed Certificates (Participants)\", \"amount\": 500}, {\"name\": \"Refreshments (Water only)\", \"amount\": 300}, {\"name\": \"Tarpaulin and Signage\", \"amount\": 1500}, {\"name\": \"Printing (Programs, Forms)\", \"amount\": 700}, {\"name\": \"Miscellaneous/Supplies\", \"amount\": 500}]', '[{\"name\": \"Tables\", \"quantity\": 15}, {\"name\": \"Chairs\", \"quantity\": 250}, {\"name\": \"Projector\", \"quantity\": 1}, {\"name\": \"Screen\", \"quantity\": 1}, {\"name\": \"Speaker\", \"quantity\": 2}, {\"name\": \"Microphone\", \"quantity\": 3}, {\"name\": \"Laptop\", \"quantity\": 1}, {\"name\": \"Lighting\", \"quantity\": 8}, {\"name\": \"Camera\", \"quantity\": 1}, {\"name\": \"Water Dispenser\", \"quantity\": 2}, {\"name\": \"Trash Bins\", \"quantity\": 3}, {\"name\": \"First Aid Kits\", \"quantity\": 1}]', '[{\"startTime\": \"08:00 AM\", \"endTime\": \"09:00 AM\", \"phase\": \"Registration & Booth Setup\"}, {\"startTime\": \"09:00 AM\", \"endTime\": \"09:30 AM\", \"phase\": \"Opening Ceremony\"}, {\"startTime\": \"09:30 AM\", \"endTime\": \"11:00 AM\", \"phase\": \"Company Booth Visits (Session 1)\"}, {\"startTime\": \"11:00 AM\", \"endTime\": \"12:00 PM\", \"phase\": \"Resume Workshop\"}, {\"startTime\": \"12:00 PM\", \"endTime\": \"01:00 PM\", \"phase\": \"Lunch Break (Participants bring own food)\"}, {\"startTime\": \"01:00 PM\", \"endTime\": \"02:30 PM\", \"phase\": \"Company Booth Visits (Session 2)\"}, {\"startTime\": \"02:30 PM\", \"endTime\": \"03:30 PM\", \"phase\": \"Mock Interview Sessions\"}, {\"startTime\": \"03:30 PM\", \"endTime\": \"04:30 PM\", \"phase\": \"Networking & Q&A\"}, {\"startTime\": \"04:30 PM\", \"endTime\": \"05:00 PM\", \"phase\": \"Closing & Feedback\"}]', '[\"Company representatives (external participants)\", \"Resume templates\", \"Interview evaluation forms\", \"WiFi access for online applications\"]', 1, '2025-12-26 13:56:55'),
+(9, 'BCP Commencement Exercises 2025', 'Academic', 'Annual graduation ceremony for bachelor\'s degree recipients. Includes academic procession, keynote speech, diploma distribution, and recognition of outstanding graduates. Families and guests attend.', 'Covered Court', 'Academic Affairs Office', '2025-06-30', '2025-06-30', 500, 15000.00, '[{\"name\": \"Printed Diplomas & Covers\", \"amount\": 3000}, {\"name\": \"Printed Programs & Invitations\", \"amount\": 1500}, {\"name\": \"Guest Speaker Honorarium\", \"amount\": 5000}, {\"name\": \"Tarpaulin and Signage\", \"amount\": 2000}, {\"name\": \"Photography Services\", \"amount\": 2500}, {\"name\": \"Miscellaneous/Supplies\", \"amount\": 1000}]', '[{\"name\": \"Stage\", \"quantity\": 1}, {\"name\": \"Podium\", \"quantity\": 2}, {\"name\": \"Speaker\", \"quantity\": 8}, {\"name\": \"Microphone\", \"quantity\": 8}, {\"name\": \"Lighting\", \"quantity\": 12}, {\"name\": \"Projector\", \"quantity\": 2}, {\"name\": \"Screen\", \"quantity\": 2}, {\"name\": \"Tables\", \"quantity\": 10}, {\"name\": \"Chairs\", \"quantity\": 500}, {\"name\": \"Camera\", \"quantity\": 3}, {\"name\": \"Water Dispenser\", \"quantity\": 2}, {\"name\": \"Trash Bins\", \"quantity\": 4}, {\"name\": \"First Aid Kits\", \"quantity\": 2}]', '[{\"startTime\": \"02:00 PM\", \"endTime\": \"02:30 PM\", \"phase\": \"Guest Seating & Prelude Music\"}, {\"startTime\": \"02:30 PM\", \"endTime\": \"03:00 PM\", \"phase\": \"Academic Procession\"}, {\"startTime\": \"03:00 PM\", \"endTime\": \"03:30 PM\", \"phase\": \"Opening Remarks & National Anthem\"}, {\"startTime\": \"03:30 PM\", \"endTime\": \"04:00 PM\", \"phase\": \"Keynote Address\"}, {\"startTime\": \"04:00 PM\", \"endTime\": \"05:30 PM\", \"phase\": \"Diploma Distribution\"}, {\"startTime\": \"05:30 PM\", \"endTime\": \"06:00 PM\", \"phase\": \"Recognition of Outstanding Graduates\"}, {\"startTime\": \"06:00 PM\", \"endTime\": \"06:30 PM\", \"phase\": \"Closing Remarks & Benediction\"}, {\"startTime\": \"06:30 PM\", \"endTime\": \"07:00 PM\", \"phase\": \"Recessional\"}]', '[\"Academic regalia (caps, gowns, hoods)\", \"Guest speaker\", \"Ushers and marshals\", \"Certificate templates\"]', 1, '2025-12-26 13:58:59'),
+(10, 'BCP Christmas Party 2025', 'Cultural', 'Annual Christmas celebration featuring holiday performances, games, gift exchanges, and fellowship. Includes department presentations, Christmas carols, parlor games, and community bonding activities.', 'Auditorium', 'Student Council & Alumni Affairs', '2025-12-20', '2025-12-20', 400, 9000.00, '[{\"name\": \"Christmas Decorations\", \"amount\": 2500}, {\"name\": \"Printed Certificates/Ribbons\", \"amount\": 800}, {\"name\": \"Cash Prizes (Games & Raffle)\", \"amount\": 3000}, {\"name\": \"Tarpaulin and Signage\", \"amount\": 1200}, {\"name\": \"Printing (Programs, Invitations)\", \"amount\": 800}, {\"name\": \"Miscellaneous/Supplies\", \"amount\": 700}]', '[{\"name\": \"Stage\", \"quantity\": 1}, {\"name\": \"Speaker\", \"quantity\": 6}, {\"name\": \"Microphone\", \"quantity\": 6}, {\"name\": \"Lighting\", \"quantity\": 10}, {\"name\": \"Projector\", \"quantity\": 1}, {\"name\": \"Screen\", \"quantity\": 1}, {\"name\": \"Tables\", \"quantity\": 15}, {\"name\": \"Chairs\", \"quantity\": 400}, {\"name\": \"Podium\", \"quantity\": 1}, {\"name\": \"Camera\", \"quantity\": 2}, {\"name\": \"Water Dispenser\", \"quantity\": 2}, {\"name\": \"Trash Bins\", \"quantity\": 4}, {\"name\": \"First Aid Kits\", \"quantity\": 1}]', '[{\"startTime\": \"05:00 PM\", \"endTime\": \"05:30 PM\", \"phase\": \"Guest Arrival & Registration\"}, {\"startTime\": \"05:30 PM\", \"endTime\": \"06:00 PM\", \"phase\": \"Opening Program & Welcome\"}, {\"startTime\": \"06:00 PM\", \"endTime\": \"07:00 PM\", \"phase\": \"Department Holiday Performances\"}, {\"startTime\": \"07:00 PM\", \"endTime\": \"08:00 PM\", \"phase\": \"Christmas Games & Contests\"}, {\"startTime\": \"08:00 PM\", \"endTime\": \"08:30 PM\", \"phase\": \"Gift Exchange & Raffle Draw\"}, {\"startTime\": \"08:30 PM\", \"endTime\": \"09:00 PM\", \"phase\": \"Christmas Carol Singing\"}, {\"startTime\": \"09:00 PM\", \"endTime\": \"09:30 PM\", \"phase\": \"Awards & Recognition\"}, {\"startTime\": \"09:30 PM\", \"endTime\": \"10:00 PM\", \"phase\": \"Closing & Fellowship\"}]', '[\"Student performers and participants\", \"Christmas props and decorations\", \"Gift exchange items\", \"Sound and lighting crew\"]', 1, '2025-12-26 14:00:06'),
+(11, 'Inter-Department Quiz Bee 2025', 'Academic', 'Annual inter-department quiz competition testing knowledge in various academic subjects. Features elimination rounds, buzzer system, and team competitions among college departments.', 'Auditorium', 'Academic Affairs & Student Council', '2025-09-15', '2025-09-15', 200, 7800.00, '[{\"name\": \"Printed Certificates & Medals\", \"amount\": 1500}, {\"name\": \"Cash Prizes (Top teams)\", \"amount\": 4000}, {\"name\": \"Tarpaulin and Signage\", \"amount\": 1000}, {\"name\": \"Printing (Questionnaires, Score sheets)\", \"amount\": 800}, {\"name\": \"Miscellaneous/Supplies\", \"amount\": 500}]', '[{\"name\": \"Projector\", \"quantity\": 2}, {\"name\": \"Screen\", \"quantity\": 2}, {\"name\": \"Speaker\", \"quantity\": 4}, {\"name\": \"Microphone\", \"quantity\": 6}, {\"name\": \"Laptop\", \"quantity\": 2}, {\"name\": \"Tables\", \"quantity\": 8}, {\"name\": \"Chairs\", \"quantity\": 200}, {\"name\": \"Podium\", \"quantity\": 1}, {\"name\": \"Lighting\", \"quantity\": 8}, {\"name\": \"Camera\", \"quantity\": 1}, {\"name\": \"Water Dispenser\", \"quantity\": 1}, {\"name\": \"Trash Bins\", \"quantity\": 2}, {\"name\": \"First Aid Kits\", \"quantity\": 1}]', '[{\"startTime\": \"08:00 AM\", \"endTime\": \"08:30 AM\", \"phase\": \"Registration & Team Briefing\"}, {\"startTime\": \"08:30 AM\", \"endTime\": \"09:00 AM\", \"phase\": \"Opening Ceremony\"}, {\"startTime\": \"09:00 AM\", \"endTime\": \"10:30 AM\", \"phase\": \"Preliminary Round (Written)\"}, {\"startTime\": \"10:30 AM\", \"endTime\": \"11:00 AM\", \"phase\": \"Break\"}, {\"startTime\": \"11:00 AM\", \"endTime\": \"12:30 PM\", \"phase\": \"Elimination Round 1 (Buzzer)\"}, {\"startTime\": \"12:30 PM\", \"endTime\": \"01:30 PM\", \"phase\": \"Lunch Break (Participants bring own food)\"}, {\"startTime\": \"01:30 PM\", \"endTime\": \"03:00 PM\", \"phase\": \"Elimination Round 2 (Buzzer)\"}, {\"startTime\": \"03:00 PM\", \"endTime\": \"03:30 PM\", \"phase\": \"Semi-Finals\"}, {\"startTime\": \"03:30 PM\", \"endTime\": \"04:00 PM\", \"phase\": \"Finals\"}, {\"startTime\": \"04:00 PM\", \"endTime\": \"04:30 PM\", \"phase\": \"Awards Ceremony\"}]', '[\"Quiz masters and judges\", \"Question sets and answer keys\", \"Buzzer system (if available)\", \"Scorekeepers\"]', 1, '2025-12-26 14:01:17'),
+(12, 'College Environmental Awareness Week 2025', 'Academic', 'Annual environmental awareness event featuring tree planting, waste management workshops, eco-friendly exhibits, and sustainability talks. Promotes environmental consciousness and sustainable practices among students.', 'Covered Court', 'Environmental Club & Student Council', '2025-11-10', '2025-11-10', 300, 4800.00, '[{\"name\": \"Planting Materials (Seeds, Soil)\", \"amount\": 2000}, {\"name\": \"Printed Certificates\", \"amount\": 600}, {\"name\": \"Tarpaulin and Signage\", \"amount\": 1000}, {\"name\": \"Printing (Flyers, Materials)\", \"amount\": 700}, {\"name\": \"Miscellaneous/Supplies\", \"amount\": 500}]', '[{\"name\": \"Tables\", \"quantity\": 10}, {\"name\": \"Chairs\", \"quantity\": 300}, {\"name\": \"Projector\", \"quantity\": 1}, {\"name\": \"Screen\", \"quantity\": 1}, {\"name\": \"Speaker\", \"quantity\": 4}, {\"name\": \"Microphone\", \"quantity\": 4}, {\"name\": \"Laptop\", \"quantity\": 1}, {\"name\": \"Lighting\", \"quantity\": 6}, {\"name\": \"Camera\", \"quantity\": 1}, {\"name\": \"Water Dispenser\", \"quantity\": 2}, {\"name\": \"Trash Bins\", \"quantity\": 3}, {\"name\": \"First Aid Kits\", \"quantity\": 1}]', '[{\"startTime\": \"08:00 AM\", \"endTime\": \"08:30 AM\", \"phase\": \"Registration & Welcome\"}, {\"startTime\": \"08:30 AM\", \"endTime\": \"09:00 AM\", \"phase\": \"Opening Ceremony\"}, {\"startTime\": \"09:00 AM\", \"endTime\": \"10:30 AM\", \"phase\": \"Environmental Talks & Presentations\"}, {\"startTime\": \"10:30 AM\", \"endTime\": \"11:00 AM\", \"phase\": \"Break\"}, {\"startTime\": \"11:00 AM\", \"endTime\": \"12:30 PM\", \"phase\": \"Waste Management Workshop\"}, {\"startTime\": \"12:30 PM\", \"endTime\": \"01:30 PM\", \"phase\": \"Lunch Break (Participants bring own food)\"}, {\"startTime\": \"01:30 PM\", \"endTime\": \"03:00 PM\", \"phase\": \"Tree Planting Activity\"}, {\"startTime\": \"03:00 PM\", \"endTime\": \"03:30 PM\", \"phase\": \"Eco-Exhibits & Demonstrations\"}, {\"startTime\": \"03:30 PM\", \"endTime\": \"04:00 PM\", \"phase\": \"Group Discussions\"}, {\"startTime\": \"04:00 PM\", \"endTime\": \"04:30 PM\", \"phase\": \"Closing & Commitment Signing\"}]', '[\"Environmental speakers/guest lecturers\", \"Planting tools and supplies\", \"Recycling bins and materials\", \"Volunteers for activities\"]', 1, '2025-12-26 14:02:20'),
+(13, 'College Research and Innovation Forum 2025', 'Academic', 'Annual forum showcasing research projects and innovations from various college departments. Features paper presentations, poster exhibits, and panel discussions on current research trends and applications.', 'Auditorium', 'Research Office & Academic Departments', '2025-10-25', '2025-10-25', 250, 8700.00, '[{\"name\": \"Printed Certificates\", \"amount\": 1000}, {\"name\": \"Cash Prizes (Best Research)\", \"amount\": 5000}, {\"name\": \"Tarpaulin and Signage\", \"amount\": 1200}, {\"name\": \"Printing (Programs, Abstracts)\", \"amount\": 900}, {\"name\": \"Miscellaneous/Supplies\", \"amount\": 600}]', '[{\"name\": \"Projector\", \"quantity\": 2}, {\"name\": \"Screen\", \"quantity\": 2}, {\"name\": \"Speaker\", \"quantity\": 4}, {\"name\": \"Microphone\", \"quantity\": 6}, {\"name\": \"Laptop\", \"quantity\": 2}, {\"name\": \"Tables\", \"quantity\": 12}, {\"name\": \"Chairs\", \"quantity\": 250}, {\"name\": \"Podium\", \"quantity\": 2}, {\"name\": \"Lighting\", \"quantity\": 8}, {\"name\": \"Camera\", \"quantity\": 2}, {\"name\": \"Water Dispenser\", \"quantity\": 2}, {\"name\": \"Trash Bins\", \"quantity\": 3}, {\"name\": \"First Aid Kits\", \"quantity\": 1}]', '[{\"startTime\": \"08:00 AM\", \"endTime\": \"08:30 AM\", \"phase\": \"Registration & Poster Setup\"}, {\"startTime\": \"08:30 AM\", \"endTime\": \"09:00 AM\", \"phase\": \"Opening Ceremony\"}, {\"startTime\": \"09:00 AM\", \"endTime\": \"10:30 AM\", \"phase\": \"Oral Presentations Session 1 (Business/IT)\"}, {\"startTime\": \"10:30 AM\", \"endTime\": \"11:00 AM\", \"phase\": \"Break & Poster Viewing\"}, {\"startTime\": \"11:00 AM\", \"endTime\": \"12:30 PM\", \"phase\": \"Oral Presentations Session 2 (Education/Engineering)\"}, {\"startTime\": \"12:30 PM\", \"endTime\": \"01:30 PM\", \"phase\": \"Lunch Break (Participants bring own food)\"}, {\"startTime\": \"01:30 PM\", \"endTime\": \"03:00 PM\", \"phase\": \"Panel Discussion & Q&A\"}, {\"startTime\": \"03:00 PM\", \"endTime\": \"03:30 PM\", \"phase\": \"Poster Awards\"}, {\"startTime\": \"03:30 PM\", \"endTime\": \"04:00 PM\", \"phase\": \"Best Paper Awards\"}, {\"startTime\": \"04:00 PM\", \"endTime\": \"04:30 PM\", \"phase\": \"Closing Ceremony\"}]', '[\"Department research coordinators\", \"Evaluation rubrics and judges\", \"Poster boards and materials\", \"Research abstracts booklet\"]', 1, '2025-12-26 14:03:35'),
+(14, 'College Health and Wellness Fair 2025', 'Workshop', 'Annual health fair promoting physical and mental wellness. Features health screenings, wellness workshops, fitness demonstrations, nutrition talks, and counseling booths for students.', 'Covered Court', 'Health Services Office & Student Council', '2025-01-20', '2025-01-20', 350, 6000.00, '[{\"name\": \"Health Materials (Pamphlets, Posters)\", \"amount\": 1500}, {\"name\": \"Printed Certificates\", \"amount\": 500}, {\"name\": \"Raffle Prizes\", \"amount\": 2000}, {\"name\": \"Tarpaulin and Signage\", \"amount\": 1000}, {\"name\": \"Printing (Flyers, Forms)\", \"amount\": 600}, {\"name\": \"Miscellaneous/Supplies\", \"amount\": 400}]', '[{\"name\": \"Tables\", \"quantity\": 15}, {\"name\": \"Chairs\", \"quantity\": 350}, {\"name\": \"Projector\", \"quantity\": 1}, {\"name\": \"Screen\", \"quantity\": 1}, {\"name\": \"Speaker\", \"quantity\": 4}, {\"name\": \"Microphone\", \"quantity\": 4}, {\"name\": \"Laptop\", \"quantity\": 1}, {\"name\": \"Lighting\", \"quantity\": 8}, {\"name\": \"Camera\", \"quantity\": 1}, {\"name\": \"Water Dispenser\", \"quantity\": 2}, {\"name\": \"Trash Bins\", \"quantity\": 4}, {\"name\": \"First Aid Kits\", \"quantity\": 2}]', '[{\"startTime\": \"08:00 AM\", \"endTime\": \"09:00 AM\", \"phase\": \"Registration & Booth Setup\"}, {\"startTime\": \"09:00 AM\", \"endTime\": \"09:30 AM\", \"phase\": \"Opening Ceremony\"}, {\"startTime\": \"09:30 AM\", \"endTime\": \"11:00 AM\", \"phase\": \"Health Screenings & Check-ups\"}, {\"startTime\": \"11:00 AM\", \"endTime\": \"12:00 PM\", \"phase\": \"Wellness Workshops (Mental Health)\"}, {\"startTime\": \"12:00 PM\", \"endTime\": \"01:00 PM\", \"phase\": \"Lunch Break (Participants bring own food)\"}, {\"startTime\": \"01:00 PM\", \"endTime\": \"02:30 PM\", \"phase\": \"Fitness Demonstrations & Zumba\"}, {\"startTime\": \"02:30 PM\", \"endTime\": \"03:30 PM\", \"phase\": \"Nutrition Talks & Counseling\"}, {\"startTime\": \"03:30 PM\", \"endTime\": \"04:00 PM\", \"phase\": \"Raffle Draw & Giveaways\"}, {\"startTime\": \"04:00 PM\", \"endTime\": \"04:30 PM\", \"phase\": \"Closing & Feedback\"}]', '[\"Health professionals and counselors\", \"Screening equipment (BP monitors, scales)\", \"Wellness activity instructors\", \"Volunteer health ambassadors\"]', 1, '2025-12-26 14:04:54'),
+(15, 'College Alumni Homecoming 2025', 'Cultural', 'Annual reunion celebrating college alumni. Features welcome program, batch reunions, talent showcases, fellowship dinner, and recognition of outstanding alumni achievements.', 'Covered Court', 'Alumni Affairs Office & Student Council', '2025-03-25', '2025-03-25', 400, 11000.00, '[{\"name\": \"Decorations and Backdrops\", \"amount\": 3000}, {\"name\": \"Printed Certificates & Plaques\", \"amount\": 1500}, {\"name\": \"Cash Awards (Outstanding Alumni)\", \"amount\": 4000}, {\"name\": \"Tarpaulin and Signage\", \"amount\": 1200}, {\"name\": \"Printing (Programs, Name Tags)\", \"amount\": 800}, {\"name\": \"Miscellaneous/Supplies\", \"amount\": 500}]', '[{\"name\": \"Stage\", \"quantity\": 1}, {\"name\": \"Speaker\", \"quantity\": 6}, {\"name\": \"Microphone\", \"quantity\": 6}, {\"name\": \"Lighting\", \"quantity\": 10}, {\"name\": \"Projector\", \"quantity\": 1}, {\"name\": \"Screen\", \"quantity\": 1}, {\"name\": \"Tables\", \"quantity\": 20}, {\"name\": \"Chairs\", \"quantity\": 400}, {\"name\": \"Podium\", \"quantity\": 1}, {\"name\": \"Camera\", \"quantity\": 2}, {\"name\": \"Water Dispenser\", \"quantity\": 2}, {\"name\": \"Trash Bins\", \"quantity\": 4}, {\"name\": \"First Aid Kits\", \"quantity\": 1}]', '[{\"startTime\": \"04:00 PM\", \"endTime\": \"05:00 PM\", \"phase\": \"Registration & Welcome Reception\"}, {\"startTime\": \"05:00 PM\", \"endTime\": \"05:30 PM\", \"phase\": \"Opening Program\"}, {\"startTime\": \"05:30 PM\", \"endTime\": \"06:30 PM\", \"phase\": \"Batch Reunions & Networking\"}, {\"startTime\": \"06:30 PM\", \"endTime\": \"07:30 PM\", \"phase\": \"Talent Showcase & Performances\"}, {\"startTime\": \"07:30 PM\", \"endTime\": \"08:30 PM\", \"phase\": \"Fellowship Dinner (Participants bring own food)\"}, {\"startTime\": \"08:30 PM\", \"endTime\": \"09:30 PM\", \"phase\": \"Recognition & Awards\"}, {\"startTime\": \"09:30 PM\", \"endTime\": \"10:00 PM\", \"phase\": \"Closing & Farewell\"}]', '[\"Alumni coordinators and volunteers\", \"Photo booth setup and props\", \"Sound and lighting technicians\"]', 1, '2025-12-26 14:06:14'),
+(16, 'Foundation Week 2025', 'Cultural', 'Annual foundation week celebration featuring sports tournaments, cultural performances, department competitions, and culminating activities to commemorate the school\'s founding anniversary.', 'Covered Court', 'Student Council & Administration', '2025-02-10', '2025-02-12', 500, 20000.00, '[{\"name\": \"Decorations and Props\", \"amount\": 5000}, {\"name\": \"Printed Certificates & Medals\", \"amount\": 2000}, {\"name\": \"Cash Prizes (Competitions)\", \"amount\": 8000}, {\"name\": \"Tarpaulin and Signage\", \"amount\": 2500}, {\"name\": \"Printing (Programs, Flyers)\", \"amount\": 1500}, {\"name\": \"Miscellaneous/Supplies\", \"amount\": 1000}]', '[{\"name\": \"Stage\", \"quantity\": 1}, {\"name\": \"Speaker\", \"quantity\": 8}, {\"name\": \"Microphone\", \"quantity\": 8}, {\"name\": \"Lighting\", \"quantity\": 12}, {\"name\": \"Projector\", \"quantity\": 2}, {\"name\": \"Screen\", \"quantity\": 2}, {\"name\": \"Tables\", \"quantity\": 20}, {\"name\": \"Chairs\", \"quantity\": 500}, {\"name\": \"Podium\", \"quantity\": 2}, {\"name\": \"Camera\", \"quantity\": 3}, {\"name\": \"Water Dispenser\", \"quantity\": 2}, {\"name\": \"Trash Bins\", \"quantity\": 4}, {\"name\": \"First Aid Kits\", \"quantity\": 2}, {\"name\": \"Basketball\", \"quantity\": 6}, {\"name\": \"Volleyball\", \"quantity\": 6}, {\"name\": \"Scoreboard\", \"quantity\": 2}]', '{\"day1\": [{\"startTime\": \"08:00 AM\", \"endTime\": \"09:00 AM\", \"phase\": \"Opening Ceremony\"}, {\"startTime\": \"09:00 AM\", \"endTime\": \"12:00 PM\", \"phase\": \"Basketball Tournament\"}, {\"startTime\": \"12:00 PM\", \"endTime\": \"01:00 PM\", \"phase\": \"Lunch Break\"}, {\"startTime\": \"01:00 PM\", \"endTime\": \"04:00 PM\", \"phase\": \"Volleyball Tournament\"}, {\"startTime\": \"04:00 PM\", \"endTime\": \"05:00 PM\", \"phase\": \"Awards\"}], \"day2\": [{\"startTime\": \"09:00 AM\", \"endTime\": \"10:00 AM\", \"phase\": \"Department Performances\"}, {\"startTime\": \"10:00 AM\", \"endTime\": \"11:00 AM\", \"phase\": \"Talent Show\"}, {\"startTime\": \"11:00 AM\", \"endTime\": \"12:00 PM\", \"phase\": \"Break\"}, {\"startTime\": \"12:00 PM\", \"endTime\": \"01:00 PM\", \"phase\": \"Lunch Break\"}, {\"startTime\": \"01:00 PM\", \"endTime\": \"03:00 PM\", \"phase\": \"Dance Competition\"}, {\"startTime\": \"03:00 PM\", \"endTime\": \"04:00 PM\", \"phase\": \"Cultural Exhibits\"}], \"day3\": [{\"startTime\": \"09:00 AM\", \"endTime\": \"10:00 AM\", \"phase\": \"Academic Quiz Bee\"}, {\"startTime\": \"10:00 AM\", \"endTime\": \"11:00 AM\", \"phase\": \"Department Games\"}, {\"startTime\": \"11:00 AM\", \"endTime\": \"12:00 PM\", \"phase\": \"Break\"}, {\"startTime\": \"12:00 PM\", \"endTime\": \"01:00 PM\", \"phase\": \"Lunch Break\"}, {\"startTime\": \"01:00 PM\", \"endTime\": \"03:00 PM\", \"phase\": \"Grand Parade\"}, {\"startTime\": \"03:00 PM\", \"endTime\": \"04:00 PM\", \"phase\": \"Awards & Closing\"}]}', '[\"Event coordinators and judges\", \"Competition props and materials\", \"Medical team for sports\", \"Security personnel\", \"Event tents and canopies\", \"Sound system backup\", \"Generator (for power backup)\"]', 1, '2025-12-26 14:08:51'),
+(17, 'Seminar Series on Entrepreneurship 2025', 'Workshop', 'Two-day seminar series featuring workshops on business planning, marketing strategies, financial management, and startup incubation. Includes guest speakers, interactive sessions, and networking opportunities for aspiring entrepreneurs.', 'Auditorium', 'Business Department & Entrepreneurship Club', '2025-04-15', '2025-04-16', 200, 9200.00, '[{\"name\": \"Resource Materials (Handouts, Workbooks)\", \"amount\": 2500}, {\"name\": \"Printed Certificates\", \"amount\": 1000}, {\"name\": \"Guest Speaker Honorarium\", \"amount\": 3000}, {\"name\": \"Tarpaulin and Signage\", \"amount\": 1200}, {\"name\": \"Printing (Programs, Certificates)\", \"amount\": 900}, {\"name\": \"Miscellaneous/Supplies\", \"amount\": 600}]', '[{\"name\": \"Projector\", \"quantity\": 2}, {\"name\": \"Screen\", \"quantity\": 2}, {\"name\": \"Speaker\", \"quantity\": 4}, {\"name\": \"Microphone\", \"quantity\": 6}, {\"name\": \"Laptop\", \"quantity\": 2}, {\"name\": \"Tables\", \"quantity\": 15}, {\"name\": \"Chairs\", \"quantity\": 200}, {\"name\": \"Podium\", \"quantity\": 1}, {\"name\": \"Lighting\", \"quantity\": 8}, {\"name\": \"Camera\", \"quantity\": 1}, {\"name\": \"Water Dispenser\", \"quantity\": 2}, {\"name\": \"Trash Bins\", \"quantity\": 3}, {\"name\": \"First Aid Kits\", \"quantity\": 1}]', '{\"day1\": [{\"startTime\": \"08:00 AM\", \"endTime\": \"08:30 AM\", \"phase\": \"Registration & Welcome\"}, {\"startTime\": \"08:30 AM\", \"endTime\": \"09:00 AM\", \"phase\": \"Opening Ceremony\"}, {\"startTime\": \"09:00 AM\", \"endTime\": \"10:30 AM\", \"phase\": \"Business Planning Workshop\"}, {\"startTime\": \"10:30 AM\", \"endTime\": \"11:00 AM\", \"phase\": \"Break\"}, {\"startTime\": \"11:00 AM\", \"endTime\": \"12:30 PM\", \"phase\": \"Marketing Strategies Session\"}, {\"startTime\": \"12:30 PM\", \"endTime\": \"01:30 PM\", \"phase\": \"Lunch Break\"}, {\"startTime\": \"01:30 PM\", \"endTime\": \"03:00 PM\", \"phase\": \"Financial Management Workshop\"}, {\"startTime\": \"03:00 PM\", \"endTime\": \"03:30 PM\", \"phase\": \"Networking Session\"}, {\"startTime\": \"03:30 PM\", \"endTime\": \"04:00 PM\", \"phase\": \"Day 1 Closing\"}], \"day2\": [{\"startTime\": \"08:00 AM\", \"endTime\": \"09:00 AM\", \"phase\": \"Recap & Icebreakers\"}, {\"startTime\": \"09:00 AM\", \"endTime\": \"10:30 AM\", \"phase\": \"Startup Incubation Workshop\"}, {\"startTime\": \"10:30 AM\", \"endTime\": \"11:00 AM\", \"phase\": \"Break\"}, {\"startTime\": \"11:00 AM\", \"endTime\": \"12:30 PM\", \"phase\": \"Innovation and Creativity Session\"}, {\"startTime\": \"12:30 PM\", \"endTime\": \"01:30 PM\", \"phase\": \"Lunch Break\"}, {\"startTime\": \"01:30 PM\", \"endTime\": \"03:00 PM\", \"phase\": \"Guest Speaker: Successful Entrepreneur\"}, {\"startTime\": \"03:00 PM\", \"endTime\": \"03:30 PM\", \"phase\": \"Q&A and Panel Discussion\"}, {\"startTime\": \"03:30 PM\", \"endTime\": \"04:00 PM\", \"phase\": \"Certificates & Closing\"}]}', '[\"Guest speakers and facilitators\", \"Workshop materials and props\", \"Business case studies\", \"Networking facilitators\", \"WiFi access for online resources\"]', 1, '2025-12-26 14:10:46'),
+(18, 'Esports Tournament 2025', 'Sports', 'Annual esports competition featuring popular games like Mobile Legends and Valorant. Includes elimination rounds, live streaming, and prizes for winning teams.', 'Computer Laboratory', 'Computer Studies Department & Gaming Club', '2025-05-20', '2025-05-20', 50, 4950.00, '[{\"name\": \"Streaming Equipment\", \"amount\": 1500}, {\"name\": \"Printed Certificates & Medals\", \"amount\": 800}, {\"name\": \"Cash Prizes (Top teams)\", \"amount\": 2000}, {\"name\": \"Printing (Brackets, Rules)\", \"amount\": 400}, {\"name\": \"Miscellaneous/Supplies\", \"amount\": 250}]', '[{\"name\": \"Projector\", \"quantity\": 3}, {\"name\": \"Screen\", \"quantity\": 3}, {\"name\": \"Speaker\", \"quantity\": 6}, {\"name\": \"Microphone\", \"quantity\": 6}, {\"name\": \"Laptop\", \"quantity\": 3}, {\"name\": \"Chairs\", \"quantity\": 150}, {\"name\": \"Lighting\", \"quantity\": 10}, {\"name\": \"Camera\", \"quantity\": 2}, {\"name\": \"Water Dispenser\", \"quantity\": 2}, {\"name\": \"Trash Bins\", \"quantity\": 3}, {\"name\": \"First Aid Kits\", \"quantity\": 1}]', '[{\"startTime\": \"08:00 AM\", \"endTime\": \"09:00 AM\", \"phase\": \"Registration & Team Check-in\"}, {\"startTime\": \"09:00 AM\", \"endTime\": \"09:30 AM\", \"phase\": \"Opening Ceremony\"}, {\"startTime\": \"09:30 AM\", \"endTime\": \"11:00 AM\", \"phase\": \"Mobile Legends Preliminaries\"}, {\"startTime\": \"11:00 AM\", \"endTime\": \"12:00 PM\", \"phase\": \"Valorant Preliminaries\"}, {\"startTime\": \"12:00 PM\", \"endTime\": \"01:00 PM\", \"phase\": \"Lunch Break\"}, {\"startTime\": \"01:00 PM\", \"endTime\": \"02:30 PM\", \"phase\": \"Mobile Legends Quarterfinals\"}, {\"startTime\": \"02:30 PM\", \"endTime\": \"03:30 PM\", \"phase\": \"Valorant Quarterfinals\"}, {\"startTime\": \"03:30 PM\", \"endTime\": \"04:00 PM\", \"phase\": \"Break\"}, {\"startTime\": \"04:00 PM\", \"endTime\": \"04:30 PM\", \"phase\": \"Finals & Awards\"}]', '[\"Gaming PCs and consoles\", \"High-speed internet connection\", \"Tournament organizers and referees\", \"Live streaming setup\", \"Energy drinks and snacks for players\", \"Computer lab access and setup\"]', 1, '2025-12-26 14:14:30'),
+(19, 'Mental Health Awareness Seminar 2025', 'Workshop', 'Educational seminar on mental health awareness, stress management, and wellness strategies for students. Features expert speakers, interactive workshops, and counseling resources.', 'Auditorium', 'Guidance Office & Student Services', '2025-10-10', '2025-10-10', 200, 4900.00, '[{\"name\": \"Resource Materials (Pamphlets)\", \"amount\": 1000}, {\"name\": \"Printed Certificates\", \"amount\": 600}, {\"name\": \"Guest Speaker Honorarium\", \"amount\": 2500}, {\"name\": \"Printing (Programs, Flyers)\", \"amount\": 500}, {\"name\": \"Miscellaneous/Supplies\", \"amount\": 300}]', '[{\"name\": \"Projector\", \"quantity\": 2}, {\"name\": \"Screen\", \"quantity\": 2}, {\"name\": \"Speaker\", \"quantity\": 4}, {\"name\": \"Microphone\", \"quantity\": 4}, {\"name\": \"Laptop\", \"quantity\": 1}, {\"name\": \"Tables\", \"quantity\": 10}, {\"name\": \"Chairs\", \"quantity\": 200}, {\"name\": \"Podium\", \"quantity\": 1}, {\"name\": \"Lighting\", \"quantity\": 6}, {\"name\": \"Camera\", \"quantity\": 1}, {\"name\": \"Water Dispenser\", \"quantity\": 2}, {\"name\": \"Trash Bins\", \"quantity\": 3}, {\"name\": \"First Aid Kits\", \"quantity\": 1}]', '[{\"startTime\": \"08:00 AM\", \"endTime\": \"08:30 AM\", \"phase\": \"Registration & Welcome\"}, {\"startTime\": \"08:30 AM\", \"endTime\": \"09:00 AM\", \"phase\": \"Opening Remarks\"}, {\"startTime\": \"09:00 AM\", \"endTime\": \"10:30 AM\", \"phase\": \"Understanding Mental Health\"}, {\"startTime\": \"10:30 AM\", \"endTime\": \"11:00 AM\", \"phase\": \"Break\"}, {\"startTime\": \"11:00 AM\", \"endTime\": \"12:30 PM\", \"phase\": \"Stress Management Workshop\"}, {\"startTime\": \"12:30 PM\", \"endTime\": \"01:30 PM\", \"phase\": \"Lunch Break\"}, {\"startTime\": \"01:30 PM\", \"endTime\": \"03:00 PM\", \"phase\": \"Coping Strategies Session\"}, {\"startTime\": \"03:00 PM\", \"endTime\": \"03:30 PM\", \"phase\": \"Q&A with Counselors\"}, {\"startTime\": \"03:30 PM\", \"endTime\": \"04:00 PM\", \"phase\": \"Certificates & Closing\"}]', '[\"Mental health professionals and counselors\", \"Workshop handouts and mental health resources\", \"Counseling booth setup\", \"WiFi for online surveys\"]', 1, '2025-12-26 14:16:28'),
+(20, 'Student Council Election 2025', 'Academic', 'Annual democratic election for student council positions. Includes candidate speeches, voting process, and proclamation of winners to represent student interests.', 'Auditorium', 'Student Affairs Office & Student Council', '2025-01-25', '2025-01-25', 300, 3500.00, '[{\"name\": \"Ballot Papers & Boxes\", \"amount\": 1200}, {\"name\": \"Printed Certificates\", \"amount\": 500}, {\"name\": \"Tarpaulin and Signage\", \"amount\": 800}, {\"name\": \"Printing (Flyers, Voter Lists)\", \"amount\": 600}, {\"name\": \"Miscellaneous/Supplies\", \"amount\": 400}]', '[{\"name\": \"Tables\", \"quantity\": 10}, {\"name\": \"Chairs\", \"quantity\": 300}, {\"name\": \"Speaker\", \"quantity\": 4}, {\"name\": \"Microphone\", \"quantity\": 6}, {\"name\": \"Podium\", \"quantity\": 2}, {\"name\": \"Lighting\", \"quantity\": 8}, {\"name\": \"Camera\", \"quantity\": 2}, {\"name\": \"Water Dispenser\", \"quantity\": 2}, {\"name\": \"Trash Bins\", \"quantity\": 3}, {\"name\": \"First Aid Kits\", \"quantity\": 1}]', '[{\"startTime\": \"08:00 AM\", \"endTime\": \"09:00 AM\", \"phase\": \"Registration & Voter Verification\"}, {\"startTime\": \"09:00 AM\", \"endTime\": \"10:00 AM\", \"phase\": \"Opening Ceremony\"}, {\"startTime\": \"10:00 AM\", \"endTime\": \"11:30 AM\", \"phase\": \"Candidate Speeches\"}, {\"startTime\": \"11:30 AM\", \"endTime\": \"12:00 PM\", \"phase\": \"Break\"}, {\"startTime\": \"12:00 PM\", \"endTime\": \"02:00 PM\", \"phase\": \"Voting Process\"}, {\"startTime\": \"02:00 PM\", \"endTime\": \"03:00 PM\", \"phase\": \"Vote Counting\"}, {\"startTime\": \"03:00 PM\", \"endTime\": \"03:30 PM\", \"phase\": \"Proclamation of Winners\"}, {\"startTime\": \"03:30 PM\", \"endTime\": \"04:00 PM\", \"phase\": \"Closing Ceremony\"}]', '[\"Student election committee and poll watchers\", \"Ballot boxes and voting booths\", \"Security personnel\", \"Voter education materials\"]', 1, '2025-12-26 14:18:03');
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table ai_training_sessions
+--
+
+CREATE TABLE ai_training_sessions (
+  id integer NOT NULL,
+  session_id varchar(50) NOT NULL,
+  model_name varchar(50) NOT NULL,
+  status enum('running','completed','failed') DEFAULT 'running',
+  data_count integer DEFAULT 0,
+  started_at timestamp DEFAULT CURRENT_TIMESTAMP,
+  completed_at timestamp DEFAULT NULL,
+  training_time_seconds integer DEFAULT 0,
+  error_message text DEFAULT NULL
+) ;
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table budgets
+--
+
+CREATE TABLE budgets (
+  id integer NOT NULL,
+  event_id integer NOT NULL,
+  total_budget decimal(10,2) NOT NULL,
+  venue_cost decimal(10,2) DEFAULT 0.00,
+  equipment_cost decimal(10,2) DEFAULT 0.00,
+  catering_cost decimal(10,2) DEFAULT 0.00,
+  other_cost decimal(10,2) DEFAULT 0.00,
+  actual_expenses decimal(10,2) DEFAULT NULL,
+  is_ai_predicted tinyinteger DEFAULT 0,
+  prediction_confidence decimal(5,2) DEFAULT NULL,
+  created_at timestamp DEFAULT CURRENT_TIMESTAMP,
+  updated_at timestamp DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+) ;
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table equipment
+--
+
+CREATE TABLE equipment (
+  id integer NOT NULL,
+  name varchar(100) NOT NULL,
+  category varchar(50) NOT NULL,
+  total_quantity integer NOT NULL DEFAULT 0,
+  status enum('Available','Maintenance','Retired') DEFAULT 'Available',
+  created_at timestamp DEFAULT CURRENT_TIMESTAMP,
+  updated_at timestamp DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+) ;
+
+--
+-- Dumping data for table equipment
+--
+
+INSERT INTO equipment (id, name, category, total_quantity, status, created_at, updated_at) VALUES
+(7, 'Laptop', 'IT', 8, 'Available', '2025-12-16 14:16:47', '2025-12-16 14:16:47'),
+(8, 'Projector', 'Audio & Visual', 5, 'Available', '2025-12-20 17:06:27', '2025-12-20 17:06:27'),
+(9, 'Speaker', 'Audio & Visual', 10, 'Available', '2025-12-20 17:06:27', '2025-12-20 17:06:27'),
+(10, 'Microphone', 'Audio & Visual', 8, 'Available', '2025-12-20 17:06:27', '2025-12-20 17:06:27'),
+(11, 'Screen', 'Audio & Visual', 3, 'Available', '2025-12-20 17:06:27', '2025-12-20 17:06:27'),
+(12, 'Tables', 'Furniture & Setup', 20, 'Available', '2025-12-20 17:06:27', '2025-12-20 17:06:27'),
+(13, 'Chairs', 'Furniture & Setup', 100, 'Available', '2025-12-20 17:06:27', '2025-12-20 17:06:27'),
+(14, 'Stage', 'Furniture & Setup', 2, 'Available', '2025-12-20 17:06:27', '2025-12-20 17:06:27'),
+(15, 'Podium', 'Furniture & Setup', 3, 'Available', '2025-12-20 17:06:27', '2025-12-20 17:06:27'),
+(16, 'Scoreboard', 'Sports', 2, 'Available', '2025-12-20 17:06:27', '2025-12-26 16:35:22'),
+(17, 'Lighting', 'Venue', 15, 'Available', '2025-12-20 17:06:27', '2025-12-26 16:35:22'),
+(18, 'Camera', 'Venue', 5, 'Available', '2025-12-20 17:06:27', '2025-12-26 16:35:22'),
+(20, 'Fire Extinguisher', 'Safety', 3, 'Available', '2025-12-23 15:30:29', '2025-12-23 15:30:29'),
+(21, 'First Aid Kits', 'Safety', 5, 'Available', '2025-12-23 15:38:32', '2025-12-23 15:38:32'),
+(22, 'Water Dispenser', 'Facilities & Amenities', 2, 'Available', '2025-12-23 15:40:56', '2025-12-23 15:40:56'),
+(23, 'Trash Bins', 'Facilities & Amenities', 3, 'Available', '2025-12-23 15:41:26', '2025-12-23 15:41:26'),
+(24, 'Basketball', 'Sports', 3, 'Available', '2025-12-26 16:36:22', '2025-12-26 16:36:22'),
+(25, 'Volleyball', 'Sports', 3, 'Available', '2025-12-26 16:36:35', '2025-12-26 16:36:35'),
+(26, 'Badminton racket', 'Sports', 4, 'Available', '2025-12-26 16:36:51', '2025-12-26 16:36:51'),
+(27, 'Sports net', 'Sports', 1, 'Available', '2025-12-26 16:37:22', '2025-12-26 16:37:22'),
+(30, 'Chairs', 'Furniture', 50, 'Available', '2025-12-29 21:37:22', '2025-12-29 21:37:22'),
+(31, 'Tables', 'Furniture', 20, 'Available', '2025-12-29 21:37:22', '2025-12-29 21:37:22'),
+(32, 'Whiteboard', 'Presentation', 8, 'Available', '2025-12-29 21:37:22', '2025-12-29 21:37:22'),
+(34, 'Water Dispenser', 'Amenities', 4, 'Available', '2025-12-29 21:37:22', '2025-12-29 21:37:22'),
+(35, 'Laptop', 'Technology', 6, 'Available', '2025-12-29 21:37:22', '2025-12-29 21:37:22'),
+(36, 'Safety barricades', 'Safety', 10, 'Available', '2026-01-07 02:51:33', '2026-01-07 02:51:33');
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table events
+--
+
+CREATE TABLE events (
+  id integer NOT NULL,
+  name varchar(200) NOT NULL,
+  event_type varchar(50) NOT NULL DEFAULT 'Other',
+  description text DEFAULT NULL,
+  start_timestamp timestamp NOT NULL,
+  end_timestamp timestamp NOT NULL,
+  expected_attendees integer DEFAULT 0,
+  budget decimal(10,2) DEFAULT 0.00,
+  equipment longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL CHECK (json_valid(equipment)),
+  equipment_approval_status enum('Pending','Approved','Rejected') DEFAULT 'Pending',
+  timeline longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL CHECK (json_valid(timeline)),
+  budget_breakdown longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL CHECK (json_valid(budget_breakdown)),
+  additional_resources longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL CHECK (json_valid(additional_resources)),
+  max_attendees integer DEFAULT NULL,
+  status enum('Draft','Pending','Under Review','Approved','Rejected','Ongoing','Completed','Archived','Conflict_Rejected','Cancelled') DEFAULT 'Draft',
+  venue varchar(100) DEFAULT NULL,
+  venue_approval_status enum('Pending','Approved','Rejected') DEFAULT 'Pending',
+  organizer varchar(100) DEFAULT NULL,
+  organizing_department varchar(50) DEFAULT NULL,
+  requestor_id integer NOT NULL,
+  created_at timestamp DEFAULT CURRENT_TIMESTAMP,
+  updated_at timestamp DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  deleted_at timestamp DEFAULT NULL,
+  conflict_resolution_note text DEFAULT NULL,
+  conflicted_with_event_id integer DEFAULT NULL
+) ;
+
+--
+-- Dumping data for table events
+--
+
+INSERT INTO events (id, name, event_type, description, start_timestamp, end_timestamp, expected_attendees, budget, equipment, equipment_approval_status, timeline, budget_breakdown, additional_resources, max_attendees, status, venue, venue_approval_status, organizer, organizing_department, requestor_id, created_at, updated_at, deleted_at, conflict_resolution_note, conflicted_with_event_id) VALUES
+(23, 'Workshop - Resource Approval', 'Workshop', 'A test event to demonstrate the Resource Approval workflow', '2026-01-05 20:42:00', '2026-01-05 23:42:00', 50, 5000.00, '[{\"name\": \"Projector\", \"quantity\": 2}, {\"name\": \"Microphone\", \"quantity\": 3}]', 'Rejected', NULL, NULL, NULL, NULL, 'Rejected', 'Computer Lab A', 'Approved', 'System Administrator', 'IT Department', 1, '2025-12-29 20:42:12', '2026-01-08 14:47:17', NULL, NULL, NULL),
+(24, 'Tech Conference - Equipment Test', 'Workshop', 'This event requests more equipment than available to test flexible approval\n\n--- Equipment Acknowledgment ---\nOrganizer has accepted the adjusted equipment quantities on 2025-12-29 22:33.\n\n--- Equipment Acknowledgment ---\nOrganizer has accepted the adjusted equipment quantities on 2025-12-29 22:33.\n\n--- Equipment Acknowledgment ---\nOrganizer has accepted the adjusted equipment quantities on 2025-12-29 22:41.\n\n--- Equipment Acknowledgment ---\nOrganizer has accepted the adjusted equipment quantities on 2025-12-29 22:41.\n\n--- Equipment Acknowledgment ---\nOrganizer has accepted the adjusted equipment quantities on 2025-12-29 22:47.\n\n--- Equipment Acknowledgment ---\nOrganizer has accepted the adjusted equipment quantities on 2025-12-29 22:52.\n\n--- Equipment Acknowledgment ---\nOrganizer has accepted the adjusted equipment quantities on 2025-12-29 22:53.', '2026-01-12 21:37:45', '2026-01-13 01:37:45', 100, 10000.00, '[{\"name\": \"Projector\", \"quantity\": 5}, {\"name\": \"Microphone\", \"quantity\": 10}]', 'Approved', NULL, NULL, NULL, NULL, 'Pending', 'Main Auditorium', 'Pending', NULL, 'IT Department', 1, '2025-12-29 21:37:45', '2026-01-06 23:40:15', '2026-01-06 23:40:15', NULL, NULL),
+(25, 'Christmas Celebration 2025', 'Cultural', 'Celebrate the spirit of Christmas with our annual school-wide Christmas party! Join us for an afternoon filled with festive activities, games, performances, and door prizes. Students and faculty are encouraged to wear Christmas-themed attire. Let\'s come together to share the joy and warmth of the season before the holiday break. Note: This is a BYO (Bring Your Own) food event where participants can bring their favorite Christmas treats to share', '2025-12-20 13:00:00', '2025-12-20 18:00:00', 250, 13000.00, '[{\"name\": \"Sound System\", \"quantity\": 1}, {\"name\": \"Microphone\", \"quantity\": 3}, {\"name\": \"Speaker\", \"quantity\": 2}, {\"name\": \"Projector\", \"quantity\": 1}, {\"name\": \"Screen\", \"quantity\": 1}, {\"name\": \"Laptop\", \"quantity\": 1}, {\"name\": \"Tables\", \"quantity\": 15}, {\"name\": \"Chairs\", \"quantity\": 250}, {\"name\": \"Stage\", \"quantity\": 1}, {\"name\": \"Podium\", \"quantity\": 1}, {\"name\": \"Lighting\", \"quantity\": 4}, {\"name\": \"Camera\", \"quantity\": 1}, {\"name\": \"Whiteboard\", \"quantity\": 1}, {\"name\": \"First Aid Kits\", \"quantity\": 2}, {\"name\": \"Fire Extinguisher\", \"quantity\": 2}, {\"name\": \"Trash Bins\", \"quantity\": 10}, {\"name\": \"Water Dispenser\", \"quantity\": 2}]', 'Approved', '[{\"activity_name\": \"13:00 - 13:30: Arrival & Setup\", \"phase\": \"Arrival & Setup\", \"description\": \"Students and faculty arrival, final decorations setup, photo booth preparation\", \"startTime\": \"13:00\", \"endTime\": \"13:30\", \"duration\": 30}, {\"activity_name\": \"13:30 - 14:00: Opening Program\", \"phase\": \"Opening Program\", \"description\": \"Welcome remarks, Christmas message, opening prayer and blessing\", \"startTime\": \"13:30\", \"endTime\": \"14:00\", \"duration\": 30}, {\"activity_name\": \"14:00 - 15:00: Fellowship & Sharing\", \"phase\": \"Fellowship & Sharing\", \"description\": \"BYO food sharing (potluck style), table fellowship, Christmas carol background music\", \"startTime\": \"14:00\", \"endTime\": \"15:00\", \"duration\": 60}, {\"activity_name\": \"15:00 - 16:00: Entertainment & Performances\", \"phase\": \"Entertainment & Performances\", \"description\": \"Christmas carol singing competition, dance presentations, faculty talent showcase\", \"startTime\": \"15:00\", \"endTime\": \"16:00\", \"duration\": 60}, {\"activity_name\": \"16:00 - 17:00: Games & Activities\", \"phase\": \"Games & Activities\", \"description\": \"Parlor games (Trip to Jerusalem, Bring Me, Charades), Christmas trivia, Best Christmas Attire competition\", \"startTime\": \"16:00\", \"endTime\": \"17:00\", \"duration\": 60}, {\"activity_name\": \"17:00 - 17:45: Gift Exchange & Awarding\", \"phase\": \"Gift Exchange & Awarding\", \"description\": \"Door prize raffle draw, awarding of competition winners, Best Christmas Attire announcement\", \"startTime\": \"17:00\", \"endTime\": \"17:45\", \"duration\": 45}, {\"activity_name\": \"17:45 - 18:00: Closing Program\", \"phase\": \"Closing Program\", \"description\": \"Closing prayer, Christmas greetings, group photo, clean-up assignments\", \"startTime\": \"17:45\", \"endTime\": \"18:00\", \"duration\": 15}]', '{\"Decorations\": {\"amount\": 5500, \"percentage\": 42}, \"Entertainment & Activities\": {\"amount\": 3500, \"percentage\": 27}, \"Gifts & Prizes\": {\"amount\": 2500, \"percentage\": 19}, \"Supplies & Materials\": {\"amount\": 1500, \"percentage\": 12}}', '[{\"name\": \"Photo booth backdrop with Christmas theme\", \"description\": \"\"}, {\"name\": \"Props for photo booth (Santa hats, reindeer antlers, Christmas signs)\", \"description\": \"\"}, {\"name\": \"Prize wheel for raffle\", \"description\": \"\"}, {\"name\": \"Extension cords and power strips\", \"description\": \"\"}, {\"name\": \"Hand sanitizer stations\", \"description\": \"\"}, {\"name\": \"Waste segregation labels\", \"description\": \"\"}]', NULL, 'Completed', 'School Gymnasium', 'Approved', 'Student Council', 'General', 1, '2026-01-02 22:52:48', '2026-01-08 13:10:24', NULL, NULL, NULL),
+(28, 'BSIT Week 2026: Innovation & Technology Summit', 'Academic', 'Annual week-long celebration of the Bachelor of Science in Information Technology program. Features programming competitions, hackathon, tech talks from industry professionals, project exhibitions, and gaming tournaments. Students showcase their capstone projects and compete in various IT-related challenges. Participants are encouraged to bring their own food or purchase from campus canteen.', '2026-02-15 08:00:00', '2026-02-15 18:00:00', 500, 18500.00, '[{\"name\": \"Projector\", \"quantity\": 2}, {\"name\": \"Laptop\", \"quantity\": 3}, {\"name\": \"Microphone\", \"quantity\": 3}, {\"name\": \"Speaker\", \"quantity\": 4}, {\"name\": \"Screen\", \"quantity\": 2}, {\"name\": \"Tables\", \"quantity\": 20}, {\"name\": \"Chairs\", \"quantity\": 50}, {\"name\": \"Whiteboard\", \"quantity\": 3}]', 'Approved', '[{\"activity_name\": \"08:00 - 08:30: Registration and Setup\", \"description\": \"Participant registration, setup of computer labs, equipment testing\", \"startTime\": \"08:00\", \"endTime\": \"08:30\", \"duration\": 30}, {\"activity_name\": \"08:30 - 09:00: Opening Ceremony & Welcome Remarks\", \"description\": \"Welcome address by BSIT Council President, introduction of speakers and judges\", \"startTime\": \"08:30\", \"endTime\": \"09:00\", \"duration\": 30}, {\"activity_name\": \"09:00 - 10:30: Keynote Speech\", \"description\": \"\\\"Future of AI in Philippine Industries\\\" - Industry professional speaker\", \"startTime\": \"09:00\", \"endTime\": \"10:30\", \"duration\": 90}, {\"activity_name\": \"10:30 - 10:45: Morning Break\", \"description\": \"Snack break - students bring own food or buy from canteen\", \"startTime\": \"10:30\", \"endTime\": \"10:45\", \"duration\": 15}, {\"activity_name\": \"10:45 - 12:00: Programming Competition (Round 1)\", \"description\": \"Coding challenges on HackerRank/Codeforces platform, algorithmic problem solving\", \"startTime\": \"10:45\", \"endTime\": \"12:00\", \"duration\": 75}, {\"activity_name\": \"12:00 - 13:00: Lunch Break\", \"description\": \"Lunch - students bring own food or purchase from campus canteen\", \"startTime\": \"12:00\", \"endTime\": \"13:00\", \"duration\": 60}, {\"activity_name\": \"13:00 - 15:00: Tech Talks\", \"description\": \"Parallel sessions: Web Development, Mobile App Development, Cybersecurity\", \"startTime\": \"13:00\", \"endTime\": \"15:00\", \"duration\": 120}, {\"activity_name\": \"15:00 - 15:15: Afternoon Break\", \"description\": \"Coffee break - students bring own snacks or buy from canteen\", \"startTime\": \"15:00\", \"endTime\": \"15:15\", \"duration\": 15}, {\"activity_name\": \"15:15 - 17:00: Capstone Project Exhibition\", \"description\": \"Students showcase capstone projects, live demonstrations, Q&A with visitors\", \"startTime\": \"15:15\", \"endTime\": \"17:00\", \"duration\": 105}, {\"activity_name\": \"17:00 - 18:00: Awarding Ceremony & Closing\", \"description\": \"Announcement of competition winners, awarding of prizes and certificates, closing remarks\", \"startTime\": \"17:00\", \"endTime\": \"18:00\", \"duration\": 60}]', '{\"Venue & Utilities\": {\"amount\": 3000, \"percentage\": 16.22}, \"Equipment Rental\": {\"amount\": 2500, \"percentage\": 13.51}, \"Speaker Transportation\": {\"amount\": 2000, \"percentage\": 10.81}, \"Prizes & Awards\": {\"amount\": 5000, \"percentage\": 27.03}, \"Certificates & Printing\": {\"amount\": 2000, \"percentage\": 10.81}, \"Marketing Materials\": {\"amount\": 2000, \"percentage\": 10.81}, \"Documentation\": {\"amount\": 1000, \"percentage\": 5.41}, \"Miscellaneous\": {\"amount\": 1000, \"percentage\": 5.41}}', '[\"Students to bring own food or purchase from campus canteen\", \"Free WiFi access in computer laboratory\", \"Programming competition platform (HackerRank/Codeforces)\", \"Project display booths using classroom boards\", \"Printed certificates for all participants\", \"Trophies for top 3 winners per category\", \"Student volunteer photographers\", \"Social media coverage by BSIT Council\", \"Registration via Google Forms (free)\", \"Speaker invited on pro-bono/minimal honorarium basis\"]', 600, 'Approved', 'Computer Laboratory & Auditorium', 'Approved', 'BSIT Council', 'IT Department', 4, '2026-01-03 18:28:09', '2026-01-06 23:23:45', NULL, NULL, NULL),
+(29, 'Computer Science Society General Assembly 2026', 'Academic', 'Annual general assembly for all CS students. Discussion of organizational plans, election of officers, and departmental updates. BYOF - participants are encouraged to bring their own snacks. Registration fee: ₱50 for members, ₱100 for non-members.', '2026-02-11 08:30:00', '2026-02-11 12:00:00', 180, 8500.00, '[{\"available\": 2, \"category\": \"Audio & Visual\", \"name\": \"Projector\", \"requested\": 1, \"status\": \"Rejected\", \"rejection_reason\": \"Scheduling Conflict\", \"approved_quantity\": 1}, {\"available\": 3, \"category\": \"Audio & Visual\", \"name\": \"Speaker\", \"requested\": 1, \"status\": \"Rejected\", \"rejection_reason\": \"Scheduling Conflict\", \"approved_quantity\": 1}]', 'Rejected', '[{\"activity_name\": \"08:00 - 08:30: Registration and Assembly\", \"description\": \"Member registration, attendance checking, distribution of voter ID and materials\", \"duration\": 30, \"endTime\": \"08:30\", \"startTime\": \"08:00\"}, {\"activity_name\": \"08:30 - 08:45: Opening Remarks\", \"description\": \"Welcome address by CS Society President, acknowledgement of guests and faculty advisers\", \"duration\": 15, \"endTime\": \"08:45\", \"startTime\": \"08:30\"}, {\"activity_name\": \"08:45 - 09:15: President\'s Report\", \"description\": \"Annual accomplishment report, financial report, membership status update\", \"duration\": 30, \"endTime\": \"09:15\", \"startTime\": \"08:45\"}, {\"activity_name\": \"09:15 - 09:45: Departmental Updates\", \"description\": \"Updates from IT Department Head, academic calendar, curriculum changes, scholarship opportunities\", \"duration\": 30, \"endTime\": \"09:45\", \"startTime\": \"09:15\"}, {\"activity_name\": \"09:45 - 10:00: Break (BYOF)\", \"description\": \"Coffee break - members bring own food/snacks or buy from canteen\", \"duration\": 15, \"endTime\": \"10:00\", \"startTime\": \"09:45\"}, {\"activity_name\": \"10:00 - 10:15: Nominations and Elections Guidelines\", \"description\": \"Election Committee explains voting procedures, qualifications, and guidelines\", \"duration\": 15, \"endTime\": \"10:15\", \"startTime\": \"10:00\"}, {\"activity_name\": \"10:15 - 11:00: Elections Proper\", \"description\": \"Secret ballot voting for new officers: President, VP, Secretary, Treasurer, Auditor, PRO\", \"duration\": 45, \"endTime\": \"11:00\", \"startTime\": \"10:15\"}, {\"activity_name\": \"11:00 - 11:15: Tabulation of Votes\", \"description\": \"Election committee counts votes while members have informal discussions\", \"duration\": 15, \"endTime\": \"11:15\", \"startTime\": \"11:00\"}, {\"activity_name\": \"11:15 - 11:30: Announcement of Results\", \"description\": \"Official announcement of newly elected officers for AY 2026-2027\", \"duration\": 15, \"endTime\": \"11:30\", \"startTime\": \"11:15\"}, {\"activity_name\": \"11:30 - 11:45: Oath Taking Ceremony\", \"description\": \"Oath taking of newly elected officers administered by Faculty Adviser\", \"duration\": 15, \"endTime\": \"11:45\", \"startTime\": \"11:30\"}, {\"activity_name\": \"11:45 - 12:00: Closing Remarks & Photo Op\", \"description\": \"Closing remarks by new president, turnover ceremony, group photo\", \"duration\": 15, \"endTime\": \"12:00\", \"startTime\": \"11:45\"}]', '{\"Certificates & Printing\": {\"amount\": 1200, \"percentage\": 14.12}, \"Documentation Team\": {\"amount\": 800, \"percentage\": 9.41}, \"Equipment Rental\": {\"amount\": 1800, \"percentage\": 21.18}, \"Miscellaneous\": {\"amount\": 200, \"percentage\": 2.35}, \"Registration Materials\": {\"amount\": 1500, \"percentage\": 17.65}, \"Tarpaulin & Signage\": {\"amount\": 1000, \"percentage\": 11.76}, \"Venue Rental\": {\"amount\": 2000, \"percentage\": 23.53}}', '[{\"name\": \"Voter Registration Forms\", \"quantity\": 200}, {\"name\": \"Ballot Papers\", \"quantity\": 200}, {\"name\": \"Ballot Box\", \"quantity\": 1}, {\"name\": \"Event Programs\", \"quantity\": 180}]', 200, 'Under Review', 'Computer Laboratory & Auditorium', 'Pending', 'Computer Science Society', 'IT Department', 6, '2026-01-03 20:14:30', '2026-01-08 21:10:19', NULL, 'Another event was approved for Computer Laboratory & Auditorium at this time slot.', 28),
+(30, 'Annual STEM Innovation Fair 2026', 'Workshop', 'Three-day science, technology, engineering, and mathematics exhibition featuring student projects, workshops, and industry talks. Day 1: Setup and opening ceremony, Day 2: Main exhibition and workshops, Day 3: Awards and closing.', '2026-03-10 08:00:00', '2026-03-12 17:00:00', 250, 12500.00, '[{\"item\": \"Projector\", \"quantity\": 3}, {\"item\": \"Sound System\", \"quantity\": 2}, {\"item\": \"Display Booths\", \"quantity\": 20}, {\"item\": \"Tables\", \"quantity\": 30}, {\"item\": \"Chairs\", \"quantity\": 100}]', 'Pending', '[{\"time\": \"08:00\", \"activity\": \"Setup and Registration - Day 1\", \"description\": \"Participants set up booths\"}, {\"time\": \"10:00\", \"activity\": \"Opening Ceremony\", \"description\": \"Welcome speech and fair overview\"}, {\"time\": \"11:00\", \"activity\": \"Exhibition Day 1\", \"description\": \"Project displays and demonstrations\"}, {\"time\": \"08:00\", \"activity\": \"Day 2 - Main Exhibition\", \"description\": \"Peak exhibition hours\"}, {\"time\": \"13:00\", \"activity\": \"Workshop Sessions\", \"description\": \"Hands-on STEM workshops\"}, {\"time\": \"08:00\", \"activity\": \"Day 3 - Final Day\", \"description\": \"Last day of exhibition\"}, {\"time\": \"14:00\", \"activity\": \"Awards Ceremony\", \"description\": \"Recognizing outstanding projects\"}, {\"time\": \"16:00\", \"activity\": \"Closing and Teardown\", \"description\": \"Event conclusion\"}]', '{\"Venue Rental\": 4500, \"Equipment Rental\": 2000, \"Materials & Supplies\": 2500, \"Catering (3 days)\": 2000, \"Awards & Prizes\": 1000, \"Marketing\": 500}', '[{\"type\": \"Staff\", \"details\": \"5 volunteers per day\"}, {\"type\": \"Parking\", \"details\": \"Reserved parking for exhibitors\"}, {\"type\": \"Security\", \"details\": \"24/7 security during event\"}]', NULL, 'Conflict_Rejected', 'Gymnasium', 'Rejected', 'Science Department', 'Science Department', 1, '2026-01-04 22:01:45', '2026-01-04 22:13:28', NULL, 'Another event was approved for Gymnasium at this time slot.', NULL),
+(31, 'Attendance System Test Event', 'Workshop', 'Test event for attendance system validation', '2026-01-05 14:00:00', '2026-01-05 16:00:00', 10, 0.00, NULL, 'Pending', NULL, NULL, NULL, NULL, 'Completed', 'Main Auditorium', 'Pending', 'System Admin', 'IT Department', 1, '2026-01-05 19:28:26', '2026-01-08 13:13:05', '2026-01-08 13:13:05', NULL, NULL),
+(47, 'Freshman Orientation 2026', 'Academic', 'Welcome event for new students', '2026-01-05 21:25:49', '2026-01-06 00:25:49', 0, 0.00, NULL, 'Pending', NULL, NULL, NULL, NULL, 'Completed', 'Main Auditorium', 'Pending', 'IT Department', 'IT Department', 6, '2026-01-06 21:25:49', '2026-01-07 02:29:33', '2026-01-07 02:29:33', NULL, NULL),
+(48, 'Student Org Test Event fbc10e', 'Academic', 'Test event by student org', '2026-02-05 23:46:20', '2026-02-06 03:46:20', 50, 1000.00, NULL, 'Pending', NULL, NULL, NULL, NULL, 'Under Review', 'Tech Lab', 'Pending', 'student_org_it_09b2', 'IT Department', 14, '2026-01-06 23:46:20', '2026-01-07 00:04:45', '2026-01-07 00:04:45', NULL, NULL),
+(49, 'Student Org Test Event bf39ed', 'Academic', 'Test event by student org', '2026-02-05 23:46:51', '2026-02-06 03:46:51', 50, 1000.00, NULL, 'Pending', NULL, NULL, NULL, NULL, 'Under Review', 'Tech Lab', 'Pending', 'student_org_it_09b2', 'IT Department', 14, '2026-01-06 23:46:51', '2026-01-07 00:04:39', '2026-01-07 00:04:39', NULL, NULL),
+(50, 'Student Org Test Event 02c8ee', 'Academic', 'Test event by student org', '2026-02-05 23:47:20', '2026-02-06 03:47:20', 50, 1000.00, NULL, 'Pending', NULL, NULL, NULL, NULL, 'Under Review', 'Tech Lab', 'Pending', 'student_org_it_09b2', 'IT Department', 14, '2026-01-06 23:47:20', '2026-01-07 00:04:42', '2026-01-07 00:04:42', NULL, NULL),
+(51, 'test', 'Academic', 'Annual democratic election for student council positions. Includes candidate speeches, voting process, and proclamation of winners to represent student interests.', '2026-01-08 08:00:00', '2026-01-08 16:00:00', 300, 6402.00, '[{\"name\": \"Lighting\", \"quantity\": 1}, {\"name\": \"Chairs\", \"quantity\": 4}]', 'Pending', '[{\"activity_name\": \"08:00 - 09:00: Registration & Voter Verification\", \"description\": \"\", \"startTime\": \"08:00\", \"endTime\": \"09:00\", \"duration\": 0}, {\"activity_name\": \"09:00 - 10:00: Opening Ceremony\", \"description\": \"\", \"startTime\": \"09:00\", \"endTime\": \"10:00\", \"duration\": 0}, {\"activity_name\": \"10:00 - 11:30: Candidate Speeches\", \"description\": \"\", \"startTime\": \"10:00\", \"endTime\": \"11:30\", \"duration\": 0}, {\"activity_name\": \"11:30 - 12:00: Break\", \"description\": \"\", \"startTime\": \"11:30\", \"endTime\": \"12:00\", \"duration\": 0}, {\"activity_name\": \"12:00 - 14:00: Voting Process\", \"description\": \"\", \"startTime\": \"12:00\", \"endTime\": \"14:00\", \"duration\": 0}, {\"activity_name\": \"14:00 - 15:00: Vote Counting\", \"description\": \"\", \"startTime\": \"14:00\", \"endTime\": \"15:00\", \"duration\": 0}, {\"activity_name\": \"15:00 - 15:30: Proclamation of Winners\", \"description\": \"\", \"startTime\": \"15:00\", \"endTime\": \"15:30\", \"duration\": 0}, {\"activity_name\": \"15:30 - 16:00: Closing Ceremony\", \"description\": \"\", \"startTime\": \"15:30\", \"endTime\": \"16:00\", \"duration\": 0}]', '{\"Ballot Papers & Boxes\": {\"percentage\": 34, \"amount\": 2177}, \"Miscellaneous/Supplies\": {\"percentage\": 11, \"amount\": 704}, \"Printed Certificates\": {\"percentage\": 14, \"amount\": 896}, \"Printing (Flyers, Voter Lists)\": {\"percentage\": 17, \"amount\": 1088}, \"Tarpaulin and Signage\": {\"percentage\": 23, \"amount\": 1472}}', NULL, NULL, 'Under Review', 'Auditorium', 'Pending', 'Paul Test', 'IT Department', 13, '2026-01-07 01:20:20', '2026-01-07 02:22:48', '2026-01-07 02:05:23', NULL, NULL),
+(52, 'Freshmen Orientation 2026', 'Academic', 'Annual orientation for incoming freshmen students to introduce them to school policies, campus life, and their respective departments.', '2026-01-07 08:00:00', '2026-01-07 17:00:00', 500, 3500.00, '[{\"name\": \"Sound System\", \"quantity\": 1}, {\"name\": \"Microphone\", \"quantity\": 3}, {\"name\": \"Projector\", \"quantity\": 2}]', 'Approved', '[{\"activity_name\": \"08:00 - 09:00: Registration\", \"phase\": \"Registration\", \"description\": \"Student attendance signing\", \"startTime\": \"08:00\", \"endTime\": \"09:00\", \"duration\": 0}, {\"activity_name\": \"09:00 - 10:00: Opening Ceremony\", \"phase\": \"Opening Ceremony\", \"description\": \"National Anthem, Invocation, Welcoming Remarks\", \"startTime\": \"09:00\", \"endTime\": \"10:00\", \"duration\": 0}, {\"activity_name\": \"10:00 - 12:00: Department Orientations\", \"phase\": \"Department Orientations\", \"description\": \"Breakout sessions by department\", \"startTime\": \"10:00\", \"endTime\": \"12:00\", \"duration\": 0}, {\"activity_name\": \"12:00 - 13:00: Lunch Break\", \"phase\": \"Lunch Break\", \"description\": \"Students bring their own meals\", \"startTime\": \"12:00\", \"endTime\": \"13:00\", \"duration\": 0}, {\"activity_name\": \"13:00 - 15:00: Campus Tour\", \"phase\": \"Campus Tour\", \"description\": \"Guided tour of facilities\", \"startTime\": \"13:00\", \"endTime\": \"15:00\", \"duration\": 0}, {\"activity_name\": \"15:00 - 16:30: Student Organization Fair\", \"phase\": \"Student Organization Fair\", \"description\": \"Visiting booths\", \"startTime\": \"15:00\", \"endTime\": \"16:30\", \"duration\": 0}, {\"activity_name\": \"16:30 - 17:00: Closing Remarks\", \"phase\": \"Closing Remarks\", \"description\": \"Announcements and dismissal\", \"startTime\": \"16:30\", \"endTime\": \"17:00\", \"duration\": 0}]', '{\"Decorations\": {\"amount\": 1500, \"percentage\": 42.8}, \"Miscellaneous\": {\"amount\": 500, \"percentage\": 14.4}, \"Printing/Materials\": {\"amount\": 1500, \"percentage\": 42.8}}', '[{\"name\": \"Guest Speaker Tokens\", \"description\": \"Simple tokens for speakers\"}, {\"name\": \"Printed Certificates\", \"description\": \"For committee and speakers\"}, {\"name\": \"Nametags\", \"description\": \"For freshers\"}, {\"name\": \"Garbage Bags\", \"description\": \"For clean as you go\"}]', NULL, 'Completed', 'Gymnasium', 'Approved', 'Student Council / Admin', 'BSIT', 5, '2026-01-07 02:27:31', '2026-01-08 13:09:41', NULL, NULL, NULL),
+(53, 'Simulated Event - IT Dept', 'Academic', '', '2026-05-10 09:00:00', '2026-05-10 17:00:00', 100, 0.00, NULL, 'Pending', NULL, NULL, NULL, NULL, 'Pending', 'Main Hall', 'Pending', '', 'IT Department', 13, '2026-01-07 03:12:37', '2026-01-07 03:21:19', '2026-01-07 03:21:19', NULL, NULL),
+(54, 'Simulated Event - Fallback', 'Cultural', '', '2026-05-11 09:00:00', '2026-05-11 17:00:00', 50, 0.00, NULL, 'Pending', NULL, NULL, NULL, NULL, 'Pending', 'Gymnasium', 'Pending', '', 'IT Department', 13, '2026-01-07 03:12:37', '2026-01-07 03:21:19', '2026-01-07 03:21:19', NULL, NULL),
+(55, 'Career fair', 'Academic', 'Celebrate the spirit of Christmas with our annual school-wide Christmas party! Join us for an afternoon filled with festive activities, games, performances, and door prizes. Students and faculty are encouraged to wear Christmas-themed attire. Let\'s come together to share the joy and warmth of the season before the holiday break. Note: This is a BYO (Bring Your Own) food event where participants can bring their favorite Christmas treats to share', '2026-01-08 09:00:00', '2026-01-08 17:00:00', 0, 6402.00, '[{\"name\": \"Microphone\", \"quantity\": 1}, {\"name\": \"Speaker\", \"quantity\": 1}, {\"name\": \"Projector\", \"quantity\": 1}]', 'Pending', '[{\"activity_name\": \"08:00 - 09:00: Registration & Booth Setup\", \"description\": \"\", \"startTime\": \"08:00\", \"endTime\": \"09:00\", \"duration\": 0}, {\"activity_name\": \"08:00 - 09:00: Registration & Booth Setup\", \"description\": \"\", \"startTime\": \"08:00\", \"endTime\": \"09:00\", \"duration\": 0}, {\"activity_name\": \"09:00 - 09:30: Opening Ceremony\", \"description\": \"\", \"startTime\": \"09:00\", \"endTime\": \"09:30\", \"duration\": 0}, {\"activity_name\": \"09:30 - 11:00: Company Booth Visits (Session 1)\", \"description\": \"\", \"startTime\": \"09:30\", \"endTime\": \"11:00\", \"duration\": 0}, {\"activity_name\": \"09:30 - 11:00: Company Booth Visits (Session 1)\", \"description\": \"\", \"startTime\": \"09:30\", \"endTime\": \"11:00\", \"duration\": 0}, {\"activity_name\": \"11:00 - 12:00: Resume Workshop\", \"description\": \"\", \"startTime\": \"11:00\", \"endTime\": \"12:00\", \"duration\": 0}, {\"activity_name\": \"12:00 - 13:00: Lunch Break (Participants bring own food)\", \"description\": \"\", \"startTime\": \"12:00\", \"endTime\": \"13:00\", \"duration\": 0}, {\"activity_name\": \"13:00 - 14:30: Company Booth Visits (Session 2)\", \"description\": \"\", \"startTime\": \"13:00\", \"endTime\": \"14:30\", \"duration\": 0}, {\"activity_name\": \"14:30 - 15:30: Mock Interview Sessions\", \"description\": \"\", \"startTime\": \"14:30\", \"endTime\": \"15:30\", \"duration\": 0}, {\"activity_name\": \"15:30 - 16:30: Networking & Q&A\", \"description\": \"\", \"startTime\": \"15:30\", \"endTime\": \"16:30\", \"duration\": 0}, {\"activity_name\": \"16:30 - 17:00: Closing & Feedback\", \"description\": \"\", \"startTime\": \"16:30\", \"endTime\": \"17:00\", \"duration\": 0}]', NULL, NULL, NULL, 'Pending', 'Auditorium', 'Pending', 'Paul Test', 'IT Department', 13, '2026-01-07 04:40:17', '2026-01-07 04:54:33', '2026-01-07 04:54:33', NULL, NULL),
+(56, 'career fair', 'Academic', 'Annual career fair connecting students with potential employers, featuring company booths, resume workshops, mock interviews, and networking sessions. Companies from various industries participate.', '2026-01-08 09:00:00', '2026-01-08 17:00:00', 0, 6402.00, '[{\"name\": \"Microphone\", \"quantity\": 1}, {\"name\": \"Projector\", \"quantity\": 1}, {\"name\": \"Screen\", \"quantity\": 1}, {\"name\": \"Speaker\", \"quantity\": 1}, {\"name\": \"Laptop\", \"quantity\": 1}, {\"name\": \"Camera\", \"quantity\": 1}, {\"name\": \"Podium\", \"quantity\": 1}, {\"name\": \"Tables\", \"quantity\": 1}, {\"name\": \"Chairs\", \"quantity\": 1}, {\"name\": \"Lighting\", \"quantity\": 1}, {\"name\": \"Water Dispenser\", \"quantity\": 1}, {\"name\": \"Trash Bins\", \"quantity\": 1}, {\"name\": \"First Aid Kits\", \"quantity\": 1}]', 'Pending', '[{\"activity_name\": \"08:00 - 09:00: Registration & Booth Setup\", \"description\": \"\", \"startTime\": \"08:00\", \"endTime\": \"09:00\", \"duration\": 0}, {\"activity_name\": \"09:00 - 09:30: Opening Ceremony\", \"description\": \"\", \"startTime\": \"09:00\", \"endTime\": \"09:30\", \"duration\": 0}, {\"activity_name\": \"09:30 - 11:00: Company Booth Visits (Session 1)\", \"description\": \"\", \"startTime\": \"09:30\", \"endTime\": \"11:00\", \"duration\": 0}, {\"activity_name\": \"11:00 - 12:00: Resume Workshop\", \"description\": \"\", \"startTime\": \"11:00\", \"endTime\": \"12:00\", \"duration\": 0}, {\"activity_name\": \"12:00 - 13:00: Lunch Break (Participants bring own food)\", \"description\": \"\", \"startTime\": \"12:00\", \"endTime\": \"13:00\", \"duration\": 0}, {\"activity_name\": \"13:00 - 14:30: Company Booth Visits (Session 2)\", \"description\": \"\", \"startTime\": \"13:00\", \"endTime\": \"14:30\", \"duration\": 0}, {\"activity_name\": \"14:30 - 15:30: Mock Interview Sessions\", \"description\": \"\", \"startTime\": \"14:30\", \"endTime\": \"15:30\", \"duration\": 0}, {\"activity_name\": \"15:30 - 16:30: Networking & Q&A\", \"description\": \"\", \"startTime\": \"15:30\", \"endTime\": \"16:30\", \"duration\": 0}, {\"activity_name\": \"16:30 - 17:00: Closing & Feedback\", \"description\": \"\", \"startTime\": \"16:30\", \"endTime\": \"17:00\", \"duration\": 0}]', NULL, NULL, NULL, 'Pending', 'Auditorium', 'Pending', 'Paul Test', 'IT Department', 13, '2026-01-07 04:49:54', '2026-01-07 04:54:37', '2026-01-07 04:54:37', NULL, NULL),
+(57, 'Career fair', 'Academic', 'Annual career fair connecting students with potential employers, featuring company booths, resume workshops, mock interviews, and networking sessions. Companies from various industries participate.', '2026-01-08 09:00:00', '2026-01-08 17:00:00', 0, 6402.00, '[{\"approved_quantity\": 1, \"available\": 3, \"category\": \"Technology\", \"name\": \"Laptop\", \"rejection_reason\": null, \"requested\": 1, \"status\": \"Self-Provided\"}, {\"approved_quantity\": 1, \"available\": 4, \"category\": \"Venue\", \"name\": \"Camera\", \"rejection_reason\": \"Maintenance/Repair\", \"requested\": 1, \"status\": \"Rejected\"}, {\"approved_quantity\": null, \"available\": 3, \"category\": \"Furniture & Setup\", \"name\": \"Podium\", \"rejection_reason\": null, \"requested\": 1, \"status\": \"Approved\"}, {\"approved_quantity\": null, \"available\": 8, \"category\": \"Venue\", \"name\": \"Lighting\", \"rejection_reason\": null, \"requested\": 1, \"status\": \"Approved\"}, {\"approved_quantity\": null, \"available\": 3, \"category\": \"Amenities\", \"name\": \"Water Dispenser\", \"rejection_reason\": null, \"requested\": 1, \"status\": \"Approved\"}, {\"approved_quantity\": null, \"available\": 5, \"category\": \"Safety\", \"name\": \"First Aid Kits\", \"rejection_reason\": null, \"requested\": 1, \"status\": \"Approved\"}]', 'Approved', '[{\"activity_name\": \"08:00 - 09:00: Registration & Booth Setup\", \"phase\": \"Registration & Booth Setup\", \"description\": \"\", \"startTime\": \"08:00\", \"endTime\": \"09:00\", \"duration\": 0}, {\"activity_name\": \"09:00 - 09:30: Opening Ceremony\", \"phase\": \"Opening Ceremony\", \"description\": \"\", \"startTime\": \"09:00\", \"endTime\": \"09:30\", \"duration\": 0}, {\"activity_name\": \"09:30 - 11:00: Company Booth Visits (Session 1)\", \"phase\": \"Company Booth Visits (Session 1)\", \"description\": \"\", \"startTime\": \"09:30\", \"endTime\": \"11:00\", \"duration\": 0}, {\"activity_name\": \"09:30 - 11:00: Company Booth Visits (Session 1)\", \"phase\": \"Company Booth Visits (Session 1)\", \"description\": \"\", \"startTime\": \"09:30\", \"endTime\": \"11:00\", \"duration\": 0}, {\"activity_name\": \"11:00 - 12:00: Resume Workshop\", \"phase\": \"Resume Workshop\", \"description\": \"\", \"startTime\": \"11:00\", \"endTime\": \"12:00\", \"duration\": 0}, {\"activity_name\": \"11:00 - 12:00: Resume Workshop\", \"phase\": \"Resume Workshop\", \"description\": \"\", \"startTime\": \"11:00\", \"endTime\": \"12:00\", \"duration\": 0}, {\"activity_name\": \"12:00 - 13:00: Lunch Break (Participants bring own food)\", \"phase\": \"Lunch Break (Participants bring own food)\", \"description\": \"\", \"startTime\": \"12:00\", \"endTime\": \"13:00\", \"duration\": 0}, {\"activity_name\": \"12:00 - 13:00: Lunch Break (Participants bring own food)\", \"phase\": \"Lunch Break (Participants bring own food)\", \"description\": \"\", \"startTime\": \"12:00\", \"endTime\": \"13:00\", \"duration\": 0}, {\"activity_name\": \"13:00 - 14:30: Company Booth Visits (Session 2)\", \"phase\": \"Company Booth Visits (Session 2)\", \"description\": \"\", \"startTime\": \"13:00\", \"endTime\": \"14:30\", \"duration\": 0}, {\"activity_name\": \"13:00 - 14:30: Company Booth Visits (Session 2)\", \"phase\": \"Company Booth Visits (Session 2)\", \"description\": \"\", \"startTime\": \"13:00\", \"endTime\": \"14:30\", \"duration\": 0}, {\"activity_name\": \"14:30 - 15:30: Mock Interview Sessions\", \"phase\": \"Mock Interview Sessions\", \"description\": \"\", \"startTime\": \"14:30\", \"endTime\": \"15:30\", \"duration\": 0}, {\"activity_name\": \"14:30 - 15:30: Mock Interview Sessions\", \"phase\": \"Mock Interview Sessions\", \"description\": \"\", \"startTime\": \"14:30\", \"endTime\": \"15:30\", \"duration\": 0}, {\"activity_name\": \"15:30 - 16:30: Networking & Q&A\", \"phase\": \"Networking & Q&A\", \"description\": \"\", \"startTime\": \"15:30\", \"endTime\": \"16:30\", \"duration\": 0}, {\"activity_name\": \"15:30 - 16:30: Networking & Q&A\", \"phase\": \"Networking & Q&A\", \"description\": \"\", \"startTime\": \"15:30\", \"endTime\": \"16:30\", \"duration\": 0}, {\"activity_name\": \"16:30 - 17:00: Closing & Feedback\", \"phase\": \"Closing & Feedback\", \"description\": \"\", \"startTime\": \"16:30\", \"endTime\": \"17:00\", \"duration\": 0}, {\"activity_name\": \"16:30 - 17:00: Closing & Feedback\", \"phase\": \"Closing & Feedback\", \"description\": \"\", \"startTime\": \"16:30\", \"endTime\": \"17:00\", \"duration\": 0}]', '{\"Booth Materials (Tablecloths, Signage)\": {\"amount\": 2328, \"percentage\": 36}, \"Miscellaneous/Supplies\": {\"amount\": 582, \"percentage\": 9}, \"Printed Certificates (Participants)\": {\"amount\": 582, \"percentage\": 9}, \"Printing (Programs, Forms)\": {\"amount\": 814, \"percentage\": 13}, \"Refreshments (Water only)\": {\"amount\": 349, \"percentage\": 5}, \"Tarpaulin and Signage\": {\"amount\": 1746, \"percentage\": 27}}', '[{\"name\": \"Volunteers\", \"description\": \"\"}]', NULL, 'Cancelled', 'Auditorium', 'Pending', 'Paul Test', 'BSIT', 13, '2026-01-07 05:09:47', '2026-01-08 20:54:27', NULL, NULL, NULL),
+(58, 'Completed QA Test Event', 'Workshop', 'Test event for feedback', '2026-01-06 09:00:00', '2026-01-06 17:00:00', 100, 10000.00, '[{\"name\": \"Projector\", \"quantity\": 1}]', 'Approved', '[{\"activity_name\": \" - : Opening\", \"phase\": \"Opening\", \"description\": \"Intro\", \"startTime\": \"\", \"endTime\": \"\", \"duration\": 0}, {\"activity_name\": \" - : Main Activity\", \"phase\": \"Main Activity\", \"description\": \"Fun stuff\", \"startTime\": \"\", \"endTime\": \"\", \"duration\": 0}, {\"activity_name\": \" - : Closing\", \"phase\": \"Closing\", \"description\": \"Outro\", \"startTime\": \"\", \"endTime\": \"\", \"duration\": 0}]', '{\"Decor\": {\"amount\": 5000, \"percentage\": 50}, \"Food\": {\"amount\": 5000, \"percentage\": 50}}', '[{\"name\": \"Extra Chairs\", \"description\": \"50 chairs\"}]', NULL, 'Completed', 'Auditorium', 'Approved', 'Student Council', 'BSCpE', 5, '2026-01-07 05:15:01', '2026-01-08 13:02:36', NULL, NULL, NULL),
+(59, 'Campus Tech Showcase', 'Academic', 'Annual technology showcase for student projects.', '2026-01-06 09:00:00', '2026-01-06 17:00:00', 100, 15000.00, '[{\"name\": \"Projector\", \"quantity\": 1}]', 'Approved', '[{\"phase\": \"Opening\", \"start\": \"09:00\", \"end\": \"10:00\", \"description\": \"Intro\"}, {\"phase\": \"Main Activity\", \"start\": \"10:00\", \"end\": \"16:00\", \"description\": \"Fun stuff\"}, {\"phase\": \"Closing\", \"start\": \"16:00\", \"end\": \"17:00\", \"description\": \"Outro\"}]', '{\"Food\": {\"amount\": 5000, \"percentage\": 50}, \"Decor\": {\"amount\": 5000, \"percentage\": 50}}', '[{\"name\": \"Extra Chairs\", \"description\": \"50 chairs\"}]', NULL, 'Completed', 'Audio Visual Room', 'Approved', 'Paul Test', 'BSIT', 13, '2026-01-07 05:17:59', '2026-01-07 05:17:59', NULL, NULL, NULL),
+(60, 'Esports tournamment', 'Sports', '', '2026-01-07 20:05:00', '2026-01-07 22:00:00', 0, 13448.00, '[{\"name\": \"Projector\", \"quantity\": 2}, {\"name\": \"Screen\", \"quantity\": 1}, {\"name\": \"Speaker\", \"quantity\": 1}, {\"name\": \"Microphone\", \"quantity\": 1}, {\"name\": \"Laptop\", \"quantity\": 1}, {\"name\": \"Chairs\", \"quantity\": 1}, {\"name\": \"Lighting\", \"quantity\": 1}, {\"name\": \"Camera\", \"quantity\": 1}, {\"name\": \"Water Dispenser\", \"quantity\": 1}, {\"name\": \"Trash Bins\", \"quantity\": 1}, {\"name\": \"First Aid Kits\", \"quantity\": 1}, {\"name\": \"Podium\", \"quantity\": 1}, {\"name\": \"Tables\", \"quantity\": 1}]', 'Pending', '[{\"activity_name\": \"08:00 - 09:00: Registration & Team Check-in\", \"phase\": \"Registration & Team Check-in\", \"description\": \"\", \"startTime\": \"08:00\", \"endTime\": \"09:00\", \"duration\": 0}, {\"activity_name\": \"08:00 - 09:00: Registration & Team Check-in\", \"phase\": \"Registration & Team Check-in\", \"description\": \"\", \"startTime\": \"08:00\", \"endTime\": \"09:00\", \"duration\": 0}, {\"activity_name\": \"09:00 - 09:30: Opening Ceremony\", \"phase\": \"Opening Ceremony\", \"description\": \"\", \"startTime\": \"09:00\", \"endTime\": \"09:30\", \"duration\": 0}, {\"activity_name\": \"09:00 - 09:30: Opening Ceremony\", \"phase\": \"Opening Ceremony\", \"description\": \"\", \"startTime\": \"09:00\", \"endTime\": \"09:30\", \"duration\": 0}, {\"activity_name\": \"09:30 - 11:00: Mobile Legends Preliminaries\", \"phase\": \"Mobile Legends Preliminaries\", \"description\": \"\", \"startTime\": \"09:30\", \"endTime\": \"11:00\", \"duration\": 0}, {\"activity_name\": \"09:30 - 11:00: Mobile Legends Preliminaries\", \"phase\": \"Mobile Legends Preliminaries\", \"description\": \"\", \"startTime\": \"09:30\", \"endTime\": \"11:00\", \"duration\": 0}, {\"activity_name\": \"11:00 - 12:00: Valorant Preliminaries\", \"phase\": \"Valorant Preliminaries\", \"description\": \"\", \"startTime\": \"11:00\", \"endTime\": \"12:00\", \"duration\": 0}, {\"activity_name\": \"11:00 - 12:00: Valorant Preliminaries\", \"phase\": \"Valorant Preliminaries\", \"description\": \"\", \"startTime\": \"11:00\", \"endTime\": \"12:00\", \"duration\": 0}, {\"activity_name\": \"12:00 - 13:00: Lunch Break\", \"phase\": \"Lunch Break\", \"description\": \"\", \"startTime\": \"12:00\", \"endTime\": \"13:00\", \"duration\": 0}, {\"activity_name\": \"12:00 - 13:00: Lunch Break\", \"phase\": \"Lunch Break\", \"description\": \"\", \"startTime\": \"12:00\", \"endTime\": \"13:00\", \"duration\": 0}, {\"activity_name\": \"13:00 - 14:30: Mobile Legends Quarterfinals\", \"phase\": \"Mobile Legends Quarterfinals\", \"description\": \"\", \"startTime\": \"13:00\", \"endTime\": \"14:30\", \"duration\": 0}, {\"activity_name\": \"13:00 - 14:30: Mobile Legends Quarterfinals\", \"phase\": \"Mobile Legends Quarterfinals\", \"description\": \"\", \"startTime\": \"13:00\", \"endTime\": \"14:30\", \"duration\": 0}, {\"activity_name\": \"14:30 - 15:30: Valorant Quarterfinals\", \"phase\": \"Valorant Quarterfinals\", \"description\": \"\", \"startTime\": \"14:30\", \"endTime\": \"15:30\", \"duration\": 0}, {\"activity_name\": \"14:30 - 15:30: Valorant Quarterfinals\", \"phase\": \"Valorant Quarterfinals\", \"description\": \"\", \"startTime\": \"14:30\", \"endTime\": \"15:30\", \"duration\": 0}, {\"activity_name\": \"15:30 - 16:00: Break\", \"phase\": \"Break\", \"description\": \"\", \"startTime\": \"15:30\", \"endTime\": \"16:00\", \"duration\": 0}, {\"activity_name\": \"15:30 - 16:00: Break\", \"phase\": \"Break\", \"description\": \"\", \"startTime\": \"15:30\", \"endTime\": \"16:00\", \"duration\": 0}, {\"activity_name\": \"16:00 - 16:30: Finals & Awards\", \"phase\": \"Finals & Awards\", \"description\": \"\", \"startTime\": \"16:00\", \"endTime\": \"16:30\", \"duration\": 0}, {\"activity_name\": \"16:00 - 16:30: Finals & Awards\", \"phase\": \"Finals & Awards\", \"description\": \"\", \"startTime\": \"16:00\", \"endTime\": \"16:30\", \"duration\": 0}, {\"activity_name\": \"16:00 - 16:30: Finals & Awards\", \"phase\": \"Finals & Awards\", \"description\": \"\", \"startTime\": \"16:00\", \"endTime\": \"16:30\", \"duration\": 0}]', '{\"Cash Prizes (Top teams)\": {\"amount\": 5433, \"percentage\": 40}, \"Miscellaneous/Supplies\": {\"amount\": 679, \"percentage\": 5}, \"Printed Certificates & Medals\": {\"amount\": 2173, \"percentage\": 16}, \"Printing (Brackets, Rules)\": {\"amount\": 1086, \"percentage\": 8}, \"Streaming Equipment\": {\"amount\": 4075, \"percentage\": 30}}', '[\"Phones\"]', NULL, 'Completed', 'Auditorium', 'Pending', '', 'BSIT', 1, '2026-01-07 17:00:46', '2026-01-07 22:23:53', NULL, NULL, NULL),
+(61, 'Esports Tournament 2026', 'Sports', 'Annual esports competition featuring popular games like Mobile Legends and Valorant. Includes elimination rounds, live streaming, and prizes for winning teams.', '2026-01-12 09:00:00', '2026-01-12 17:00:00', 0, 13327.00, '[{\"name\": \"Screen\", \"quantity\": 1}, {\"name\": \"Speaker\", \"quantity\": 1}, {\"name\": \"Microphone\", \"quantity\": 1}, {\"name\": \"Laptop\", \"quantity\": 1}, {\"name\": \"Chairs\", \"quantity\": 1}, {\"name\": \"Lighting\", \"quantity\": 1}, {\"name\": \"Camera\", \"quantity\": 1}, {\"name\": \"Water Dispenser\", \"quantity\": 1}, {\"name\": \"Trash Bins\", \"quantity\": 1}, {\"name\": \"First Aid Kits\", \"quantity\": 1}, {\"name\": \"Podium\", \"quantity\": 1}, {\"name\": \"Tables\", \"quantity\": 1}, {\"name\": \"Projector\", \"quantity\": 1}]', 'Pending', '[{\"activity_name\": \"08:00 - 09:00: Registration & Team Check-in\", \"phase\": \"Registration & Team Check-in\", \"description\": \"\", \"startTime\": \"08:00\", \"endTime\": \"09:00\", \"duration\": 0}, {\"activity_name\": \"09:00 - 09:30: Opening Ceremony\", \"phase\": \"Opening Ceremony\", \"description\": \"\", \"startTime\": \"09:00\", \"endTime\": \"09:30\", \"duration\": 0}, {\"activity_name\": \"09:30 - 11:00: Mobile Legends Preliminaries\", \"phase\": \"Mobile Legends Preliminaries\", \"description\": \"\", \"startTime\": \"09:30\", \"endTime\": \"11:00\", \"duration\": 0}, {\"activity_name\": \"11:00 - 12:00: Valorant Preliminaries\", \"phase\": \"Valorant Preliminaries\", \"description\": \"\", \"startTime\": \"11:00\", \"endTime\": \"12:00\", \"duration\": 0}, {\"activity_name\": \"12:00 - 13:00: Lunch Break\", \"phase\": \"Lunch Break\", \"description\": \"\", \"startTime\": \"12:00\", \"endTime\": \"13:00\", \"duration\": 0}, {\"activity_name\": \"13:00 - 14:30: Mobile Legends Quarterfinals\", \"phase\": \"Mobile Legends Quarterfinals\", \"description\": \"\", \"startTime\": \"13:00\", \"endTime\": \"14:30\", \"duration\": 0}, {\"activity_name\": \"14:30 - 15:30: Valorant Quarterfinals\", \"phase\": \"Valorant Quarterfinals\", \"description\": \"\", \"startTime\": \"14:30\", \"endTime\": \"15:30\", \"duration\": 0}, {\"activity_name\": \"15:30 - 16:00: Break\", \"phase\": \"Break\", \"description\": \"\", \"startTime\": \"15:30\", \"endTime\": \"16:00\", \"duration\": 0}, {\"activity_name\": \"16:00 - 16:30: Finals & Awards\", \"phase\": \"Finals & Awards\", \"description\": \"\", \"startTime\": \"16:00\", \"endTime\": \"16:30\", \"duration\": 0}]', '{\"Cash Prizes (Top teams)\": {\"amount\": 5385, \"percentage\": 40}, \"Miscellaneous/Supplies\": {\"amount\": 673, \"percentage\": 5}, \"Printed Certificates & Medals\": {\"amount\": 2153, \"percentage\": 16}, \"Printing (Brackets, Rules)\": {\"amount\": 1076, \"percentage\": 8}, \"Streaming Equipment\": {\"amount\": 4038, \"percentage\": 30}}', '[{\"name\": \"Gaming PCs and consoles\", \"description\": \"\"}, {\"name\": \"High-speed internet connection\", \"description\": \"\"}, {\"name\": \"Tournament organizers and referees\", \"description\": \"\"}, {\"name\": \"Live streaming setup\", \"description\": \"\"}, {\"name\": \"Energy drinks and snacks for players\", \"description\": \"\"}, {\"name\": \"Computer lab access and setup\", \"description\": \"\"}]', NULL, 'Approved', 'Auditorium', 'Pending', '', 'BSIT', 1, '2026-01-07 18:38:14', '2026-01-08 13:12:53', '2026-01-08 13:12:53', NULL, NULL),
+(62, 'Mental Health', 'Workshop', 'Educational seminar on mental health awareness, stress management, and wellness strategies for students. Features expert speakers, interactive workshops, and counseling resources.', '2026-01-09 09:00:00', '2026-01-09 17:00:00', 0, 9617.00, '[{\"name\": \"Projector\", \"quantity\": 2}, {\"name\": \"Speaker\", \"quantity\": 4}, {\"name\": \"Microphone\", \"quantity\": 5}, {\"name\": \"Laptop\", \"quantity\": 1}, {\"name\": \"Screen\", \"quantity\": 2}, {\"name\": \"Tables\", \"quantity\": 11}, {\"name\": \"Chairs\", \"quantity\": 291}, {\"name\": \"Podium\", \"quantity\": 1}, {\"name\": \"Lighting\", \"quantity\": 8}, {\"name\": \"Camera\", \"quantity\": 2}, {\"name\": \"Water Dispenser\", \"quantity\": 2}, {\"name\": \"Trash Bins\", \"quantity\": 3}, {\"name\": \"First Aid Kits\", \"quantity\": 1}]', 'Pending', '[{\"activity_name\": \"08:00 - 08:30: Registration & Welcome\", \"phase\": \"Registration & Welcome\", \"description\": \"\", \"startTime\": \"08:00\", \"endTime\": \"08:30\", \"duration\": 0}, {\"activity_name\": \"08:00 - 09:00: Registration & Booth Setup\", \"phase\": \"Registration & Booth Setup\", \"description\": \"\", \"startTime\": \"08:00\", \"endTime\": \"09:00\", \"duration\": 0}, {\"activity_name\": \"08:30 - 09:00: Opening Remarks\", \"phase\": \"Opening Remarks\", \"description\": \"\", \"startTime\": \"08:30\", \"endTime\": \"09:00\", \"duration\": 0}, {\"activity_name\": \"09:00 - 10:30: Understanding Mental Health\", \"phase\": \"Understanding Mental Health\", \"description\": \"\", \"startTime\": \"09:00\", \"endTime\": \"10:30\", \"duration\": 0}, {\"activity_name\": \"09:00 - 09:30: Opening Ceremony\", \"phase\": \"Opening Ceremony\", \"description\": \"\", \"startTime\": \"09:00\", \"endTime\": \"09:30\", \"duration\": 0}, {\"activity_name\": \"09:30 - 11:00: Health Screenings & Check-ups\", \"phase\": \"Health Screenings & Check-ups\", \"description\": \"\", \"startTime\": \"09:30\", \"endTime\": \"11:00\", \"duration\": 0}, {\"activity_name\": \"10:30 - 11:00: Break\", \"phase\": \"Break\", \"description\": \"\", \"startTime\": \"10:30\", \"endTime\": \"11:00\", \"duration\": 0}, {\"activity_name\": \"11:00 - 12:30: Stress Management Workshop\", \"phase\": \"Stress Management Workshop\", \"description\": \"\", \"startTime\": \"11:00\", \"endTime\": \"12:30\", \"duration\": 0}, {\"activity_name\": \"11:00 - 12:00: Wellness Workshops (Mental Health)\", \"phase\": \"Wellness Workshops (Mental Health)\", \"description\": \"\", \"startTime\": \"11:00\", \"endTime\": \"12:00\", \"duration\": 0}, {\"activity_name\": \"12:00 - 13:00: Lunch Break (Participants bring own food)\", \"phase\": \"Lunch Break (Participants bring own food)\", \"description\": \"\", \"startTime\": \"12:00\", \"endTime\": \"13:00\", \"duration\": 0}, {\"activity_name\": \"12:30 - 13:30: Lunch Break\", \"phase\": \"Lunch Break\", \"description\": \"\", \"startTime\": \"12:30\", \"endTime\": \"13:30\", \"duration\": 0}, {\"activity_name\": \"13:00 - 14:30: Fitness Demonstrations & Zumba\", \"phase\": \"Fitness Demonstrations & Zumba\", \"description\": \"\", \"startTime\": \"13:00\", \"endTime\": \"14:30\", \"duration\": 0}, {\"activity_name\": \"13:30 - 15:00: Coping Strategies Session\", \"phase\": \"Coping Strategies Session\", \"description\": \"\", \"startTime\": \"13:30\", \"endTime\": \"15:00\", \"duration\": 0}, {\"activity_name\": \"14:30 - 15:30: Nutrition Talks & Counseling\", \"phase\": \"Nutrition Talks & Counseling\", \"description\": \"\", \"startTime\": \"14:30\", \"endTime\": \"15:30\", \"duration\": 0}, {\"activity_name\": \"15:00 - 15:30: Q&A with Counselors\", \"phase\": \"Q&A with Counselors\", \"description\": \"\", \"startTime\": \"15:00\", \"endTime\": \"15:30\", \"duration\": 0}, {\"activity_name\": \"15:30 - 16:00: Certificates & Closing\", \"phase\": \"Certificates & Closing\", \"description\": \"\", \"startTime\": \"15:30\", \"endTime\": \"16:00\", \"duration\": 0}, {\"activity_name\": \"15:30 - 16:00: Raffle Draw & Giveaways\", \"phase\": \"Raffle Draw & Giveaways\", \"description\": \"\", \"startTime\": \"15:30\", \"endTime\": \"16:00\", \"duration\": 0}, {\"activity_name\": \"16:00 - 16:30: Closing & Feedback\", \"phase\": \"Closing & Feedback\", \"description\": \"\", \"startTime\": \"16:00\", \"endTime\": \"16:30\", \"duration\": 0}]', '{\"Guest Speaker Honorarium\": {\"amount\": 2677, \"percentage\": 28}, \"Health Materials (Pamphlets, Posters)\": {\"amount\": 1311, \"percentage\": 14}, \"Miscellaneous/Supplies\": {\"amount\": 335, \"percentage\": 3}, \"Printed Certificates\": {\"amount\": 539, \"percentage\": 6}, \"Printing (Flyers, Forms)\": {\"amount\": 524, \"percentage\": 5}, \"Printing (Programs, Flyers)\": {\"amount\": 535, \"percentage\": 6}, \"Raffle Prizes\": {\"amount\": 1748, \"percentage\": 18}, \"Resource Materials (Pamphlets)\": {\"amount\": 1070, \"percentage\": 11}, \"Tarpaulin and Signage\": {\"amount\": 874, \"percentage\": 9}}', NULL, NULL, 'Approved', 'Auditorium', 'Pending', '', 'BSPsych', 1, '2026-01-08 13:13:43', '2026-01-08 13:13:43', NULL, NULL, NULL);
+INSERT INTO events (id, name, event_type, description, start_timestamp, end_timestamp, expected_attendees, budget, equipment, equipment_approval_status, timeline, budget_breakdown, additional_resources, max_attendees, status, venue, venue_approval_status, organizer, organizing_department, requestor_id, created_at, updated_at, deleted_at, conflict_resolution_note, conflicted_with_event_id) VALUES
+(63, 'Mental Health Awareness Seminar 2025', 'Workshop', 'Educational seminar on mental health awareness, stress management, and wellness strategies for students. Features expert speakers, interactive workshops, and counseling resources.', '2026-01-11 14:00:00', '2026-01-11 22:00:00', 200, 4900.00, '[{\"name\": \"Projector\", \"quantity\": 2}, {\"name\": \"Screen\", \"quantity\": 2}, {\"name\": \"Speaker\", \"quantity\": 4}, {\"name\": \"Microphone\", \"quantity\": 4}, {\"name\": \"Laptop\", \"quantity\": 1}, {\"name\": \"Tables\", \"quantity\": 10}, {\"name\": \"Chairs\", \"quantity\": 200}, {\"name\": \"Podium\", \"quantity\": 1}, {\"name\": \"Lighting\", \"quantity\": 6}, {\"name\": \"Camera\", \"quantity\": 1}, {\"name\": \"Water Dispenser\", \"quantity\": 2}, {\"name\": \"Trash Bins\", \"quantity\": 3}, {\"name\": \"First Aid Kits\", \"quantity\": 1}]', 'Pending', NULL, '[{\"amount\": 1000, \"name\": \"Resource Materials (Pamphlets)\"}, {\"amount\": 600, \"name\": \"Printed Certificates\"}, {\"amount\": 2500, \"name\": \"Guest Speaker Honorarium\"}, {\"amount\": 500, \"name\": \"Printing (Programs, Flyers)\"}, {\"amount\": 300, \"name\": \"Miscellaneous/Supplies\"}]', NULL, 200, 'Under Review', 'Auditorium', 'Pending', 'Guidance Office & Student Services', 'Student Affairs Office', 1, '2026-01-09 01:13:16', '2026-01-09 02:06:18', NULL, 'Another event was approved for Auditorium at this time slot.', 65),
+(64, 'BCP 7th Year Foundation Day Celebration', 'Academic', 'Annual foundation day celebration with flag ceremony, department performances, games, raffle draws, and awarding. Participants bring own snacks/food.', '2026-01-10 14:00:00', '2026-01-10 18:00:00', 400, 8500.00, '[{\"name\": \"Projector\", \"quantity\": 1}, {\"name\": \"Speaker\", \"quantity\": 4}, {\"name\": \"Microphone\", \"quantity\": 6}, {\"name\": \"Laptop\", \"quantity\": 1}, {\"name\": \"Screen\", \"quantity\": 1}, {\"name\": \"Tables\", \"quantity\": 8}, {\"name\": \"Chairs\", \"quantity\": 400}, {\"name\": \"Podium\", \"quantity\": 1}, {\"name\": \"Lighting\", \"quantity\": 8}, {\"name\": \"Camera\", \"quantity\": 2}, {\"name\": \"Water Dispenser\", \"quantity\": 2}, {\"name\": \"Trash Bins\", \"quantity\": 3}, {\"name\": \"First Aid Kits\", \"quantity\": 1}]', 'Rejected', NULL, '[{\"name\": \"Printed Certificates and Medals\", \"amount\": 1200}, {\"name\": \"Cash Prizes (Games & Raffle)\", \"amount\": 4000}, {\"name\": \"Tarpaulin and Signage\", \"amount\": 1800}, {\"name\": \"Printing (Programs, Registration)\", \"amount\": 900}, {\"name\": \"Miscellaneous/Supplies\", \"amount\": 600}]', NULL, 400, 'Conflict_Rejected', 'Auditorium', 'Rejected', 'Office of Student Affairs & Development', 'Student Affairs Office', 1, '2026-01-09 01:13:16', '2026-01-09 01:44:26', NULL, 'Another event was approved for Auditorium at this time slot.', 65),
+(65, 'Inter-Department Quiz Bee 2025', 'Academic', 'Annual inter-department quiz competition testing knowledge in various academic subjects. Features elimination rounds, buzzer system, and team competitions among college departments.', '2026-01-10 14:00:00', '2026-01-10 22:00:00', 200, 7800.00, '[{\"name\": \"Projector\", \"quantity\": 2}, {\"name\": \"Screen\", \"quantity\": 2}, {\"name\": \"Speaker\", \"quantity\": 4}, {\"name\": \"Microphone\", \"quantity\": 6}, {\"name\": \"Laptop\", \"quantity\": 2}, {\"name\": \"Tables\", \"quantity\": 8}, {\"name\": \"Chairs\", \"quantity\": 200}, {\"name\": \"Podium\", \"quantity\": 1}, {\"name\": \"Lighting\", \"quantity\": 8}, {\"name\": \"Camera\", \"quantity\": 1}, {\"name\": \"Water Dispenser\", \"quantity\": 1}, {\"name\": \"Trash Bins\", \"quantity\": 2}, {\"name\": \"First Aid Kits\", \"quantity\": 1}]', 'Pending', NULL, '[{\"name\": \"Printed Certificates & Medals\", \"amount\": 1500}, {\"name\": \"Cash Prizes (Top teams)\", \"amount\": 4000}, {\"name\": \"Tarpaulin and Signage\", \"amount\": 1000}, {\"name\": \"Printing (Questionnaires, Score sheets)\", \"amount\": 800}, {\"name\": \"Miscellaneous/Supplies\", \"amount\": 500}]', NULL, 200, 'Approved', 'Auditorium', 'Pending', 'Academic Affairs & Student Council', 'Student Affairs Office', 1, '2026-01-09 01:13:16', '2026-01-09 01:44:26', NULL, NULL, NULL),
+(66, 'Attendance Test Event', 'Academic', 'Test event for attendance system validation', '2026-01-10 15:51:54', '2026-01-10 17:51:54', 100, 0.00, NULL, 'Pending', NULL, NULL, NULL, NULL, 'Approved', 'Auditorium', 'Pending', NULL, 'BSIT', 1, '2026-01-09 15:51:54', '2026-01-09 15:51:54', NULL, NULL, NULL);
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table event_attendance
+--
+
+CREATE TABLE event_attendance (
+  id integer NOT NULL,
+  event_id integer NOT NULL,
+  user_id integer NOT NULL,
+  check_in_timestamp timestamp DEFAULT NULL,
+  check_out_timestamp timestamp DEFAULT NULL,
+  attendance_status enum('Present','Late','Absent') DEFAULT 'Present',
+  created_at timestamp DEFAULT CURRENT_TIMESTAMP,
+  updated_at timestamp DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  check_in_method enum('QR','Manual') DEFAULT 'Manual'
+) ;
+
+--
+-- Dumping data for table event_attendance
+--
+
+INSERT INTO event_attendance (id, event_id, user_id, check_in_timestamp, check_out_timestamp, attendance_status, created_at, updated_at, check_in_method) VALUES
+(8, 31, 5, '2026-01-05 19:28:37', NULL, 'Present', '2026-01-05 19:28:37', '2026-01-05 19:28:37', 'Manual'),
+(9, 31, 4, '2026-01-05 20:26:49', NULL, 'Present', '2026-01-05 20:26:49', '2026-01-05 20:26:49', 'QR'),
+(11, 52, 13, '2026-01-07 03:06:59', NULL, 'Present', '2026-01-07 03:06:59', '2026-01-07 03:06:59', 'QR'),
+(12, 59, 13, '2026-01-07 05:20:10', NULL, 'Present', '2026-01-07 05:20:10', '2026-01-07 05:20:10', 'Manual'),
+(13, 59, 15, '2026-01-07 05:29:13', NULL, 'Present', '2026-01-07 05:29:13', '2026-01-07 05:29:13', 'Manual'),
+(14, 60, 13, '2026-01-07 20:05:12', NULL, 'Present', '2026-01-07 20:05:12', '2026-01-07 20:05:12', 'QR'),
+(15, 66, 1, '2026-01-09 15:51:54', NULL, 'Present', '2026-01-09 15:51:54', '2026-01-09 15:51:54', 'QR');
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table event_feedback
+--
+
+CREATE TABLE event_feedback (
+  id integer NOT NULL,
+  event_id integer NOT NULL,
+  user_id integer NOT NULL,
+  overall_rating tinyinteger NOT NULL CHECK (overall_rating between 1 and 5),
+  venue_rating tinyinteger DEFAULT NULL CHECK (venue_rating between 1 and 5),
+  activities_rating tinyinteger DEFAULT NULL CHECK (activities_rating between 1 and 5),
+  organization_rating tinyinteger DEFAULT NULL CHECK (organization_rating between 1 and 5),
+  comments text DEFAULT NULL,
+  is_anonymous tinyinteger DEFAULT 0,
+  can_edit tinyinteger DEFAULT 1,
+  edit_deadline timestamp DEFAULT NULL,
+  created_at timestamp DEFAULT CURRENT_TIMESTAMP,
+  updated_at timestamp DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  registration_process tinyinteger DEFAULT NULL CHECK (registration_process between 1 and 5),
+  speaker_effectiveness tinyinteger DEFAULT NULL CHECK (speaker_effectiveness between 1 and 5),
+  content_relevance tinyinteger DEFAULT NULL CHECK (content_relevance between 1 and 5),
+  net_promoter_score tinyinteger DEFAULT NULL CHECK (net_promoter_score between 0 and 10),
+  key_takeaways text DEFAULT NULL,
+  future_interest tinyinteger DEFAULT NULL
+) ;
+
+--
+-- Dumping data for table event_feedback
+--
+
+INSERT INTO event_feedback (id, event_id, user_id, overall_rating, venue_rating, activities_rating, organization_rating, comments, is_anonymous, can_edit, edit_deadline, created_at, updated_at, registration_process, speaker_effectiveness, content_relevance, net_promoter_score, key_takeaways, future_interest) VALUES
+(4, 25, 1, 5, 4, 5, 4, 'Great event!', 0, 1, '2026-01-07 20:58:21', '2026-01-06 20:58:21', '2026-01-06 20:58:21', NULL, NULL, NULL, NULL, NULL, NULL),
+(5, 47, 13, 5, 5, 5, 5, 'Great event', 0, 1, '2026-01-07 22:53:26', '2026-01-06 22:53:26', '2026-01-06 23:11:15', 5, 5, 5, 10, 'Generated via Mockup UI', 0),
+(6, 59, 13, 5, 5, 4, 5, 'Paul loved it! (Updated)', 0, 1, '2026-01-08 05:23:58', '2026-01-07 05:23:58', '2026-01-07 05:29:13', 5, 5, 5, 10, 'Generated via Mockup UI', 0),
+(8, 59, 15, 3, NULL, NULL, NULL, 'Student2 thought it was okay.', 0, 1, '2026-01-08 05:29:13', '2026-01-07 05:29:13', '2026-01-07 05:29:13', NULL, NULL, NULL, NULL, NULL, NULL),
+(9, 52, 13, 5, 5, 5, 5, 'TEST', 0, 1, '2026-01-08 22:30:48', '2026-01-07 22:30:48', '2026-01-07 23:33:25', 5, 5, 5, 5, 'Generated via Mockup UI', 0);
+
+--
+-- Triggers event_feedback
+--
+DELIMITER $$
+CREATE TRIGGER set_feedback_edit_deadline BEFORE INSERT ON event_feedback FOR EACH ROW BEGIN
+    -- Set 24-hour edit window from creation time
+    SET NEW.edit_deadline = DATE_ADD(NOW(), INTERVAL 24 HOUR);
+END
+$$
+DELIMITER ;
+DELIMITER $$
+CREATE TRIGGER update_feedback_edit_status BEFORE UPDATE ON event_feedback FOR EACH ROW BEGIN
+    -- Check if edit deadline has passed
+    IF NEW.updated_at > OLD.edit_deadline THEN
+        SET NEW.can_edit = FALSE;
+    END IF;
+END
+$$
+DELIMITER ;
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table event_registrations
+--
+
+CREATE TABLE event_registrations (
+  id integer NOT NULL,
+  event_id integer NOT NULL,
+  user_id integer NOT NULL,
+  registration_status enum('Registered','Waitlisted','Cancelled') DEFAULT 'Registered',
+  registration_date timestamp DEFAULT CURRENT_TIMESTAMP,
+  qr_code varchar(255) DEFAULT NULL,
+  notes text DEFAULT NULL,
+  created_at timestamp DEFAULT CURRENT_TIMESTAMP,
+  updated_at timestamp DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+) ;
+
+--
+-- Dumping data for table event_registrations
+--
+
+INSERT INTO event_registrations (id, event_id, user_id, registration_status, registration_date, qr_code, notes, created_at, updated_at) VALUES
+(6, 31, 4, 'Registered', '2026-01-05 19:28:34', 'REG-6-4-1767615713', NULL, '2026-01-05 19:28:34', '2026-01-05 20:21:53'),
+(7, 31, 5, 'Registered', '2026-01-05 19:28:34', 'REG-2-5-1767612506', NULL, '2026-01-05 19:28:34', '2026-01-05 19:28:34'),
+(9, 31, 11, 'Registered', '2026-01-05 19:28:34', 'REG-4-11-1767612506', NULL, '2026-01-05 19:28:34', '2026-01-05 19:28:34'),
+(10, 31, 13, 'Registered', '2026-01-05 21:29:49', 'REG-10-13-1767619795', NULL, '2026-01-05 21:29:49', '2026-01-05 21:29:55'),
+(13, 52, 13, 'Registered', '2026-01-07 03:05:57', 'REG-13-13-1767726366', NULL, '2026-01-07 03:05:57', '2026-01-07 03:06:06'),
+(14, 59, 13, 'Registered', '2026-01-07 05:22:27', 'REG-999-13-1767734547', NULL, '2026-01-07 05:22:27', '2026-01-07 05:22:27'),
+(15, 60, 13, 'Registered', '2026-01-07 18:58:52', 'REG-15-13-1767783550', NULL, '2026-01-07 18:58:52', '2026-01-07 18:59:10'),
+(16, 66, 1, 'Registered', '2026-01-09 15:51:54', 'REG-16-1-1767945114', NULL, '2026-01-09 15:51:54', '2026-01-09 15:51:54');
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table event_status_history
+--
+
+CREATE TABLE event_status_history (
+  id integer NOT NULL,
+  event_id integer NOT NULL,
+  old_status varchar(50) DEFAULT NULL,
+  new_status varchar(50) NOT NULL,
+  changed_by integer NOT NULL,
+  reason text DEFAULT NULL,
+  changed_at timestamp DEFAULT CURRENT_TIMESTAMP
+) ;
+
+--
+-- Dumping data for table event_status_history
+--
+
+INSERT INTO event_status_history (id, event_id, old_status, new_status, changed_by, reason, changed_at) VALUES
+(40, 23, 'Pending', 'Rejected', 1, 'Budget exceeded: Test', '2026-01-03 16:19:27'),
+(52, 29, 'Under Review', 'Conflict_Rejected', 2, 'Auto-rejected: conflicted with approved event #28', '2026-01-04 17:56:49'),
+(53, 28, 'Under Review', 'Approved', 2, 'Resources approved by Staff (auto-rejected conflicts)', '2026-01-04 17:56:49'),
+(54, 29, 'Conflict_Rejected', 'Under Review', 1, 'Status updated', '2026-01-04 22:18:43'),
+(55, 50, 'Pending', 'Under Review', 6, 'Status changed via review', '2026-01-06 23:48:46'),
+(56, 49, 'Pending', 'Under Review', 6, 'Status changed via review', '2026-01-06 23:52:34'),
+(57, 48, 'Pending', 'Under Review', 6, 'Status changed via review', '2026-01-06 23:55:41'),
+(58, 49, 'Pending', 'Under Review', 6, 'Status changed via review', '2026-01-06 23:57:46'),
+(59, 50, 'Pending', 'Under Review', 6, 'Status changed via review', '2026-01-07 00:00:32'),
+(60, 48, 'Pending', 'Under Review', 6, 'Status changed via review', '2026-01-07 00:02:21'),
+(61, 49, 'Pending', 'Under Review', 6, 'Status changed via review', '2026-01-07 00:04:16'),
+(62, 50, 'Pending', 'Under Review', 6, 'Status changed via review', '2026-01-07 00:04:27'),
+(63, 48, 'Pending', 'Under Review', 6, 'Status changed via review', '2026-01-07 00:04:32'),
+(64, 51, NULL, 'Pending', 13, 'Event created by Student Organization Officer', '2026-01-07 01:20:21'),
+(65, 51, 'Pending', 'Under Review', 6, 'Status changed via review', '2026-01-07 01:47:36'),
+(66, 52, NULL, 'Pending', 5, 'Initial submission (inserted via script)', '2026-01-07 02:27:31'),
+(67, 52, 'Pending', 'Under Review', 6, 'Status changed via review', '2026-01-07 02:40:55'),
+(68, 52, 'Under Review', 'Approved', 2, 'Resources approved by Staff (auto-rejected conflicts)', '2026-01-07 02:41:25'),
+(69, 53, NULL, 'Pending', 13, 'Event created by Student Organization Officer', '2026-01-07 03:12:37'),
+(70, 54, NULL, 'Pending', 13, 'Event created by Student Organization Officer', '2026-01-07 03:12:37'),
+(71, 55, NULL, 'Pending', 13, 'Event created by Student Organization Officer', '2026-01-07 04:40:17'),
+(72, 56, NULL, 'Pending', 13, 'Event created by Student Organization Officer', '2026-01-07 04:49:54'),
+(73, 57, NULL, 'Pending', 13, 'Event created by Student Organization Officer', '2026-01-07 05:09:47'),
+(74, 60, NULL, 'Approved', 1, 'Event created by Super Admin', '2026-01-07 17:00:46'),
+(75, 61, NULL, 'Approved', 1, 'Event created by Super Admin', '2026-01-07 18:38:14'),
+(76, 62, NULL, 'Approved', 1, 'Event created by Super Admin', '2026-01-08 13:13:43'),
+(77, 57, 'Pending', 'Under Review', 6, 'Status changed via review', '2026-01-08 13:52:30'),
+(78, 57, 'Pending', 'Under Review', 6, 'Status changed via review', '2026-01-08 14:01:11'),
+(79, 57, 'Pending', 'Under Review', 6, 'Status changed via review', '2026-01-08 14:06:59'),
+(80, 64, 'Pending', 'Conflict_Rejected', 1, 'Auto-rejected: conflicted with approved event #65', '2026-01-09 01:44:26'),
+(81, 63, 'Pending', 'Conflict_Rejected', 1, 'Auto-rejected: conflicted with approved event #65', '2026-01-09 01:44:26'),
+(82, 65, 'Pending', 'Approved', 1, 'Super Admin Direct Approval', '2026-01-09 01:44:26'),
+(83, 63, 'Conflict_Rejected', 'Under Review', 1, 'Status updated', '2026-01-09 02:06:18');
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table notifications
+--
+
+CREATE TABLE notifications (
+  id integer NOT NULL,
+  user_id integer NOT NULL,
+  event_id integer DEFAULT NULL,
+  type enum('equipment_adjusted','venue_conflict','status_update','general','conflict_rejection') NOT NULL DEFAULT 'general',
+  title varchar(200) NOT NULL,
+  message text NOT NULL,
+  is_read tinyinteger DEFAULT 0,
+  created_at timestamp DEFAULT CURRENT_TIMESTAMP
+) ;
+
+--
+-- Dumping data for table notifications
+--
+
+INSERT INTO notifications (id, user_id, event_id, type, title, message, is_read, created_at) VALUES
+(1, 1, 24, 'equipment_adjusted', 'Equipment Approval - Adjustments Made', 'Your equipment request for \'Tech Conference - Equipment Test\' has been approved with adjustments:\n\n• Projector: 5/12 available\n• Microphone: 10/15 available\n\nPlease review the updated equipment list.', 1, '2025-12-29 21:45:17'),
+(2, 1, 24, 'status_update', 'Equipment Acknowledged - Tech Conference - Equipment Test', 'System Administrator has accepted the adjusted equipment for \'Tech Conference - Equipment Test\'. The event will proceed with the approved equipment.', 1, '2025-12-29 22:52:44'),
+(3, 2, 24, 'status_update', 'Equipment Acknowledged - Tech Conference - Equipment Test', 'System Administrator has accepted the adjusted equipment for \'Tech Conference - Equipment Test\'. The event will proceed with the approved equipment.', 1, '2025-12-29 22:52:44'),
+(5, 6, 24, 'status_update', 'Equipment Acknowledged - Tech Conference - Equipment Test', 'System Administrator has accepted the adjusted equipment for \'Tech Conference - Equipment Test\'. The event will proceed with the approved equipment.', 1, '2025-12-29 22:52:44'),
+(6, 1, 24, 'status_update', 'Equipment Acknowledged - Tech Conference - Equipment Test', 'System Administrator has accepted the adjusted equipment for \'Tech Conference - Equipment Test\'. The event will proceed with the approved equipment.', 1, '2025-12-29 22:53:33'),
+(7, 2, 24, 'status_update', 'Equipment Acknowledged - Tech Conference - Equipment Test', 'System Administrator has accepted the adjusted equipment for \'Tech Conference - Equipment Test\'. The event will proceed with the approved equipment.', 1, '2025-12-29 22:53:33'),
+(9, 6, 24, 'status_update', 'Equipment Acknowledged - Tech Conference - Equipment Test', 'System Administrator has accepted the adjusted equipment for \'Tech Conference - Equipment Test\'. The event will proceed with the approved equipment.', 1, '2025-12-29 22:53:33'),
+(14, 6, 29, 'conflict_rejection', '⚠️ Action Required: \"Computer Science Society General Assembly 2026\" Needs Rescheduling', 'Your event could not be approved due to a scheduling conflict.\n\nAnother event (\"BSIT Week 2026: Innovation & Technology Summit\") was approved for:\n• Venue: Computer Laboratory & Auditorium\n• Time: 2026-02-15 08:00:00\n\nPlease click \"View Details\" to reschedule your event.', 1, '2026-01-04 17:56:49'),
+(16, 1, 30, 'conflict_rejection', '⚠️ Action Required: \"Annual STEM Innovation Fair 2026\" Needs Rescheduling', 'Your event could not be approved due to a scheduling conflict.\n\nAnother event was approved for:\n• Venue: Gymnasium\n• Time: 2026-03-10 08:00:00\n\nPlease click \"View Details\" to reschedule your event.', 1, '2026-01-04 22:13:28'),
+(17, 5, 52, 'equipment_adjusted', 'Equipment Approval - Adjustments Made', 'Your equipment request for \'Your Event\' has been approved with adjustments:\n\n• Projector Screen: unavailable (requested 2)\n• Monoblock Chairs: unavailable (requested 500)\n• Long Table: unavailable (requested 10)\n\nPlease review the updated equipment list.', 0, '2026-01-07 02:41:25'),
+(18, 13, 57, 'status_update', 'Proposal Accepted: Career fair', 'Your event proposal \'Career fair\' has been accepted by the Department Head and is now Under Review for resource approval.', 1, '2026-01-08 14:06:59'),
+(19, 13, 57, 'equipment_adjusted', 'Equipment Approval - Adjustments Made', 'Your equipment request for \'Your Event\' has been approved with adjustments:\n\n• Microphone: unavailable (requested 2)\n• Projector: unavailable (requested 1)\n• Screen: unavailable (requested 1)\n• Speaker: unavailable (requested 1)\n• Tables: unavailable (requested 1)\n• Chairs: unavailable (requested 1)\n• Trash Bins: unavailable (requested 1)\n\nPlease review the updated equipment list.', 1, '2026-01-08 14:38:04'),
+(20, 13, 57, 'status_update', 'Equipment Approved: Career fair', 'Your equipment request for \'Career fair\' has been approved. Waiting for final confirmation.', 1, '2026-01-08 14:51:28'),
+(21, 6, 29, 'equipment_adjusted', 'Equipment Approval - Adjustments Made', 'Your equipment request for \'Your Event\' has been approved with adjustments:\n\n• Microphone: unavailable (requested 2)\n\nPlease review the updated equipment list.', 0, '2026-01-08 14:54:32'),
+(22, 6, 29, 'status_update', 'Equipment Approved: Computer Science Society General Assembly 2026', 'Your equipment request for \'Computer Science Society General Assembly 2026\' has been approved. Waiting for final confirmation.', 0, '2026-01-08 14:54:32'),
+(23, 13, 57, 'status_update', 'Equipment Review Complete: Career fair', 'Your equipment request has been reviewed.\n\n✅ APPROVED:\n- Camera (Qty: 1)\n- Podium (Qty: 1)\n- Lighting (Qty: 1)\n- Water Dispenser (Qty: 1)\n- First Aid Kits (Qty: 1)\n\n❌ REJECTED:\n- Laptop (Maintenance/Repair)', 0, '2026-01-08 18:10:47'),
+(24, 13, 57, 'status_update', 'Equipment Review Complete: Career fair', 'Your equipment request has been reviewed.\n\n✅ APPROVED:\n- Camera (Qty: 1)\n- Podium (Qty: 1)\n- Lighting (Qty: 1)\n- Water Dispenser (Qty: 1)\n- First Aid Kits (Qty: 1)\n\n❌ REJECTED:\n- Laptop (Maintenance/Repair)', 0, '2026-01-08 18:11:00'),
+(25, 13, 57, 'status_update', 'Equipment Review Complete: Career fair', 'Your equipment request has been reviewed.\n\n✅ APPROVED:\n- Camera (Qty: 1)\n- Podium (Qty: 1)\n- Lighting (Qty: 1)\n- Water Dispenser (Qty: 1)\n- First Aid Kits (Qty: 1)\n\n❌ REJECTED:\n- Laptop (Scheduling Conflict)', 1, '2026-01-08 18:14:21'),
+(26, 13, 57, 'status_update', 'Equipment Review Complete: Career fair', 'Your equipment request has been reviewed.\n\n✅ APPROVED:\n- Camera (Qty: 1)\n- Podium (Qty: 1)\n- Lighting (Qty: 1)\n- Water Dispenser (Qty: 1)\n- First Aid Kits (Qty: 1)\n\n❌ REJECTED:\n- Laptop (Scheduling Conflict)', 0, '2026-01-08 18:17:21'),
+(27, 13, 57, 'status_update', 'Equipment Review Complete: Career fair', 'Your equipment request has been reviewed.\n\n✅ APPROVED:\n- Camera (Qty: 1)\n- Podium (Qty: 1)\n- Lighting (Qty: 1)\n- Water Dispenser (Qty: 1)\n- First Aid Kits (Qty: 1)\n\n❌ REJECTED:\n- Laptop (Policy Violation)', 0, '2026-01-08 18:17:57'),
+(28, 13, 57, 'status_update', 'Equipment Review Complete: Career fair', 'Your equipment request has been reviewed.\n\n✅ APPROVED:\n- Camera (Qty: 1)\n- Podium (Qty: 1)\n- Lighting (Qty: 1)\n- Water Dispenser (Qty: 1)\n- First Aid Kits (Qty: 1)\n\n❌ REJECTED:\n- Laptop (Scheduling Conflict)', 0, '2026-01-08 18:18:51'),
+(29, 13, 57, 'status_update', 'Equipment Review Complete: Career fair', 'Your equipment request has been reviewed.\n\n✅ APPROVED:\n- Camera (Qty: 1)\n- Podium (Qty: 1)\n- Lighting (Qty: 1)\n- Water Dispenser (Qty: 1)\n- First Aid Kits (Qty: 1)\n\n❌ REJECTED:\n- Laptop (Scheduling Conflict)', 0, '2026-01-08 18:19:15'),
+(30, 13, 57, 'status_update', 'Equipment Review Complete: Career fair', 'Your equipment request has been reviewed.\n\n✅ APPROVED:\n- Camera (Qty: 1)\n- Podium (Qty: 1)\n- Lighting (Qty: 1)\n- Water Dispenser (Qty: 1)\n- First Aid Kits (Qty: 1)\n\n❌ REJECTED:\n- Laptop (Scheduling Conflict)', 1, '2026-01-08 18:21:53'),
+(31, 13, 57, 'status_update', 'Equipment Review Complete: Career fair', 'Your equipment request has been reviewed.\n\n✅ APPROVED:\n- Camera (Qty: 1)\n- Podium (Qty: 1)\n- Lighting (Qty: 1)\n- Water Dispenser (Qty: 1)\n- First Aid Kits (Qty: 1)\n\n❌ REJECTED:\n- Laptop (Scheduling Conflict)', 1, '2026-01-08 18:23:53'),
+(32, 13, 57, 'status_update', 'Equipment Adjustment: Event', 'The following adjustments were made to your equipment request:\n\n- Camera: Rejected (Reason: Maintenance/Repair)', 1, '2026-01-08 18:32:07'),
+(33, 6, 57, 'status_update', 'Event Withdrawn', 'Paul Test has withdrawn the proposal \'Career fair\' due to inability to provide required equipment.', 0, '2026-01-08 20:54:27'),
+(34, 2, 57, 'status_update', 'Event Withdrawn', 'Paul Test has withdrawn the proposal \'Career fair\' due to inability to provide required equipment.', 1, '2026-01-08 20:54:27'),
+(35, 1, 57, 'status_update', 'Event Withdrawn', 'Paul Test has withdrawn the proposal \'Career fair\' due to inability to provide required equipment.', 1, '2026-01-08 20:54:27'),
+(36, 6, 29, 'status_update', 'Equipment Review Complete: Computer Science Society General Assembly 2026', 'Your equipment request has been reviewed.\n\n✅ APPROVED:\n- Projector (Qty: 1)\n- Speaker (Qty: 2)\n\n', 1, '2026-01-08 21:10:12'),
+(37, 6, 29, 'status_update', 'Equipment Review Complete: Computer Science Society General Assembly 2026', 'Your equipment request has been reviewed.\n\n❌ REJECTED:\n- Projector (Scheduling Conflict)\n- Speaker (Scheduling Conflict)', 1, '2026-01-08 21:10:19'),
+(38, 1, 64, 'conflict_rejection', '⚠️ Action Required: \"BCP 7th Year Foundation Day Celebration\" Needs Rescheduling', 'Your event could not be approved due to a scheduling conflict.\n\nAnother event (\"Inter-Department Quiz Bee 2025\") was approved for:\n• Venue: Auditorium\n• Time: 2026-01-10 14:00:00\n\nPlease click \"View Details\" to reschedule your event.', 1, '2026-01-09 01:44:26'),
+(39, 1, 63, 'conflict_rejection', '⚠️ Action Required: \"Mental Health Awareness Seminar 2025\" Needs Rescheduling', 'Your event could not be approved due to a scheduling conflict.\n\nAnother event (\"Inter-Department Quiz Bee 2025\") was approved for:\n• Venue: Auditorium\n• Time: 2026-01-10 14:00:00\n\nPlease click \"View Details\" to reschedule your event.', 1, '2026-01-09 01:44:26'),
+(40, 1, 65, 'status_update', 'Event Approved: Inter-Department Quiz Bee 2025', 'Good news! Your event \'Inter-Department Quiz Bee 2025\' has been officially APPROVED by Super Admin.', 1, '2026-01-09 01:44:26');
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table roles
+--
+
+CREATE TABLE roles (
+  id integer NOT NULL,
+  name varchar(50) NOT NULL,
+  description text DEFAULT NULL,
+  hierarchy_level integer NOT NULL,
+  created_at timestamp DEFAULT CURRENT_TIMESTAMP
+) ;
+
+--
+-- Dumping data for table roles
+--
+
+INSERT INTO roles (id, name, description, hierarchy_level, created_at) VALUES
+(1, 'Super Admin', 'Full system access, AI training, user management', 1, '2025-12-14 18:01:47'),
+(2, 'Admin', 'Event approval, budget oversight, analytics', 2, '2025-12-14 18:01:47'),
+(3, 'Staff', 'Venue/equipment management, conflict resolution', 3, '2025-12-14 18:01:47'),
+(5, 'Participant', 'Event registration, attendance, feedback', 5, '2025-12-14 18:01:47'),
+(6, 'Student Organization Officer', 'Student organization leaders who can create and manage events for their organizations', 4, '2026-01-04 23:04:28');
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table students
+--
+
+CREATE TABLE students (
+  id integer NOT NULL,
+  user_id integer NOT NULL,
+  course varchar(50) NOT NULL,
+  section varchar(50) NOT NULL,
+  created_at timestamp DEFAULT CURRENT_TIMESTAMP,
+  updated_at timestamp DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+) ;
+
+--
+-- Dumping data for table students
+--
+
+INSERT INTO students (id, user_id, course, section, created_at, updated_at) VALUES
+(1, 4, 'BSIT', 'IT01', '2025-12-18 15:18:27', '2025-12-18 15:18:27'),
+(2, 5, 'BSIT', 'IT01', '2025-12-18 15:21:51', '2025-12-18 15:21:51'),
+(7, 11, 'BSIT', 'IT01', '2026-01-03 17:57:39', '2026-01-03 17:57:39'),
+(9, 13, 'BSIT', 'IT01', '2026-01-05 21:17:14', '2026-01-05 21:17:14');
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table users
+--
+
+CREATE TABLE users (
+  id integer NOT NULL,
+  username varchar(50) NOT NULL,
+  email varchar(100) NOT NULL,
+  password_hash varchar(255) NOT NULL,
+  role_id integer NOT NULL,
+  department varchar(50) DEFAULT NULL,
+  first_name varchar(50) NOT NULL,
+  last_name varchar(50) NOT NULL,
+  is_active tinyinteger DEFAULT 1,
+  account_status enum('Pending','Approved','Rejected') DEFAULT 'Pending',
+  approved_by integer DEFAULT NULL,
+  approved_at timestamp DEFAULT NULL,
+  created_at timestamp DEFAULT CURRENT_TIMESTAMP,
+  updated_at timestamp DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+) ;
+
+--
+-- Dumping data for table users
+--
+
+INSERT INTO users (id, username, email, password_hash, role_id, department, first_name, last_name, is_active, account_status, approved_by, approved_at, created_at, updated_at) VALUES
+(1, 'admin', 'admin@school.edu', '$2b$12$fnmWD9TvM.Gpr..PiwVTROJpKXFLulWPed4dfMEHfos12wSVY5Ik6', 1, NULL, 'System', 'Administrator', 1, 'Approved', NULL, NULL, '2025-12-14 18:01:47', '2026-01-03 16:43:02'),
+(2, 'staff', 'staff@school.edu', '$2b$12$v1.6nZnz4jB7McLsWLo01eLT.JziEsq6RyuEVw/UF8ELQF9oaF9Ju', 3, NULL, 'Facilities', 'Staff', 1, 'Approved', NULL, NULL, '2025-12-16 18:36:52', '2026-01-03 16:43:02'),
+(4, 'johndoe', 'john@school.edu', '$2b$12$py5fAYl3kfoTB7VXb3.lVeuTlobsZlEH4jaWtll9HYcagLdYmhA0O', 6, 'BSIT', 'John', 'Doe', 1, 'Approved', NULL, NULL, '2025-12-18 15:18:27', '2026-01-07 00:20:18'),
+(5, 'mariasantos', 'maria@school.edu', '$2b$12$JCeR5Px9w9pcRUUGjiW5uuvf1x8QD7DhViI.sg1hAtKCHtY4JUIoy', 5, NULL, 'Maria', 'Santos', 1, 'Approved', NULL, NULL, '2025-12-18 15:21:51', '2026-01-03 16:43:11'),
+(6, 'itdept', 'it@school.edu', '$2b$12$YUmCT2OXei5AjW6RijqCfeRl.V7mwvwYLLiUKFmjulogLBArMKsMa', 2, 'IT Department', 'IT', 'Department', 1, 'Approved', NULL, NULL, '2025-12-29 19:45:26', '2026-01-06 23:15:11'),
+(11, 'testuser1767434258', 'testuser1767434258@gmail.com', '$2b$12$sp8JvEoHsJnUtmNELNEqUewd8Q/10KR4FXBj4pF4V.4CUC2eGvLoy', 5, NULL, 'Test', 'User', 1, 'Approved', 6, '2026-01-03 17:59:27', '2026-01-03 17:57:39', '2026-01-03 17:59:27'),
+(13, 'paul', 'pauandreou@gmail.com', '$2b$12$ex/VrHikLIT8rfpQvLtxtuttHSQxEBvJOTeKJLq7eaw1qVoBSSIT6', 6, NULL, 'Paul', 'Test', 1, 'Approved', 6, '2026-01-05 21:17:42', '2026-01-05 21:17:14', '2026-01-07 00:44:45'),
+(14, 'student_org_it_09b2', 'student_org_it_09b2@test.com', '$2b$12$ALeJ6FD.VvLgCv.huxFoHuC.og4SAz2YeTJ47b7Eeck2nptKXpLzy', 6, 'IT Department', 'Student', 'Org', 1, 'Approved', NULL, NULL, '2026-01-06 23:46:20', '2026-01-06 23:46:20'),
+(15, 'student2', 'student2@example.com', 'hash', 5, NULL, 'Student', 'Two', 1, 'Approved', NULL, NULL, '2026-01-07 05:29:13', '2026-01-07 05:29:13');
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table venues
+--
+
+CREATE TABLE venues (
+  id integer NOT NULL,
+  name varchar(100) NOT NULL,
+  type varchar(50) NOT NULL,
+  capacity integer NOT NULL DEFAULT 0,
+  color varchar(20) DEFAULT 'gray',
+  is_active tinyinteger DEFAULT 1,
+  created_at timestamp DEFAULT CURRENT_TIMESTAMP,
+  updated_at timestamp DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+) ;
+
+--
+-- Dumping data for table venues
+--
+
+INSERT INTO venues (id, name, type, capacity, color, is_active, created_at, updated_at) VALUES
+(1, 'Auditorium', 'Auditorium', 500, 'blue', 1, '2026-01-05 23:59:46', '2026-01-05 23:59:46'),
+(2, 'Gymnasium', 'Gym', 1000, 'orange', 1, '2026-01-05 23:59:46', '2026-01-05 23:59:46'),
+(3, 'Main Hall', 'Hall', 200, 'purple', 1, '2026-01-05 23:59:46', '2026-01-05 23:59:46'),
+(4, 'Cafeteria', 'Hall', 150, 'indigo', 1, '2026-01-05 23:59:46', '2026-01-05 23:59:46'),
+(5, 'Lab', 'Lab', 50, 'teal', 1, '2026-01-05 23:59:46', '2026-01-05 23:59:46'),
+(6, 'Courtyard', 'Outdoor', 2000, 'green', 1, '2026-01-05 23:59:46', '2026-01-05 23:59:46'),
+(7, 'Library', 'Indoor', 100, 'gray', 1, '2026-01-05 23:59:46', '2026-01-05 23:59:46');
+
+--
+-- Indexes for dumped tables
+--
+
+--
+-- Indexes for table ai_model_versions
+--
+ALTER TABLE ai_model_versions
+  ADD PRIMARY KEY (id),
+  ADD UNIQUE KEY unique_model_version (model_name,version),
+  ADD KEY idx_model_name (model_name),
+  ADD KEY idx_is_active (is_active);
+
+--
+-- Indexes for table ai_training_data
+--
+ALTER TABLE ai_training_data
+  ADD PRIMARY KEY (id);
+
+--
+-- Indexes for table ai_training_sessions
+--
+ALTER TABLE ai_training_sessions
+  ADD PRIMARY KEY (id),
+  ADD UNIQUE KEY session_id (session_id),
+  ADD KEY idx_status (status),
+  ADD KEY idx_model_name (model_name);
+
+--
+-- Indexes for table budgets
+--
+ALTER TABLE budgets
+  ADD PRIMARY KEY (id),
+  ADD UNIQUE KEY event_id (event_id);
+
+--
+-- Indexes for table equipment
+--
+ALTER TABLE equipment
+  ADD PRIMARY KEY (id);
+
+--
+-- Indexes for table events
+--
+ALTER TABLE events
+  ADD PRIMARY KEY (id),
+  ADD KEY requestor_id (requestor_id),
+  ADD KEY idx_status (status),
+  ADD KEY idx_start_date (start_timestamp),
+  ADD KEY idx_event_type (event_type),
+  ADD KEY idx_events_organizing_dept (organizing_department),
+  ADD KEY idx_venue_timestamp (venue,start_timestamp,end_timestamp);
+
+--
+-- Indexes for table event_attendance
+--
+ALTER TABLE event_attendance
+  ADD PRIMARY KEY (id),
+  ADD UNIQUE KEY unique_event_user (event_id,user_id),
+  ADD KEY idx_event (event_id),
+  ADD KEY idx_user (user_id);
+
+--
+-- Indexes for table event_feedback
+--
+ALTER TABLE event_feedback
+  ADD PRIMARY KEY (id),
+  ADD UNIQUE KEY unique_event_user_feedback (event_id,user_id),
+  ADD KEY idx_event (event_id),
+  ADD KEY idx_user (user_id);
+
+--
+-- Indexes for table event_registrations
+--
+ALTER TABLE event_registrations
+  ADD PRIMARY KEY (id),
+  ADD UNIQUE KEY unique_event_user_registration (event_id,user_id),
+  ADD KEY idx_event (event_id),
+  ADD KEY idx_user (user_id),
+  ADD KEY idx_status (registration_status);
+
+--
+-- Indexes for table event_status_history
+--
+ALTER TABLE event_status_history
+  ADD PRIMARY KEY (id),
+  ADD KEY changed_by (changed_by),
+  ADD KEY idx_event (event_id);
+
+--
+-- Indexes for table notifications
+--
+ALTER TABLE notifications
+  ADD PRIMARY KEY (id),
+  ADD KEY user_id (user_id),
+  ADD KEY event_id (event_id);
+
+--
+-- Indexes for table roles
+--
+ALTER TABLE roles
+  ADD PRIMARY KEY (id),
+  ADD UNIQUE KEY name (name);
+
+--
+-- Indexes for table students
+--
+ALTER TABLE students
+  ADD PRIMARY KEY (id),
+  ADD UNIQUE KEY unique_user (user_id);
+
+--
+-- Indexes for table users
+--
+ALTER TABLE users
+  ADD PRIMARY KEY (id),
+  ADD UNIQUE KEY username (username),
+  ADD UNIQUE KEY email (email),
+  ADD KEY idx_role (role_id),
+  ADD KEY idx_users_department (department),
+  ADD KEY approved_by (approved_by),
+  ADD KEY idx_account_status (account_status);
+
+--
+-- Indexes for table venues
+--
+ALTER TABLE venues
+  ADD PRIMARY KEY (id),
+  ADD UNIQUE KEY name (name);
+
+--
+-- SERIAL for dumped tables
+--
+
+--
+-- SERIAL for table ai_model_versions
+--
+ALTER TABLE ai_model_versions
+  MODIFY id integer NOT NULL SERIAL, SERIAL=2;
+
+--
+-- SERIAL for table ai_training_data
+--
+ALTER TABLE ai_training_data
+  MODIFY id integer NOT NULL SERIAL, SERIAL=21;
+
+--
+-- SERIAL for table ai_training_sessions
+--
+ALTER TABLE ai_training_sessions
+  MODIFY id integer NOT NULL SERIAL;
+
+--
+-- SERIAL for table budgets
+--
+ALTER TABLE budgets
+  MODIFY id integer NOT NULL SERIAL, SERIAL=21;
+
+--
+-- SERIAL for table equipment
+--
+ALTER TABLE equipment
+  MODIFY id integer NOT NULL SERIAL, SERIAL=37;
+
+--
+-- SERIAL for table events
+--
+ALTER TABLE events
+  MODIFY id integer NOT NULL SERIAL, SERIAL=67;
+
+--
+-- SERIAL for table event_attendance
+--
+ALTER TABLE event_attendance
+  MODIFY id integer NOT NULL SERIAL, SERIAL=16;
+
+--
+-- SERIAL for table event_feedback
+--
+ALTER TABLE event_feedback
+  MODIFY id integer NOT NULL SERIAL;
+
+--
+-- SERIAL for table event_registrations
+--
+ALTER TABLE event_registrations
+  MODIFY id integer NOT NULL SERIAL, SERIAL=17;
+
+--
+-- SERIAL for table event_status_history
+--
+ALTER TABLE event_status_history
+  MODIFY id integer NOT NULL SERIAL, SERIAL=84;
+
+--
+-- SERIAL for table notifications
+--
+ALTER TABLE notifications
+  MODIFY id integer NOT NULL SERIAL, SERIAL=41;
+
+--
+-- SERIAL for table roles
+--
+ALTER TABLE roles
+  MODIFY id integer NOT NULL SERIAL, SERIAL=7;
+
+--
+-- SERIAL for table students
+--
+ALTER TABLE students
+  MODIFY id integer NOT NULL SERIAL, SERIAL=10;
+
+--
+-- SERIAL for table users
+--
+ALTER TABLE users
+  MODIFY id integer NOT NULL SERIAL, SERIAL=16;
+
+--
+-- SERIAL for table venues
+--
+ALTER TABLE venues
+  MODIFY id integer NOT NULL SERIAL, SERIAL=8;
+
+--
+-- Constraints for dumped tables
+--
+
+--
+-- Constraints for table budgets
+--
+ALTER TABLE budgets
+  ADD CONSTRAINT budgets_ibfk_1 FOREIGN KEY (event_id) REFERENCES events (id) ON DELETE CASCADE;
+
+--
+-- Constraints for table events
+--
+ALTER TABLE events
+  ADD CONSTRAINT events_ibfk_1 FOREIGN KEY (requestor_id) REFERENCES users (id);
+
+--
+-- Constraints for table event_attendance
+--
+ALTER TABLE event_attendance
+  ADD CONSTRAINT event_attendance_ibfk_1 FOREIGN KEY (event_id) REFERENCES events (id) ON DELETE CASCADE,
+  ADD CONSTRAINT event_attendance_ibfk_2 FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE;
+
+--
+-- Constraints for table event_feedback
+--
+ALTER TABLE event_feedback
+  ADD CONSTRAINT event_feedback_ibfk_1 FOREIGN KEY (event_id) REFERENCES events (id) ON DELETE CASCADE,
+  ADD CONSTRAINT event_feedback_ibfk_2 FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE;
+
+--
+-- Constraints for table event_registrations
+--
+ALTER TABLE event_registrations
+  ADD CONSTRAINT event_registrations_ibfk_1 FOREIGN KEY (event_id) REFERENCES events (id) ON DELETE CASCADE,
+  ADD CONSTRAINT event_registrations_ibfk_2 FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE;
+
+--
+-- Constraints for table event_status_history
+--
+ALTER TABLE event_status_history
+  ADD CONSTRAINT event_status_history_ibfk_1 FOREIGN KEY (event_id) REFERENCES events (id) ON DELETE CASCADE,
+  ADD CONSTRAINT event_status_history_ibfk_2 FOREIGN KEY (changed_by) REFERENCES users (id);
+
+--
+-- Constraints for table notifications
+--
+ALTER TABLE notifications
+  ADD CONSTRAINT notifications_ibfk_1 FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE,
+  ADD CONSTRAINT notifications_ibfk_2 FOREIGN KEY (event_id) REFERENCES events (id) ON DELETE CASCADE;
+
+--
+-- Constraints for table students
+--
+ALTER TABLE students
+  ADD CONSTRAINT students_ibfk_1 FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE;
+
+--
+-- Constraints for table users
+--
+ALTER TABLE users
+  ADD CONSTRAINT users_ibfk_1 FOREIGN KEY (role_id) REFERENCES roles (id),
+  ADD CONSTRAINT users_ibfk_2 FOREIGN KEY (approved_by) REFERENCES users (id) ON DELETE SET NULL;
+COMMIT;
+
