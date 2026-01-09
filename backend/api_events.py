@@ -552,7 +552,7 @@ def get_event(event_id):
         # All data is in events table as JSON - no need for joins to old tables
         query = """
             SELECT e.*, u.username as requestor_username,
-                   CONCAT(u.first_name, ' ', u.last_name) as requestor_name
+                   u.first_name || ' ' || u.last_name as requestor_name
             FROM events e
             JOIN users u ON e.requestor_id = u.id
             WHERE e.id = %s AND e.deleted_at IS NULL
@@ -900,7 +900,7 @@ def get_event_history(event_id):
     try:
         db = get_db()
         query = """
-            SELECT h.*, CONCAT(u.first_name, ' ', u.last_name) as changed_by_name
+            SELECT h.*, u.first_name || ' ' || u.last_name as changed_by_name
             FROM event_status_history h
             JOIN users u ON h.changed_by = u.id
             WHERE h.event_id = %s
@@ -1113,7 +1113,7 @@ def get_approved_events():
                    e.start_datetime, e.end_datetime,
                    e.venue, e.expected_attendees, e.max_attendees,
                    COALESCE(b.total_budget, 0) as budget,
-                   COALESCE(e.organizer, CONCAT(u.first_name, ' ', u.last_name)) as organizer
+                   COALESCE(e.organizer, u.first_name || ' ' || u.last_name) as organizer
             FROM events e
             JOIN users u ON e.requestor_id = u.id
             LEFT JOIN budgets b ON e.id = b.event_id
@@ -1336,7 +1336,7 @@ def export_event_pdf(event_id):
         # Get event details with all related data
         event = db.execute_one("""
             SELECT e.*, 
-                   CONCAT(u.first_name, ' ', u.last_name) as requestor_name,
+                   u.first_name || ' ' || u.last_name as requestor_name,
                    u.email as requestor_email
             FROM events e
             LEFT JOIN users u ON e.requestor_id = u.id

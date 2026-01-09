@@ -296,7 +296,7 @@ def get_equipment_options():
         category_rows = cursor.fetchall()
 
         # Get all equipment items grouped by category
-        cursor.execute("SELECT category, GROUP_CONCAT(DISTINCT name ORDER BY name) as items FROM equipment GROUP BY category ORDER BY category")
+        cursor.execute("SELECT category, STRING_AGG(name, ',' ORDER BY name) as items FROM equipment GROUP BY category ORDER BY category")
         equipment_rows = cursor.fetchall()
 
         # Build categories dictionary from database
