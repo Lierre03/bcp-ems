@@ -19,13 +19,11 @@ class Config:
     
     # Database configuration
     DB_CONFIG = {
-        'host': os.environ.get('DB_HOST') or 'localhost',
-        'user': os.environ.get('DB_USER') or 'root',
-        'password': os.environ.get('DB_PASSWORD') or '',
-        'database': os.environ.get('DB_NAME') or 'school_event_management',
-        'port': int(os.environ.get('DB_PORT') or 3306),
-        'charset': 'utf8mb4',
-        'autocommit': True
+    'host': 'BCPSEMS.mysql.pythonanywhere-services.com',
+    'user': 'BCPSEMS',
+    'password': 'CampusEvents@2026!',
+    'database': 'BCPSEMS$school_event_management',
+    'port': 3306
     }
     
     # CORS configuration
