@@ -9,15 +9,7 @@ services:
     envVars:
       - key: FLASK_ENV
         value: production
-      - key: DATABASE_URL
-        fromDatabase:
-          name: school_events_db
-          property: connectionString
       - key: SECRET_KEY
         generateValue: true
-
-databases:
-  - name: school_events_db
-    databaseName: school_event_management
-    user: school_events_user
-    plan: free
+      - key: DATABASE_URL
+        sync: false
