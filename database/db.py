@@ -3,8 +3,8 @@
 # Connection pooling and query helpers
 # ============================================================================
 
-import psycopg2
-import psycopg2.extras
+import psycopg
+from psycopg.rows import dict_row
 from contextlib import contextmanager
 import logging
 import threading
@@ -26,16 +26,15 @@ class Database:
     def _create_connection(self):
         """Create a new database connection"""
         try:
-            conn = psycopg2.connect(
+            conn = psycopg.connect(
                 host=self.config['host'],
                 user=self.config['user'],
                 password=self.config['password'],
-                database=self.config['database'],
+                dbname=self.config['database'],
                 port=self.config['port'],
-                cursor_factory=psycopg2.extras.RealDictCursor
+                row_factory=dict_row,
+                autocommit=self.config.get('autocommit', True)
             )
-            if self.config.get('autocommit', True):
-                conn.autocommit = True
             logger.info("Database connection established")
             return conn
         except Exception as e:
