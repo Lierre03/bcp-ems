@@ -321,7 +321,7 @@ def get_venue_calendar():
         
         # Filter by month if provided
         if month_str:
-            query += " AND DATE_FORMAT(e.start_datetime, '%%Y-%%m') = %s"
+            query += " AND TO_CHAR(e.start_datetime, 'YYYY-MM') = %s"
             params.append(month_str)
             
         # Filter by venue if provided

@@ -134,14 +134,14 @@ def get_dashboard_analytics():
         # 8. MONTHLY EVENT TRENDS (last 6 months)
         monthly_query = """
             SELECT 
-                DATE_FORMAT(start_datetime, '%%Y-%%m') as month,
+                TO_CHAR(start_datetime, 'YYYY-MM') as month,
                 COUNT(*) as event_count,
                 SUM(expected_attendees) as total_attendees
             FROM events e
             WHERE e.deleted_at IS NULL
-            AND e.start_datetime >= DATE_SUB(CURDATE(), INTERVAL 6 MONTH)
+            AND e.start_datetime >= CURRENT_DATE - INTERVAL '6 months'
             {}
-            GROUP BY DATE_FORMAT(e.start_datetime, '%%Y-%%m')
+            GROUP BY TO_CHAR(e.start_datetime, 'YYYY-MM')
             ORDER BY month ASC
         """.format(dept_condition)
         monthly_trends = get_db().execute_query(monthly_query, tuple(params) if params else ())

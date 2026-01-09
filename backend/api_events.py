@@ -379,10 +379,10 @@ def get_events():
             SELECT e.id, 
                    e.name,
                    e.event_type as type,
-                   DATE_FORMAT(e.start_datetime, '%%Y-%%m-%%d') as date,
-                   DATE_FORMAT(e.end_datetime, '%%Y-%%m-%%d') as endDate,
-                   DATE_FORMAT(e.start_datetime, '%%H:%%i') as startTime,
-                   DATE_FORMAT(e.end_datetime, '%%H:%%i') as endTime,
+                   TO_CHAR(e.start_datetime, 'YYYY-MM-DD') as date,
+                   TO_CHAR(e.end_datetime, 'YYYY-MM-DD') as endDate,
+                   TO_CHAR(e.start_datetime, 'HH24:MI') as startTime,
+                   TO_CHAR(e.end_datetime, 'HH24:MI') as endTime,
                    e.expected_attendees as attendees,
                    e.status,
                    e.description,
@@ -393,7 +393,7 @@ def get_events():
                    e.budget_breakdown,
                    e.additional_resources,
                    e.organizing_department,
-                   COALESCE(e.organizer, CONCAT(u.first_name, ' ', u.last_name)) as organizer,
+                   COALESCE(e.organizer, u.first_name || ' ' || u.last_name) as organizer,
                    u.username as requestor_username,
                    e.requestor_id
             FROM events e
