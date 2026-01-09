@@ -207,8 +207,8 @@ def create_app(config_name='development'):
                  # 3. Log history (Best effort, okay if slightly desynced from update in rare crash)
                  for e in events:
                     db.execute_insert("""
-                        INSERT INTO event_status_history (event_id, old_status, new_status, changed_by, reason)
-                        VALUES (%s, %s, 'Completed', NULL, 'Auto-completed (system)')
+                        INSERT INTO event_status_history (id, event_id, old_status, new_status, changed_by, reason)
+                        VALUES (DEFAULT, %s, %s, 'Completed', NULL, 'Auto-completed (system)')
                     """, (e['id'], e['status']))
                             
                  app.logger.info(f"Lazily auto-completed {len(events)} events")

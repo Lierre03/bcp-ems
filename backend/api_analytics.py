@@ -184,7 +184,7 @@ def get_dashboard_analytics():
             JOIN event_feedback ef ON e.id = ef.event_id
             WHERE e.deleted_at IS NULL
             {}
-            GROUP BY e.id
+            GROUP BY e.id, e.name, e.start_datetime
             ORDER BY e.start_datetime DESC
             LIMIT 10
         """.format(dept_condition)
