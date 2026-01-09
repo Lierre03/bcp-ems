@@ -196,9 +196,8 @@ def add_training_data():
 def get_training_history():
     """Fetch recent training data for display"""
     try:
-        conn = get_db()
-        cursor = conn.cursor(dictionary=True)
-        cursor.execute("""
+        db = get_db()
+        data = db.execute_query("""
             SELECT
                 id,
                 event_name as eventName,
@@ -217,8 +216,6 @@ def get_training_history():
             WHERE is_validated = 1
             ORDER BY created_at DESC
         """)
-        data = cursor.fetchall()
-        conn.close()
 
         # Parse JSON fields for frontend and format data
         for item in data:
@@ -261,18 +258,15 @@ def get_training_history():
 @ml_bp.route('/training-stats', methods=['GET'])
 def training_stats():
     try:
-        conn = get_db()
-        cursor = conn.cursor(dictionary=True)
+        db = get_db()
         
         # Count dedicated training data
-        cursor.execute("SELECT COUNT(*) as total FROM ai_training_data WHERE is_validated = 1")
-        training_count = cursor.fetchone()['total']
+        training_result = db.execute_one("SELECT COUNT(*) as total FROM ai_training_data WHERE is_validated = 1")
+        training_count = training_result['total']
         
         # Count completed events that can be used for training
-        cursor.execute("SELECT COUNT(*) as total FROM events WHERE status = 'Completed' AND budget > 0 AND deleted_at IS NULL")
-        completed_count = cursor.fetchone()['total']
-        
-        conn.close()
+        completed_result = db.execute_one("SELECT COUNT(*) as total FROM events WHERE status = 'Completed' AND budget > 0 AND deleted_at IS NULL")
+        completed_count = completed_result['total']
         
         return jsonify({
             'success': True, 
