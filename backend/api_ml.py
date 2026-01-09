@@ -191,8 +191,8 @@ def get_training_history():
         data = db.execute_query("""
             SELECT
                 id,
-                event_name as eventName,
-                event_type as eventType,
+                event_name as "eventName",
+                event_type as "eventType",
                 description,
                 venue,
                 organizer,
@@ -201,7 +201,7 @@ def get_training_history():
                 budget_breakdown,
                 equipment,
                 activities,
-                additional_resources as additionalResources,
+                additional_resources as "additionalResources",
                 created_at
             FROM ai_training_data
             WHERE is_validated = 1
