@@ -35,13 +35,18 @@ class Config:
             # Extract database name (remove leading /)
             path = url.path[1:] if url.path.startswith('/') else url.path
             
+            # Parse query params for sslmode if present, but default to 'require' for Render
+            query_params = urllib.parse.parse_qs(url.query)
+            sslmode = query_params.get('sslmode', ['require'])[0]
+            
             DB_CONFIG = {
                 'host': url.hostname,
                 'user': url.username,
                 'password': url.password,
                 'database': path,
                 'port': url.port or 5432,
-                'autocommit': True
+                'autocommit': True,
+                'sslmode': sslmode
             }
         except Exception as e:
             print(f"Error parsing DATABASE_URL: {e}")

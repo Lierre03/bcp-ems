@@ -33,7 +33,8 @@ class Database:
                 dbname=self.config['database'],
                 port=self.config['port'],
                 row_factory=dict_row,
-                autocommit=self.config.get('autocommit', True)
+                autocommit=self.config.get('autocommit', True),
+                sslmode=self.config.get('sslmode', 'prefer')
             )
             logger.info("Database connection established")
             return conn
