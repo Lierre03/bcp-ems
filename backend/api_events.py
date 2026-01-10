@@ -397,7 +397,7 @@ def get_events():
                    u.username as requestor_username,
                    e.requestor_id
             FROM events e
-            LEFT JOIN users u ON e.requestor_id = u.id
+            JOIN users u ON e.requestor_id = u.id
             WHERE e.deleted_at IS NULL
         """
         params = []
@@ -696,7 +696,7 @@ def create_event():
         # Role-based initial status:
         # - Admin/Super Admin: Auto-approve (status='Approved')
         # - Requestor: Needs approval (status='Pending')
-        if user_role in ['Super Admin', 'Admin']:
+        if user_role == 'Admin':
             initial_status = 'Approved'
         else:
             initial_status = 'Pending'
