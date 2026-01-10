@@ -206,8 +206,8 @@ const NotificationBell = () => {
                 let icon = null;
 
                 if (status === 'APPROVED') {
-                    statusClass = 'bg-emerald-100 text-emerald-800 border-emerald-200';
-                    bgClass = 'bg-emerald-50 border-emerald-200';
+                    statusClass = 'bg-blue-100 text-blue-800 border-blue-200';
+                    bgClass = 'bg-blue-50 border-blue-200';
                     icon = (
                         <svg className="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
@@ -285,8 +285,8 @@ const NotificationBell = () => {
                 let icon = null;
 
                 if (status === 'Approved') {
-                    statusClass = 'bg-emerald-100 text-emerald-800 border-emerald-200';
-                    bgClass = 'bg-emerald-50 border-emerald-200';
+                    statusClass = 'bg-blue-100 text-blue-800 border-blue-200';
+                    bgClass = 'bg-blue-50 border-blue-200';
                     icon = (
                         <svg className="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
