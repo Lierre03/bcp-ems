@@ -12,6 +12,8 @@ const AnalyticsDashboard = window.AnalyticsDashboard;
 const AITrainingDashboard = window.AITrainingDashboard;
 const UserManagement = window.UserManagement;
 const AttendanceDashboard = window.AttendanceDashboard;
+const StaffScannerView = window.StaffScannerView;
+const EquipmentApprovals = window.EquipmentApprovals;
 
 window.AdminDashboard = function AdminDashboard() {
   const [user, setUser] = useState(null);
@@ -161,62 +163,87 @@ window.AdminDashboard = function AdminDashboard() {
         }] : [])
       ]
     }
+  ]
+},
+{
+  title: "Staff Operations",
+  items: [
+    ...(isSuperAdmin ? [{
+      id: 'staff-scanner',
+      label: 'QR Attendance Scanner',
+      icon: <svg className="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M12 15h4.01M12 21h4.01M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M12 15h4.01M12 21h4.01M8 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M8 12h4.01M8 15h4.01M8 21h4.01" /></svg>
+    }, {
+      id: 'staff-approvals',
+      label: 'Resource Approvals',
+      icon: <svg className="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+    }] : [])
+  ]
+}
   ];
 
-  return (
-    <div className="flex h-screen bg-gray-50">
-      <Sidebar
-        user={user}
-        menuItems={menuItems}
-        activeView={activeView}
-        onViewChange={setActiveView}
-        onLogout={handleLogout}
-      />
+return (
+  <div className="flex h-screen bg-gray-50">
+    <Sidebar
+      user={user}
+      menuItems={menuItems}
+      activeView={activeView}
+      onViewChange={setActiveView}
+      onLogout={handleLogout}
+    />
 
-      <div className="flex-1 flex flex-col overflow-hidden">
-        <header className="bg-white border-b border-gray-200 px-6 py-3 shadow-sm relative">
-          <div className="flex justify-between items-start">
-            <div className="flex-1">
-              <p className="text-blue-600 text-xs font-medium mb-0.5">Admin Dashboard</p>
-              <h1 className="text-2xl font-bold text-gray-900">
-                {activeView === 'events' ? 'Events Manager' :
-                  activeView === 'approvals' ? 'Account Approvals' :
-                    activeView === 'analytics' ? 'Analytics Dashboard' :
-                      activeView === 'feedback' ? 'Event Feedback' :
-                        activeView === 'ai-training' ? 'AI Training Center' :
+    <div className="flex-1 flex flex-col overflow-hidden">
+      <header className="bg-white border-b border-gray-200 px-6 py-3 shadow-sm relative">
+        <div className="flex justify-between items-start">
+          <div className="flex-1">
+            <p className="text-blue-600 text-xs font-medium mb-0.5">Admin Dashboard</p>
+            <h1 className="text-2xl font-bold text-gray-900">
+              {activeView === 'events' ? 'Events Manager' :
+                activeView === 'approvals' ? 'Account Approvals' :
+                  activeView === 'analytics' ? 'Analytics Dashboard' :
+                    activeView === 'feedback' ? 'Event Feedback' :
+                      activeView === 'ai-training' ? 'AI Training Center' :
+                        activeView === 'resources' ? 'Resource Management' :
                           activeView === 'resources' ? 'Resource Management' :
-                            activeView === 'equipment-review' ? 'Equipment Approval Review' : 'User Management'}
-              </h1>
-              <p className="text-gray-500 text-xs mt-1">
-                {activeView === 'events' ? 'Create, manage, and track all school events' :
-                  activeView === 'approvals' ? 'Review and approve student registration requests' :
-                    activeView === 'analytics' ? 'Visualize event metrics, attendance, and performance data' :
-                      activeView === 'feedback' ? 'View feedback and ratings for your department events' :
-                        activeView === 'ai-training' ? 'Train and optimize your event planning AI' :
-                          activeView === 'resources' ? 'Manage venues, equipment, and view schedules' :
-                            activeView === 'equipment-review' ? 'Review and respond to equipment approval adjustments' :
+                            activeView === 'equipment-review' ? 'Equipment Approval Review' :
+                              activeView === 'staff-scanner' ? 'QR Attendance Scanner' :
+                                activeView === 'staff-approvals' ? 'Resource Approvals' : 'User Management'}
+            </h1>
+            <p className="text-gray-500 text-xs mt-1">
+              {activeView === 'events' ? 'Create, manage, and track all school events' :
+                activeView === 'approvals' ? 'Review and approve student registration requests' :
+                  activeView === 'analytics' ? 'Visualize event metrics, attendance, and performance data' :
+                    activeView === 'feedback' ? 'View feedback and ratings for your department events' :
+                      activeView === 'ai-training' ? 'Train and optimize your event planning AI' :
+                        activeView === 'resources' ? 'Manage venues, equipment, and view schedules' :
+                          activeView === 'equipment-review' ? 'Review and respond to equipment approval adjustments' :
+                            activeView === 'attendance' ? 'Monitor student attendance and check-ins' :
                               activeView === 'attendance' ? 'Monitor student attendance and check-ins' :
-                                'Manage system users and permissions'}
-              </p>
-            </div>
-            <div className="flex items-center">
-              <NotificationBell />
-            </div>
+                                activeView === 'staff-scanner' ? 'Scan participant QR codes for event attendance' :
+                                  activeView === 'staff-approvals' ? 'Approve or reject equipment and venue requests' :
+                                    'Manage system users and permissions'}
+            </p>
           </div>
-        </header>
+          <div className="flex items-center">
+            <NotificationBell />
+          </div>
+        </div>
+      </header>
 
-        <main className="flex-1 overflow-y-auto p-4">
-          {activeView === 'events' && <AdminEventsManager eventIdToOpen={eventIdToOpen} />}
-          {activeView === 'approvals' && <AccountApprovalPanel />}
-          {activeView === 'analytics' && <AnalyticsDashboard />}
-          {activeView === 'feedback' && <DepartmentFeedback />}
-          {activeView === 'ai-training' && <AITrainingDashboard />}
-          {activeView === 'resources' && <ResourceManagement userRole={user ? user.role_name : 'Admin'} />}
-          {activeView === 'equipment-review' && <EquipmentApprovalReview eventId={equipmentReviewEventId} onClose={() => setActiveView('events')} />}
-          {activeView === 'attendance' && <AttendanceDashboard />}
-          {activeView === 'users' && <UserManagement />}
-        </main>
-      </div>
+      <main className="flex-1 overflow-y-auto p-4">
+        {activeView === 'events' && <AdminEventsManager eventIdToOpen={eventIdToOpen} />}
+        {activeView === 'approvals' && <AccountApprovalPanel />}
+        {activeView === 'analytics' && <AnalyticsDashboard />}
+        {activeView === 'feedback' && <DepartmentFeedback />}
+        {activeView === 'ai-training' && <AITrainingDashboard />}
+        {activeView === 'resources' && <ResourceManagement userRole={user ? user.role_name : 'Admin'} />}
+        {activeView === 'equipment-review' && <EquipmentApprovalReview eventId={equipmentReviewEventId} onClose={() => setActiveView('events')} />}
+        {activeView === 'attendance' && <AttendanceDashboard />}
+        {activeView === 'attendance' && <AttendanceDashboard />}
+        {activeView === 'users' && <UserManagement />}
+        {activeView === 'staff-scanner' && <StaffScannerView />}
+        {activeView === 'staff-approvals' && <EquipmentApprovals />}
+      </main>
     </div>
-  );
+  </div>
+);
 }
