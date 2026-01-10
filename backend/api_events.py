@@ -477,7 +477,10 @@ def get_events():
             try:
                 equipment_val = e.get('equipment')
                 if equipment_val is not None and equipment_val != '':
-                    e['equipment'] = json.loads(equipment_val) if isinstance(equipment_val, str) else equipment_val
+                    try:
+                        e['equipment'] = json.loads(equipment_val) if isinstance(equipment_val, str) else equipment_val
+                    except (json.JSONDecodeError, TypeError):
+                        e['equipment'] = []
                 else:
                     e['equipment'] = []
             except Exception as ex:
@@ -487,7 +490,10 @@ def get_events():
             try:
                 timeline_val = e.get('timeline')
                 if timeline_val is not None and timeline_val != '':
-                    timeline_data = json.loads(timeline_val) if isinstance(timeline_val, str) else timeline_val
+                    try:
+                        timeline_data = json.loads(timeline_val) if isinstance(timeline_val, str) else timeline_val
+                    except (json.JSONDecodeError, TypeError):
+                        timeline_data = []
                     e['activities'] = timeline_data  # Map timeline to activities for frontend
                     if 'timeline' in e:
                         del e['timeline']  # Remove timeline key
@@ -500,7 +506,10 @@ def get_events():
             try:
                 breakdown_val = e.get('budget_breakdown')
                 if breakdown_val is not None and breakdown_val != '':
-                    e['budget_breakdown'] = json.loads(breakdown_val) if isinstance(breakdown_val, str) else breakdown_val
+                    try:
+                        e['budget_breakdown'] = json.loads(breakdown_val) if isinstance(breakdown_val, str) else breakdown_val
+                    except (json.JSONDecodeError, TypeError):
+                        e['budget_breakdown'] = []
                 else:
                     e['budget_breakdown'] = {}
             except Exception as ex:
@@ -510,7 +519,10 @@ def get_events():
             try:
                 resources_val = e.get('additional_resources')
                 if resources_val is not None and resources_val != '':
-                    e['additional_resources'] = json.loads(resources_val) if isinstance(resources_val, str) else resources_val
+                    try:
+                        e['additional_resources'] = json.loads(resources_val) if isinstance(resources_val, str) else resources_val
+                    except (json.JSONDecodeError, TypeError):
+                        e['additional_resources'] = []
                 else:
                     e['additional_resources'] = []
             except Exception as ex:
