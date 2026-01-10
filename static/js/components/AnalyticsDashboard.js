@@ -323,25 +323,43 @@ window.AnalyticsDashboard = function AnalyticsDashboard() {
 
     // Charts Grid
     React.createElement('div', { className: 'grid grid-cols-1 md:grid-cols-2 gap-6' },
-      // Status Distribution
-      React.createElement('div', { className: 'bg-white rounded-lg border border-slate-200 p-6' },
-        React.createElement('h3', { className: 'text-lg font-semibold text-gray-900 mb-4' }, 'Events by Status'),
-        React.createElement('div', { className: 'h-64' },
+      // Events by Status
+      React.createElement('div', { className: 'bg-gradient-to-br from-blue-50 to-indigo-50 rounded-xl border border-blue-200 p-6 shadow-sm' },
+        React.createElement('div', { className: 'flex items-center gap-3 mb-4' },
+          React.createElement('div', { className: 'w-10 h-10 bg-blue-600 rounded-lg flex items-center justify-center' },
+            React.createElement('svg', { className: 'w-6 h-6 text-white', fill: 'none', stroke: 'currentColor', viewBox: '0 0 24 24' },
+              React.createElement('path', { strokeLinecap: 'round', strokeLinejoin: 'round', strokeWidth: '2', d: 'M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z' })
+            )
+          ),
+          React.createElement('h3', { className: 'text-lg font-bold text-gray-900' }, 'Events by Status')
+        ),
+        React.createElement('div', { className: 'bg-white rounded-lg p-4' },
+        React.createElement('div', { style: { height: '300px' } },
           React.createElement('canvas', { ref: statusChartRef })
+        )
         )
       ),
 
       // Event Types
       React.createElement('div', { className: 'bg-white rounded-lg border border-slate-200 p-6' },
         React.createElement('h3', { className: 'text-lg font-semibold text-gray-900 mb-4' }, 'Events by Type'),
-        React.createElement('div', { className: 'h-64' },
+        React.createElement('div', { style: { height: '300px' } },
           React.createElement('canvas', { ref: typeChartRef })
+        )
         )
       ),
 
       // Feedback Ratings
-      React.createElement('div', { className: 'bg-white rounded-lg border border-slate-200 p-6' },
-        React.createElement('h3', { className: 'text-lg font-semibold text-gray-900 mb-4' }, 'Feedback Ratings'),
+      React.createElement('div', { className: 'bg-gradient-to-br from-blue-50 to-indigo-50 rounded-xl border border-blue-200 p-6 shadow-sm' },
+        React.createElement('div', { className: 'flex items-center gap-3 mb-4' },
+          React.createElement('div', { className: 'w-10 h-10 bg-blue-600 rounded-lg flex items-center justify-center' },
+            React.createElement('svg', { className: 'w-6 h-6 text-white', fill: 'none', stroke: 'currentColor', viewBox: '0 0 24 24' },
+              React.createElement('path', { strokeLinecap: 'round', strokeLinejoin: 'round', strokeWidth: '2', d: 'M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z' })
+            )
+          ),
+          React.createElement('h3', { className: 'text-lg font-bold text-gray-900' }, 'Feedback Ratings')
+        ),
+        React.createElement('div', { className: 'bg-white rounded-lg p-4' },
         analytics.feedback.total_feedback > 0
           ? React.createElement('div', { className: 'h-64' },
             React.createElement('canvas', { ref: feedbackChartRef })
@@ -351,9 +369,17 @@ window.AnalyticsDashboard = function AnalyticsDashboard() {
           )
       ),
 
-      // Monthly Trends
-      React.createElement('div', { className: 'bg-white rounded-lg border border-slate-200 p-6' },
-        React.createElement('h3', { className: 'text-lg font-semibold text-gray-900 mb-4' }, 'Event Trends (6 Months)'),
+      // Event Trends
+      React.createElement('div', { className: 'bg-gradient-to-br from-blue-50 to-indigo-50 rounded-xl border border-blue-200 p-6 shadow-sm' },
+        React.createElement('div', { className: 'flex items-center gap-3 mb-4' },
+          React.createElement('div', { className: 'w-10 h-10 bg-blue-600 rounded-lg flex items-center justify-center' },
+            React.createElement('svg', { className: 'w-6 h-6 text-white', fill: 'none', stroke: 'currentColor', viewBox: '0 0 24 24' },
+              React.createElement('path', { strokeLinecap: 'round', strokeLinejoin: 'round', strokeWidth: '2', d: 'M7 12l3-3 3 3 4-4M8 21l4-4 4 4M3 4h18M4 4h16v12a1 1 0 01-1 1H5a1 1 0 01-1-1V4z' })
+            )
+          ),
+          React.createElement('h3', { className: 'text-lg font-bold text-gray-900' }, 'Event Trends (6 Months)')
+        ),
+        React.createElement('div', { className: 'bg-white rounded-lg p-4' },
         React.createElement('div', { className: 'h-64' },
           React.createElement('canvas', { ref: trendsChartRef })
         )
@@ -365,15 +391,15 @@ window.AnalyticsDashboard = function AnalyticsDashboard() {
       React.createElement('h3', { className: 'text-lg font-semibold text-gray-900 mb-4' }, 'Recent Event Feedback'),
       React.createElement('div', { className: 'overflow-x-auto' },
         React.createElement('table', { className: 'min-w-full' },
-          React.createElement('thead', null,
-            React.createElement('tr', { className: 'border-b border-gray-200' },
+          React.createElement('thead', { className: 'bg-gradient-to-r from-blue-600 to-indigo-600' },
+            React.createElement('tr', null,
               React.createElement('th', { className: 'text-left py-3 px-4 text-sm font-semibold text-gray-700' }, 'Event'),
               React.createElement('th', { className: 'text-left py-3 px-4 text-sm font-semibold text-gray-700' }, 'Date'),
               React.createElement('th', { className: 'text-center py-3 px-4 text-sm font-semibold text-gray-700' }, 'Rating'),
               React.createElement('th', { className: 'text-right py-3 px-4 text-sm font-semibold text-gray-700' }, 'Responses')
             )
           ),
-          React.createElement('tbody', null,
+          React.createElement('tbody', { className: 'divide-y divide-gray-100' },
             analytics.feedback.per_event.map((event, idx) => {
               const ratingColor = event.avg_rating >= 4.5 ? 'text-emerald-600 bg-emerald-50 border-emerald-200' :
                 event.avg_rating >= 4.0 ? 'text-blue-600 bg-blue-50 border-blue-200' :
@@ -383,7 +409,7 @@ window.AnalyticsDashboard = function AnalyticsDashboard() {
               const date = new Date(event.start_datetime);
               const formattedDate = date.toLocaleDateString();
 
-              return React.createElement('tr', { key: idx, className: 'border-b border-gray-100 hover:bg-gray-50' },
+              return React.createElement('tr', { key: idx, className: 'hover:bg-blue-50 transition-colors' },
                 React.createElement('td', { className: 'py-3 px-4 text-sm font-medium text-gray-900' }, event.name),
                 React.createElement('td', { className: 'py-3 px-4 text-sm text-gray-500' }, formattedDate),
                 React.createElement('td', { className: 'py-3 px-4 text-center' },
@@ -402,34 +428,46 @@ window.AnalyticsDashboard = function AnalyticsDashboard() {
       )
     ),
 
-    // Top Venues Table
-    analytics.top_venues.length > 0 && React.createElement('div', { className: 'bg-white rounded-lg border border-slate-200 p-6' },
-      React.createElement('h3', { className: 'text-lg font-semibold text-gray-900 mb-4' }, 'Top 5 Venues'),
+    // Top Venues
+    analytics.top_venues.length > 0 && React.createElement('div', { className: 'bg-gradient-to-br from-blue-50 to-indigo-50 rounded-xl border border-blue-200 p-6 shadow-sm' },
+      React.createElement('div', { className: 'flex items-center gap-3 mb-5' },
+        React.createElement('div', { className: 'w-10 h-10 bg-blue-600 rounded-lg flex items-center justify-center' },
+          React.createElement('svg', { className: 'w-6 h-6 text-white', fill: 'none', stroke: 'currentColor', viewBox: '0 0 24 24' },
+            React.createElement('path', { strokeLinecap: 'round', strokeLinejoin: 'round', strokeWidth: '2', d: 'M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4' })
+          )
+        ),
+        React.createElement('h3', { className: 'text-lg font-bold text-gray-900' }, 'Top 5 Venues')
+      ),
+      React.createElement('div', { className: 'bg-white rounded-lg shadow-sm overflow-hidden' },
       React.createElement('div', { className: 'overflow-x-auto' },
         React.createElement('table', { className: 'min-w-full' },
-          React.createElement('thead', null,
-            React.createElement('tr', { className: 'border-b border-gray-200' },
-              React.createElement('th', { className: 'text-left py-3 px-4 text-sm font-semibold text-gray-700' }, 'Venue'),
-              React.createElement('th', { className: 'text-right py-3 px-4 text-sm font-semibold text-gray-700' }, 'Usage Count'),
-              React.createElement('th', { className: 'text-right py-3 px-4 text-sm font-semibold text-gray-700' }, 'Popularity')
+          React.createElement('thead', { className: 'bg-gradient-to-r from-blue-600 to-indigo-600' },
+            React.createElement('tr', null,
+              React.createElement('th', { className: 'text-left py-3 px-4 text-xs font-semibold text-white uppercase tracking-wider' }, 'Venue'),
+              React.createElement('th', { className: 'text-right py-3 px-4 text-xs font-semibold text-white uppercase tracking-wider' }, 'Usage Count'),
+              React.createElement('th', { className: 'text-right py-3 px-4 text-xs font-semibold text-white uppercase tracking-wider' }, 'Popularity')
             )
           ),
-          React.createElement('tbody', null,
+          React.createElement('tbody', { className: 'divide-y divide-gray-100' },
             analytics.top_venues.map((venue, idx) => {
               const maxCount = analytics.top_venues[0].usage_count;
               const percentage = (venue.usage_count / maxCount * 100).toFixed(0);
-              return React.createElement('tr', { key: idx, className: 'border-b border-gray-100 hover:bg-gray-50' },
-                React.createElement('td', { className: 'py-3 px-4 text-sm text-gray-900' }, venue.venue),
-                React.createElement('td', { className: 'py-3 px-4 text-sm text-gray-700 text-right' }, venue.usage_count),
+              return React.createElement('tr', { key: idx, className: 'hover:bg-blue-50 transition-colors' },
+                React.createElement('td', { className: 'py-3 px-4 text-sm font-medium text-gray-900' }, venue.venue),
+                React.createElement('td', { className: 'py-3 px-4 text-right' },
+                  React.createElement('span', { className: 'inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800' },
+                    venue.usage_count
+                  )
+                ),
                 React.createElement('td', { className: 'py-3 px-4 text-right' },
                   React.createElement('div', { className: 'flex items-center justify-end gap-2' },
                     React.createElement('div', { className: 'w-24 bg-gray-200 rounded-full h-2' },
                       React.createElement('div', {
-                        className: 'bg-indigo-600 h-2 rounded-full',
+                        className: 'bg-gradient-to-r from-blue-500 to-indigo-600 h-2 rounded-full',
                         style: { width: `${percentage}%` }
                       })
                     ),
-                    React.createElement('span', { className: 'text-xs text-gray-600' }, `${percentage}%`)
+                    React.createElement('span', { className: 'text-xs text-gray-600 font-medium' }, percentage + '%')
                   )
                 )
               );
