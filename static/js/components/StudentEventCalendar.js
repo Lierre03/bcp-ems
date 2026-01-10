@@ -317,21 +317,37 @@ window.StudentEventCalendar = function StudentEventCalendar() {
                   >
                     Event Ongoing
                   </button>
-                ) : new Date(event.start) < new Date() ? (
-                  <button
-                    disabled
-                    className="w-full bg-slate-100 text-slate-400 px-3 py-2 rounded-lg text-xs cursor-not-allowed font-medium border border-slate-200"
-                  >
-                    Event Ended
-                  </button>
-                ) : (
-                  <button
-                    onClick={() => handleEventRegistration(event.id)}
-                    className="w-full bg-blue-600 text-white px-3 py-2 rounded-lg text-xs hover:bg-blue-700 transition"
-                  >
-                    Register for Event
-                  </button>
-                )}
+                ) : (() => {
+                  // Explicitly check if event is past in Philippines time
+                  const eventDate = new Date(event.start);
+                  const now = new Date();
+
+                  // Convert current time to PH time (UTC+8)
+                  // This is robust regardless of client timezone
+                  const phTime = new Date(now.toLocaleString("en-US", { timeZone: "Asia/Manila" }));
+                  const eventTimePh = new Date(eventDate.toLocaleString("en-US", { timeZone: "Asia/Manila" }));
+
+                  if (eventDate < new Date()) { // Simple check first
+                    return (
+                      <button
+                        disabled
+                        className="w-full bg-slate-100 text-slate-400 px-3 py-2 rounded-lg text-xs cursor-not-allowed font-medium border border-slate-200"
+                      >
+                        Event Ended
+                      </button>
+                    );
+                  }
+
+                  return (
+                    <button
+                      onClick={() => handleEventRegistration(event.id)}
+                      className="w-full bg-blue-600 text-white px-3 py-2 rounded-lg text-xs hover:bg-blue-700 transition"
+                    >
+                      Register for Event
+                    </button>
+                  );
+                })()
+                }
               </div>
             )) : (
               <div className="text-center text-slate-400 text-xs py-4">No events on this day</div>
@@ -394,21 +410,30 @@ window.StudentEventCalendar = function StudentEventCalendar() {
                     >
                       Event Ongoing
                     </button>
-                  ) : new Date(event.start) < new Date() ? (
-                    <button
-                      disabled
-                      className="mt-3 w-full bg-slate-100 text-slate-400 px-4 py-2 rounded-lg text-sm cursor-not-allowed font-medium border border-slate-200"
-                    >
-                      Event Ended
-                    </button>
-                  ) : (
-                    <button
-                      onClick={() => handleEventRegistration(event.id)}
-                      className="mt-3 w-full bg-blue-600 text-white px-4 py-2 rounded-lg text-sm hover:bg-blue-700 transition"
-                    >
-                      Register for Event
-                    </button>
-                  )}
+                  ) : (() => {
+                    // Mobile view explicit check
+                    const eventDate = new Date(event.start);
+                    const now = new Date();
+                    if (eventDate < now) {
+                      return (
+                        <button
+                          disabled
+                          className="mt-3 w-full bg-slate-100 text-slate-400 px-4 py-2 rounded-lg text-sm cursor-not-allowed font-medium border border-slate-200"
+                        >
+                          Event Ended
+                        </button>
+                      );
+                    }
+                    return (
+                      <button
+                        onClick={() => handleEventRegistration(event.id)}
+                        className="mt-3 w-full bg-blue-600 text-white px-4 py-2 rounded-lg text-sm hover:bg-blue-700 transition"
+                      >
+                        Register for Event
+                      </button>
+                    );
+                  })()
+                  }
                 </div>
               ))}
             </div>
