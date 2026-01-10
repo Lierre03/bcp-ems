@@ -9,11 +9,12 @@ window.StatusBadge = function StatusBadge({ status }) {
     'Ongoing': 'bg-purple-100 text-purple-700 border-purple-300',
     'Completed': 'bg-teal-100 text-teal-700 border-teal-300',
     'Archived': 'bg-slate-100 text-slate-700 border-slate-300',
+    'Conflict_Rejected': 'bg-red-100 text-red-700 border-red-300',
     'Rejected': 'bg-red-100 text-red-700 border-red-300'
   };
   return (
     <span className={`px-2 py-1 rounded-full text-xs font-semibold border ${statusColors[status] || 'bg-gray-100 text-gray-600'}`}>
-      {status}
+      {status ? status.replace(/_/g, ' ') : status}
     </span>
   );
 }
