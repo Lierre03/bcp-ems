@@ -72,9 +72,9 @@ def login():
                    u.is_active, u.department, u.account_status, r.id as role_id, r.name as role_name
             FROM users u
             JOIN roles r ON u.role_id = r.id
-            WHERE u.username = %s
+            WHERE u.username = %s OR u.email = %s
         """
-        user = db.execute_one(query, (username,))
+        user = db.execute_one(query, (username, username))
         print(f"DEBUG: User query result: {user}")
         
         if not user:
