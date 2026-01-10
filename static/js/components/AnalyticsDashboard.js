@@ -437,6 +437,14 @@ window.AnalyticsDashboard = function AnalyticsDashboard() {
           )
         )
       )
-    )
+    ),
+
+    // 2-column grid for Department Budget and Attendance
+    React.createElement('div', { className: 'grid grid-cols-1 lg:grid-cols-2 gap-6' },
+      React.createElement(window.DepartmentBudgetTable, { data: analytics.department_budget }),
+      React.createElement(window.AttendanceByTypeChart, { data: analytics.attendance_by_type })
+    ),
+
+    React.createElement(window.LowRatedEventsAlert, { data: analytics.low_rated_events })
   );
 };
