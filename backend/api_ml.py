@@ -359,7 +359,8 @@ def train_models():
         mlb = MultiLabelBinarizer()
         y_equipment = mlb.fit_transform(df['equipment_list'])
         
-        equipment_model = MultiOutputClassifier(RandomForestClassifier(n_estimators=100, random_state=42))
+        # LIGHTWEIGHT MODE: 10 Trees, Depth 5 (Prevent OOM)
+        equipment_model = MultiOutputClassifier(RandomForestClassifier(n_estimators=10, max_depth=5, random_state=42))
         equipment_model.fit(X_budget, y_equipment)
         joblib.dump((equipment_model, mlb), EQUIPMENT_MODEL_PATH)
         equipment_accuracy = equipment_model.score(X_budget, y_equipment)
@@ -368,7 +369,8 @@ def train_models():
         mlb_resources = MultiLabelBinarizer()
         y_resources = mlb_resources.fit_transform(df['additional_resources_list'])
         
-        resources_model = MultiOutputClassifier(RandomForestClassifier(n_estimators=100, random_state=42))
+        # LIGHTWEIGHT MODE: 10 Trees, Depth 5
+        resources_model = MultiOutputClassifier(RandomForestClassifier(n_estimators=10, max_depth=5, random_state=42))
         resources_model.fit(X_budget, y_resources)
         
         RESOURCES_MODEL_PATH = os.path.join(MODEL_DIR, 'resources_predictor.pkl')
@@ -377,11 +379,10 @@ def train_models():
 
         # --- 4. Train Event Classifier (TF-IDF + Logistic Regression) ---
         if 'event_name' in df.columns:
-            vectorizer = TfidfVectorizer(max_features=1000, stop_words='english', ngram_range=(1, 2))
-        if 'event_name' in df.columns:
-            vectorizer = TfidfVectorizer(max_features=1000, stop_words='english', ngram_range=(1, 2))
+            # LIGHTWEIGHT MODE: Max 300 features
+            vectorizer = TfidfVectorizer(max_features=300, stop_words='english', ngram_range=(1, 1))
             # Use LogisticRegression which often works better for small text datasets
-            classifier = LogisticRegression(random_state=42, class_weight='balanced', max_iter=1000)
+            classifier = LogisticRegression(random_state=42, class_weight='balanced', max_iter=200)
             
             X_text = vectorizer.fit_transform(df['event_name'])
             y_type = df['event_type']
