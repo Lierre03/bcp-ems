@@ -306,18 +306,20 @@ window.AnalyticsDashboard = function AnalyticsDashboard() {
       React.createElement('div', { className: 'bg-white rounded-lg border border-slate-200 p-6' },
         React.createElement('div', { className: 'flex items-center justify-between' },
           React.createElement('div', null,
-            React.createElement('p', { className: 'text-sm font-medium text-slate-600 mb-1' }, 'Upcoming Events'),
-            React.createElement('p', { className: 'text-2xl font-bold text-purple-600' },
-              analytics.trends.upcoming_events
+            React.createElement('p', { className: 'text-sm font-medium text-slate-600 mb-1' }, 'Success Rate'),
+            React.createElement('p', { className: 'text-2xl font-bold text-emerald-600' },
+              analytics.success_rate ? `${analytics.success_rate.success_rate}%` : '0%'
             )
           ),
-          React.createElement('div', { className: 'w-12 h-12 bg-purple-100 rounded-full flex items-center justify-center' },
-            React.createElement('svg', { className: 'w-6 h-6 text-purple-600', fill: 'none', stroke: 'currentColor', viewBox: '0 0 24 24' },
-              React.createElement('path', { strokeLinecap: 'round', strokeLinejoin: 'round', strokeWidth: '2', d: 'M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z' })
+          React.createElement('div', { className: 'w-12 h-12 bg-emerald-100 rounded-full flex items-center justify-center' },
+            React.createElement('svg', { className: 'w-6 h-6 text-emerald-600', fill: 'none', stroke: 'currentColor', viewBox: '0 0 24 24' },
+              React.createElement('path', { strokeLinecap: 'round', strokeLinejoin: 'round', strokeWidth: '2', d: 'M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z' })
             )
           )
         ),
-        React.createElement('p', { className: 'text-xs text-slate-500 mt-2' }, 'Approved & scheduled')
+        React.createElement('p', { className: 'text-xs text-slate-500 mt-2' },
+          analytics.success_rate ? `${analytics.success_rate.completed}/${analytics.success_rate.total_events} completed` : 'No data'
+        )
       )
     ),
 
