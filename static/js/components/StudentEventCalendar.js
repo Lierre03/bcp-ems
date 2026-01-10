@@ -317,6 +317,13 @@ window.StudentEventCalendar = function StudentEventCalendar() {
                   >
                     Event Ongoing
                   </button>
+                ) : new Date(event.start) < new Date() ? (
+                  <button
+                    disabled
+                    className="w-full bg-slate-100 text-slate-400 px-3 py-2 rounded-lg text-xs cursor-not-allowed font-medium border border-slate-200"
+                  >
+                    Event Ended
+                  </button>
                 ) : (
                   <button
                     onClick={() => handleEventRegistration(event.id)}
@@ -386,6 +393,13 @@ window.StudentEventCalendar = function StudentEventCalendar() {
                       className="mt-3 w-full bg-green-50 text-green-600 px-4 py-2 rounded-lg text-sm cursor-not-allowed font-medium border border-green-200"
                     >
                       Event Ongoing
+                    </button>
+                  ) : new Date(event.start) < new Date() ? (
+                    <button
+                      disabled
+                      className="mt-3 w-full bg-slate-100 text-slate-400 px-4 py-2 rounded-lg text-sm cursor-not-allowed font-medium border border-slate-200"
+                    >
+                      Event Ended
                     </button>
                   ) : (
                     <button
