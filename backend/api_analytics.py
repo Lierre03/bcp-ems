@@ -197,7 +197,109 @@ def get_dashboard_analytics():
             else:
                 event['avg_rating'] = 0.0
 
+        # 12. DEPARTMENT BUDGET COMPARISON (All departments)
+        dept_budget_query = """
+            SELECT 
+                COALESCE(organizing_department, 'Unassigned') as department,
+                COUNT(*) as event_count,
+                SUM(budget) as total_budget,
+                AVG(budget) as avg_budget,
+                SUM(CASE WHEN status = 'Completed' THEN budget ELSE 0 END) as completed_budget
+            FROM events
+            WHERE deleted_at IS NULL AND budget > 0
+            {}
+            GROUP BY organizing_department
+            ORDER BY total_budget DESC
+        """.format(dept_condition)
+        dept_budget_stats = get_db().execute_query(dept_budget_query, tuple(params) if params else ())
         
+        # 13. EVENT SUCCESS RATE
+        success_rate_query = """
+            SELECT 
+                COUNT(*) as total_events,
+                COUNT(*) FILTER (WHERE status = 'Completed') as completed,
+                COUNT(*) FILTER (WHERE status IN ('Cancelled', 'Rejected', 'Conflict_Rejected')) as failed,
+                COUNT(*) FILTER (WHERE status = 'Approved') as approved,
+                ROUND(COUNT(*) FILTER (WHERE status = 'Completed')::numeric / NULLIF(COUNT(*), 0) * 100, 1) as success_rate
+            FROM events
+            WHERE deleted_at IS NULL
+            {}
+        """.format(dept_condition)
+        success_stats = get_db().execute_one(success_rate_query, tuple(params) if params else ())
+        
+        # 14. LOW-RATED EVENTS ALERT (avg rating < 3.5, last 6 months)
+        low_rated_query = """
+            SELECT 
+                e.id,
+                e.name,
+                e.start_datetime,
+                e.event_type,
+                AVG(ef.overall_rating) as avg_rating,
+                COUNT(ef.id) as response_count
+            FROM events e
+            JOIN event_feedback ef ON e.id = ef.event_id
+            WHERE e.deleted_at IS NULL
+            AND e.start_datetime >= CURRENT_DATE - INTERVAL '6 months'
+            {}
+            GROUP BY e.id, e.name, e.start_datetime, e.event_type
+            HAVING AVG(ef.overall_rating) < 3.5
+            ORDER BY avg_rating ASC
+            LIMIT 10
+        """.format(dept_condition)
+        low_rated_events = get_db().execute_query(low_rated_query, tuple(params) if params else ())
+        
+        # Format low-rated events
+        for event in low_rated_events:
+            if event.get('avg_rating'):
+                event['avg_rating'] = float(event['avg_rating'])
+        
+        # 15. ATTENDANCE BY EVENT TYPE
+        attendance_by_type_query = """
+            SELECT 
+                e.event_type,
+                COUNT(DISTINCT e.id) as event_count,
+                SUM(e.expected_attendees) as total_expected,
+                COUNT(DISTINCT ea.id) FILTER (WHERE ea.attendance_status IN ('Present', 'Late')) as total_attended,
+                ROUND(
+                    COUNT(DISTINCT ea.id) FILTER (WHERE ea.attendance_status IN ('Present', 'Late'))::numeric / 
+                    NULLIF(SUM(e.expected_attendees), 0) * 100,
+                    1
+                ) as attendance_rate
+            FROM events e
+            LEFT JOIN event_attendance ea ON e.id = ea.event_id
+            WHERE e.status = 'Completed'
+            AND e.deleted_at IS NULL
+            {}
+            GROUP BY e.event_type
+            ORDER BY attendance_rate DESC
+        """.format(dept_condition)
+        attendance_by_type = get_db().execute_query(attendance_by_type_query, tuple(params) if params else ())
+        
+        # 16. FEEDBACK TREND (ALL-TIME, monthly)
+        feedback_trend_query = """
+            SELECT 
+                TO_CHAR(e.start_datetime, 'YYYY-MM') as month,
+                AVG(ef.overall_rating) as avg_overall,
+                AVG(ef.venue_rating) as avg_venue,
+                AVG(ef.activities_rating) as avg_activities,
+                AVG(ef.organization_rating) as avg_organization,
+                COUNT(ef.id) as response_count
+            FROM events e
+            JOIN event_feedback ef ON e.id = ef.event_id
+            WHERE e.deleted_at IS NULL
+            {}
+            GROUP BY TO_CHAR(e.start_datetime, 'YYYY-MM')
+            ORDER BY month ASC
+        """.format(dept_condition)
+        feedback_trend = get_db().execute_query(feedback_trend_query, tuple(params) if params else ())
+        
+        # Format feedback trend
+        for month_data in feedback_trend:
+            for key in ['avg_overall', 'avg_venue', 'avg_activities', 'avg_organization']:
+                if month_data.get(key):
+                    month_data[key] = round(float(month_data[key]), 1)
+        
+
         return jsonify({
             'success': True,
             'data': {
@@ -229,9 +331,21 @@ def get_dashboard_analytics():
                 },
                 'trends': {
                     'monthly': monthly_trends,
-                    'upcoming_events': upcoming_count.get('count', 0) or 0
+                    'upcoming_events': upcoming_count.get('count', 0) or 0,
+                    'feedback_trend': feedback_trend  # All-time feedback trend
                 },
-                'top_venues': top_venues
+                'top_venues': top_venues,
+                # NEW METRICS
+                'department_budget': dept_budget_stats,
+                'success_rate': {
+                    'total_events': success_stats.get('total_events', 0) or 0,
+                    'completed': success_stats.get('completed', 0) or 0,
+                    'failed': success_stats.get('failed', 0) or 0,
+                    'approved': success_stats.get('approved', 0) or 0,
+                    'success_rate': float(success_stats.get('success_rate', 0) or 0)
+                },
+                'low_rated_events': low_rated_events,
+                'attendance_by_type': attendance_by_type
             }
         }), 200
         
