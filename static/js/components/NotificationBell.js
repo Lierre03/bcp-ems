@@ -17,6 +17,13 @@ const NotificationBell = () => {
             // Loading state only on initial load to avoid flickering
             if (notifications.length === 0 && !loading) setLoading(true);
 
+            // Prevent fetch if user is not logged in (Stop 401 loop)
+            const user = JSON.parse(localStorage.getItem('user'));
+            if (!user) {
+                setLoading(false);
+                return;
+            }
+
             const response = await fetch('/api/notifications?per_page=50');
             const data = await response.json();
 
