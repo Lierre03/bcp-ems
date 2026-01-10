@@ -79,7 +79,7 @@ def login():
         
         if not user:
             print(f"DEBUG: User not found")
-            return jsonify({'error': 'Invalid credentials'}), 401
+            return jsonify({'error': 'No account found with that email or username'}), 401
         
         # Check if user is active
         if not user['is_active']:
@@ -96,7 +96,7 @@ def login():
         # Verify password
         if not bcrypt.checkpw(password.encode('utf-8'), user['password_hash'].encode('utf-8')):
             print(f"DEBUG: Password verification failed")
-            return jsonify({'error': 'Invalid credentials'}), 401
+            return jsonify({'error': 'Incorrect password'}), 401
         
         print(f"DEBUG: Password verified, creating session")
         # Create session
