@@ -439,6 +439,10 @@ window.AnalyticsDashboard = function AnalyticsDashboard() {
           )
         )
       )
-    )
+    ),
+
+    React.createElement(window.DepartmentBudgetTable, { data: analytics.department_budget }),
+    React.createElement(window.LowRatedEventsAlert, { data: analytics.low_rated_events }),
+    React.createElement(window.AttendanceByTypeChart, { data: analytics.attendance_by_type })
   );
 };
