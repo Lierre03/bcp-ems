@@ -705,7 +705,7 @@ const NotificationBell = () => {
                                                     </div>
 
                                                     <p className={`text-xs leading-relaxed mb-2 line-clamp-2 ${!notification.isRead ? 'text-slate-700' : 'text-slate-500'}`}>
-                                                        {notification.message.replace(/\\n/g, ' ').replace(/\n/g, ' ')}
+                                                        {notification.message.replace(/\\n/g, ' ').replace(/\n/g, ' ').replace(/\\/g, '')}
                                                     </p>
 
                                                     {/* Meta Info */}
