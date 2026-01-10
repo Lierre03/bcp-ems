@@ -118,7 +118,7 @@ window.RejectionResolutionPage = function RejectionResolutionPage({ eventId, onB
                                             <span className="bg-red-100 text-red-700 text-xs font-bold px-2 py-0.5 rounded">Rejected</span>
                                         </div>
                                         <div className="text-sm text-gray-600">
-                                            <span className="font-medium">Requested Qty:</span> {item.quantity}
+                                            <span className="font-medium">Requested Quantity:</span> {item.quantity || item.qty || 'N/A'}
                                         </div>
                                         <div className="mt-2 text-sm bg-gray-50 p-2 rounded border border-gray-100 text-gray-700">
                                             <span className="font-bold text-red-600">Reason:</span> {item.rejection_reason || 'No reason provided'}

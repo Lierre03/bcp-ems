@@ -701,10 +701,10 @@ window.EventFormModal = function EventFormModal({
                                   <div key={index} className="flex gap-3 items-center bg-white p-3 rounded-lg border border-gray-200 shadow-sm">
                                     <span className="flex-1 text-sm text-slate-700 font-medium">{item.name}</span>
                                     <div className="flex items-center gap-2">
-                                      <span className="text-xs text-gray-500">Qty:</span>
+                                      <span className="text-xs text-gray-500">Quantity:</span>
                                       <input
                                         type="number"
-                                        placeholder="Qty"
+                                        placeholder="Quantity"
                                         min="1"
                                         value={item.quantity}
                                         onChange={(e) => {
@@ -937,7 +937,7 @@ window.EventFormModal = function EventFormModal({
                           <div className="flex items-center justify-between">
                             <div className="flex-1">
                               <p className="text-sm font-semibold text-gray-800">{rec.name}</p>
-                              <p className="text-xs text-gray-600 mt-1">Qty: {rec.quantity || 1}</p>
+                              <p className="text-xs text-gray-600 mt-1">Quantity: {rec.quantity || 1}</p>
                             </div>
                             {isAlreadyAdded ? (
                               <svg className="w-5 h-5 text-emerald-600" fill="currentColor" viewBox="0 0 20 20">

@@ -565,7 +565,7 @@ const NotificationBell = () => {
                                                     <div className="flex justify-between items-start">
                                                         <div className="flex-1">
                                                             <p className="font-semibold text-red-900">{item.name}</p>
-                                                            <p className="text-sm text-red-700">Qty: {item.quantity}</p>
+                                                            <p className="text-sm text-red-700">Quantity: {item.quantity}</p>
                                                         </div>
                                                     </div>
                                                     {item.rejection_reason && (
@@ -705,7 +705,7 @@ const NotificationBell = () => {
                                                     </div>
 
                                                     <p className={`text-xs leading-relaxed mb-2 line-clamp-2 ${!notification.isRead ? 'text-slate-700' : 'text-slate-500'}`}>
-                                                        {notification.message.replace(/\\n/g, ' ').replace(/\n/g, ' ').replace(/\\/g, '')}
+                                                        {notification.message.replace(/\\n/g, ' ').replace(/\n/g, ' ').replace(/\\\\/g, ' ').replace(/\\/g, ' ')}
                                                     </p>
 
                                                     {/* Meta Info */}
