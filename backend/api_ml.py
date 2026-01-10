@@ -77,39 +77,44 @@ def load_training_data():
     """Load and preprocess training data from ai_training_data table AND completed events"""
     db = get_db()
 
-    # Get dedicated training data (Limit 50 to prevent timeout)
-    training_data = db.execute_query("""
-        SELECT event_name, event_type, attendees, total_budget,
-               equipment, activities, additional_resources,
-               budget_breakdown, venue, organizer, description
-        FROM ai_training_data
-        WHERE is_validated = 1 AND total_budget > 0
-        ORDER BY id DESC LIMIT 50
-    """)
+    try:
+        # Get dedicated training data (Limit 50 to prevent timeout)
+        training_data = db.execute_query("""
+            SELECT event_name, event_type, attendees, total_budget,
+                   equipment, activities, additional_resources,
+                   budget_breakdown, venue, organizer, description
+            FROM ai_training_data
+            WHERE is_validated = 1 AND total_budget > 0
+            ORDER BY created_at DESC LIMIT 50
+        """)
 
-    # ALSO get completed real events to learn from actual usage (Limit 50 to prevent timeout)
-    completed_events = db.execute_query("""
-        SELECT 
-            name as event_name,
-            event_type,
-            expected_attendees as attendees,
-            budget as total_budget,
-            equipment,
-            '' as activities,
-            additional_resources,
-            budget_breakdown,
-            venue,
-            organizer,
-            description
-        FROM events
-        WHERE status = 'Completed' 
-          AND budget > 0 
-          AND deleted_at IS NULL
-        ORDER BY id DESC LIMIT 50
-    """)
-    
-    # Combine database training + completed events
-    all_data = training_data + completed_events
+        # ALSO get completed real events to learn from actual usage (Limit 50 to prevent timeout)
+        completed_events = db.execute_query("""
+            SELECT 
+                name as event_name,
+                event_type,
+                expected_attendees as attendees,
+                budget as total_budget,
+                equipment,
+                '' as activities,
+                additional_resources,
+                budget_breakdown,
+                venue,
+                organizer,
+                description
+            FROM events
+            WHERE status = 'Completed' 
+              AND budget > 0 
+              AND deleted_at IS NULL
+            ORDER BY created_at DESC LIMIT 50
+        """)
+        
+        # Combine database training + completed events
+        all_data = training_data + completed_events
+        
+    except Exception as e:
+        print(f"Error loading training data: {e}")
+        return pd.DataFrame()
     
     if not all_data:
         return pd.DataFrame()
