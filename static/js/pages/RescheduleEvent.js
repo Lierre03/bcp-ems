@@ -359,7 +359,11 @@ const RescheduleEvent = () => {
               ),
               React.createElement('select', {
                 value: formData.venue,
-                onChange: (e) => setFormData({ ...formData, venue: e.target.value }),
+                onChange: (e) => {
+                  const newVenue = e.target.value;
+                  setFormData({ ...formData, venue: newVenue });
+                  if (newVenue) fetchSuggestedDates(null, newVenue);
+                },
                 disabled: loadingVenues,
                 className: 'w-full px-3 py-2 border border-gray-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white'
               },
@@ -472,7 +476,9 @@ const RescheduleEvent = () => {
               )
             ) : (
               React.createElement('p', { className: 'text-xs text-blue-600' },
-                loadingSuggestions ? 'Analyzing available dates...' : 'Select a venue above to see suggested dates'
+                !formData.venue
+                  ? 'Select a venue above to see suggested dates'
+                  : (loadingSuggestions ? 'Analyzing available dates...' : 'No conflict-free dates found for this venue.')
               )
             )
           )
