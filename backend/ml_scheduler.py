@@ -179,15 +179,38 @@ def _calculate_confidence(db, event_type, venue, proposed_datetime, days_offset)
     confidence = 0.5  # Base confidence
     
     # Factor 1: Similar events at this venue
-    similar_events = db.execute_query("""
         SELECT COUNT(*) as count
         FROM events
         WHERE venue = %s
         AND event_type = %s
         AND status IN ('Completed', 'Approved')
-        AND DAYOFWEEK(start_datetime) = %s
+        AND (EXTRACT(DOW FROM start_datetime) + 1) = %s
         AND deleted_at IS NULL
-    """, (venue, event_type, proposed_datetime.weekday() + 1))
+    """, (venue, event_type, proposed_datetime.weekday() + 2)) 
+    # Python weekday() is 0=Mon, 6=Sun. 
+    # Postgres DOW is 0=Sun, 1=Mon... 6=Sat.
+    # We want to match:
+    # If Python is Mon(0) -> We want Postgres Mon(1)
+    # If Python is Sun(6) -> We want Postgres Sun(0)
+    
+    # Wait, simpler logic:
+    # Python weekday(): Mon=0, Tue=1 ... Sun=6
+    # Postgres DOW: Sun=0, Mon=1 ... Sat=6
+    
+    # Let's just use Python to get the DOW integers aligned with Postgres
+    # Target in Postgres: Mon=1, Tue=2... Sat=6, Sun=0
+    
+    # Python 0 (Mon) -> Target 1
+    # Python 1 (Tue) -> Target 2
+    # ...
+    # Python 5 (Sat) -> Target 6
+    # Python 6 (Sun) -> Target 0
+    
+    # So: target = (python_day + 1) % 7
+    
+    # Corrected Query:
+    # AND EXTRACT(DOW FROM start_datetime) = %s
+    # param: (proposed_datetime.weekday() + 1) % 7
     
     if similar_events and similar_events[0]['count'] > 0:
         # More historical precedent = higher confidence
