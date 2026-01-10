@@ -179,6 +179,7 @@ def _calculate_confidence(db, event_type, venue, proposed_datetime, days_offset)
     confidence = 0.5  # Base confidence
     
     # Factor 1: Similar events at this venue
+    similar_events = db.execute_query("""
         SELECT COUNT(*) as count
         FROM events
         WHERE venue = %s
