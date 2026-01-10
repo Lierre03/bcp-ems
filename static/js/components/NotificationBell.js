@@ -166,7 +166,7 @@ const NotificationBell = () => {
         if (!text) return null;
 
         // Replace literal \n strings with actual newlines
-        text = text.replace(/\\n/g, '\n');
+        text = text.replace(/\\n/g, '\n').replace(/\\/g, '');
         const lines = text.split('\n');
         const elements = [];
         let currentSection = null;
