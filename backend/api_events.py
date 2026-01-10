@@ -380,9 +380,9 @@ def get_events():
                    e.name,
                    e.event_type as type,
                    TO_CHAR(e.start_datetime, 'YYYY-MM-DD') as date,
-                   TO_CHAR(e.end_datetime, 'YYYY-MM-DD') as endDate,
-                   TO_CHAR(e.start_datetime, 'HH24:MI') as startTime,
-                   TO_CHAR(e.end_datetime, 'HH24:MI') as endTime,
+                   TO_CHAR(e.end_datetime, 'YYYY-MM-DD') as "endDate",
+                   TO_CHAR(e.start_datetime, 'HH24:MI') as "startTime",
+                   TO_CHAR(e.end_datetime, 'HH24:MI') as "endTime",
                    e.expected_attendees as attendees,
                    e.status,
                    e.description,
@@ -397,7 +397,7 @@ def get_events():
                    u.username as requestor_username,
                    e.requestor_id
             FROM events e
-            JOIN users u ON e.requestor_id = u.id
+            LEFT JOIN users u ON e.requestor_id = u.id
             WHERE e.deleted_at IS NULL
         """
         params = []
