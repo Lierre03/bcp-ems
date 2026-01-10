@@ -1091,6 +1091,20 @@ def suggest_reschedule():
         # Get event details
         event_start = current_event['start_datetime']
         event_end = current_event['end_datetime']
+        
+        # Ensure they are datetime objects (fix for potential string return from DB)
+        if isinstance(event_start, str):
+            try:
+                event_start = datetime.fromisoformat(str(event_start).replace('Z', '+00:00'))
+            except ValueError:
+                event_start = datetime.strptime(str(event_start), '%Y-%m-%d %H:%M:%S')
+                
+        if isinstance(event_end, str):
+            try:
+                event_end = datetime.fromisoformat(str(event_end).replace('Z', '+00:00'))
+            except ValueError:
+                event_end = datetime.strptime(str(event_end), '%Y-%m-%d %H:%M:%S')
+
         event_type = current_event.get('event_type', 'Academic')
         
         # Use our new AI-powered scheduler with error handling (Bug #10)
