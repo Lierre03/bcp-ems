@@ -2,16 +2,16 @@
 window.DepartmentBudgetTable = function DepartmentBudgetTable({ data }) {
     if (!data || data.length === 0) return null;
 
-    return React.createElement('div', { className: 'bg-gradient-to-br from-blue-50 to-indigo-50 rounded-xl border border-blue-200 p-6 shadow-sm' },
+    return React.createElement('div', { className: 'bg-white rounded-lg border border-slate-200 p-6 shadow-sm' },
         React.createElement('div', { className: 'flex items-center gap-3 mb-5' },
-            React.createElement('div', { className: 'w-10 h-10 bg-blue-600 rounded-lg flex items-center justify-center' },
-                React.createElement('svg', { className: 'w-6 h-6 text-white', fill: 'none', stroke: 'currentColor', viewBox: '0 0 24 24' },
+            React.createElement('div', { className: 'w-10 h-10 bg-slate-100 rounded-lg flex items-center justify-center' },
+                React.createElement('svg', { className: 'w-6 h-6 text-slate-600', fill: 'none', stroke: 'currentColor', viewBox: '0 0 24 24' },
                     React.createElement('path', { strokeLinecap: 'round', strokeLinejoin: 'round', strokeWidth: '2', d: 'M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z' })
                 )
             ),
             React.createElement('div', null,
                 React.createElement('h3', { className: 'text-lg font-bold text-gray-900' }, 'Department Budget Comparison'),
-                React.createElement('p', { className: 'text-xs text-gray-600' }, 'Total spending across departments')
+                React.createElement('p', { className: 'text-xs text-gray-500' }, 'Total spending across departments')
             )
         ),
         React.createElement('div', { className: 'bg-white rounded-lg shadow-sm overflow-hidden' },
