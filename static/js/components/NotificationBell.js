@@ -370,7 +370,7 @@ const NotificationBell = () => {
                 <div className="relative w-full max-w-lg bg-white rounded-2xl shadow-2xl ring-1 ring-black/5 flex flex-col max-h-[90vh] animate-scale-in">
 
                     {/* Header */}
-                    <div className={`px-6 py-5 border-b border-slate-100 flex items-start justify-between gap-4 rounded-t-2xl ${style.bg.replace('text-', 'bg-').replace('50', '50/50')}`}>
+                    <div className={`px-6 py-5 border-b border-slate-100 flex items-start justify-between gap-4 rounded-t-2xl ${style.button.split(' ')[0]}`}>
                         <div className="flex gap-4">
                             <div className={`w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0 bg-white/20 backdrop-blur-sm shadow-sm text-white`}>
                                 {style.icon}
@@ -705,7 +705,7 @@ const NotificationBell = () => {
                                                     </div>
 
                                                     <p className={`text-xs leading-relaxed mb-2 line-clamp-2 ${!notification.isRead ? 'text-slate-700' : 'text-slate-500'}`}>
-                                                        {notification.message}
+                                                        {notification.message.replace(/\\n/g, ' ').replace(/\n/g, ' ')}
                                                     </p>
 
                                                     {/* Meta Info */}
