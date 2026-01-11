@@ -4,6 +4,10 @@ const { useState, useEffect, useRef } = React;
 window.AnalyticsDashboard = function AnalyticsDashboard() {
   const [analytics, setAnalytics] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [user, setUser] = useState(null);
+  const [showPreviewModal, setShowPreviewModal] = useState(false);
+  const [pdfPreviewUrl, setPdfPreviewUrl] = useState(null);
+  const [isGenerating, setIsGenerating] = useState(false);
 
   // Chart refs
   const statusChartRef = useRef(null);
@@ -16,9 +20,11 @@ window.AnalyticsDashboard = function AnalyticsDashboard() {
   const typeChartInstance = useRef(null);
   const feedbackChartInstance = useRef(null);
   const trendsChartInstance = useRef(null);
+  const dashboardRef = useRef(null);
 
   useEffect(() => {
     fetchAnalytics();
+    fetchUserSession();
   }, []);
 
   useEffect(() => {
@@ -49,6 +55,126 @@ window.AnalyticsDashboard = function AnalyticsDashboard() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const fetchUserSession = async () => {
+    try {
+      const response = await fetch('/api/auth/session', {
+        credentials: 'include'
+      });
+      const data = await response.json();
+      if (data.user) {
+        setUser(data.user);
+      }
+    } catch (error) {
+      console.error('Failed to fetch user session:', error);
+    }
+  };
+
+  const generatePDF = async () => {
+    setIsGenerating(true);
+    try {
+      const { jsPDF } = window.jspdf;
+      const pdf = new jsPDF('p', 'mm', 'a4');
+      const pageWidth = pdf.internal.pageSize.getWidth();
+      const pageHeight = pdf.internal.pageSize.getHeight();
+
+      // Add header
+      pdf.setFontSize(20);
+      pdf.setTextColor(99, 102, 241); // Indigo
+      pdf.text('Analytics Dashboard Report', pageWidth / 2, 20, { align: 'center' });
+
+      pdf.setFontSize(10);
+      pdf.setTextColor(100, 100, 100);
+      const reportDate = new Date().toLocaleDateString('en-US', {
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric'
+      });
+      pdf.text(`Generated on: ${reportDate}`, pageWidth / 2, 28, { align: 'center' });
+
+      let yPosition = 40;
+
+      // Add key metrics
+      pdf.setFontSize(14);
+      pdf.setTextColor(0, 0, 0);
+      pdf.text('Key Metrics', 15, yPosition);
+      yPosition += 10;
+
+      pdf.setFontSize(10);
+      pdf.setTextColor(60, 60, 60);
+      pdf.text(`Total Budget: ₱${(analytics.budget.total / 1000).toFixed(0)}K (Avg: ₱${analytics.budget.average.toFixed(0)})`, 15, yPosition);
+      yPosition += 6;
+      pdf.text(`Attendance Rate: ${analytics.attendance.attendance_rate}% (${analytics.attendance.total_attendees}/${analytics.attendance.total_registrations} registered)`, 15, yPosition);
+      yPosition += 6;
+      pdf.text(`Average Feedback: ${analytics.feedback.avg_overall}/5 (${analytics.feedback.total_feedback} responses)`, 15, yPosition);
+      yPosition += 6;
+      pdf.text(`Upcoming Events: ${analytics.trends.upcoming_events}`, 15, yPosition);
+      yPosition += 15;
+
+      // Capture charts
+      const charts = [
+        { ref: statusChartRef, title: 'Events by Status' },
+        { ref: typeChartRef, title: 'Events by Type' },
+        { ref: feedbackChartRef, title: 'Feedback Ratings' },
+        { ref: trendsChartRef, title: 'Event Trends (6 Months)' }
+      ];
+
+      for (const chart of charts) {
+        if (chart.ref.current) {
+          const canvas = await html2canvas(chart.ref.current.parentElement, {
+            scale: 2,
+            backgroundColor: '#ffffff'
+          });
+
+          const imgData = canvas.toDataURL('image/png');
+          const imgWidth = pageWidth - 30;
+          const imgHeight = (canvas.height * imgWidth) / canvas.width;
+
+          // Check if we need a new page
+          if (yPosition + imgHeight > pageHeight - 20) {
+            pdf.addPage();
+            yPosition = 20;
+          }
+
+          pdf.setFontSize(12);
+          pdf.setTextColor(0, 0, 0);
+          pdf.text(chart.title, 15, yPosition);
+          yPosition += 8;
+
+          pdf.addImage(imgData, 'PNG', 15, yPosition, imgWidth, imgHeight);
+          yPosition += imgHeight + 15;
+        }
+      }
+
+      // Generate blob URL for preview
+      const pdfBlob = pdf.output('blob');
+      const url = URL.createObjectURL(pdfBlob);
+      setPdfPreviewUrl(url);
+      setShowPreviewModal(true);
+    } catch (error) {
+      console.error('Failed to generate PDF:', error);
+      alert('Failed to generate PDF. Please try again.');
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+
+  const downloadPDF = () => {
+    const { jsPDF } = window.jspdf;
+    const link = document.createElement('a');
+    link.href = pdfPreviewUrl;
+    link.download = `Analytics_Report_${new Date().toISOString().split('T')[0]}.pdf`;
+    link.click();
+    setShowPreviewModal(false);
+  };
+
+  const closePreview = () => {
+    if (pdfPreviewUrl) {
+      URL.revokeObjectURL(pdfPreviewUrl);
+      setPdfPreviewUrl(null);
+    }
+    setShowPreviewModal(false);
   };
 
   const renderCharts = () => {
@@ -226,21 +352,78 @@ window.AnalyticsDashboard = function AnalyticsDashboard() {
     );
   }
 
-  return React.createElement('div', { className: 'space-y-6' },
+  return React.createElement('div', { className: 'space-y-6', ref: dashboardRef },
+    // Preview Modal
+    showPreviewModal && React.createElement('div', {
+      className: 'fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4',
+      onClick: closePreview
+    },
+      React.createElement('div', {
+        className: 'bg-white rounded-lg shadow-xl w-full max-w-4xl h-[90vh] flex flex-col',
+        onClick: (e) => e.stopPropagation()
+      },
+        React.createElement('div', { className: 'flex items-center justify-between p-4 border-b' },
+          React.createElement('h3', { className: 'text-lg font-semibold text-gray-900' }, 'PDF Preview'),
+          React.createElement('button', {
+            onClick: closePreview,
+            className: 'text-gray-400 hover:text-gray-600'
+          },
+            React.createElement('svg', { className: 'w-6 h-6', fill: 'none', stroke: 'currentColor', viewBox: '0 0 24 24' },
+              React.createElement('path', { strokeLinecap: 'round', strokeLinejoin: 'round', strokeWidth: '2', d: 'M6 18L18 6M6 6l12 12' })
+            )
+          )
+        ),
+        React.createElement('div', { className: 'flex-1 overflow-hidden' },
+          pdfPreviewUrl && React.createElement('iframe', {
+            src: pdfPreviewUrl,
+            className: 'w-full h-full border-0'
+          })
+        ),
+        React.createElement('div', { className: 'flex items-center justify-end gap-3 p-4 border-t bg-gray-50' },
+          React.createElement('button', {
+            onClick: closePreview,
+            className: 'px-4 py-2 text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition'
+          }, 'Cancel'),
+          React.createElement('button', {
+            onClick: downloadPDF,
+            className: 'px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition flex items-center gap-2'
+          },
+            React.createElement('svg', { className: 'w-4 h-4', fill: 'none', stroke: 'currentColor', viewBox: '0 0 24 24' },
+              React.createElement('path', { strokeLinecap: 'round', strokeLinejoin: 'round', strokeWidth: '2', d: 'M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4' })
+            ),
+            'Download PDF'
+          )
+        )
+      )
+    ),
+
     // Header
     React.createElement('div', { className: 'flex justify-between items-center' },
       React.createElement('div', null,
         React.createElement('h1', { className: 'text-3xl font-bold text-gray-900' }, 'Analytics Dashboard'),
         React.createElement('p', { className: 'text-gray-500 mt-1' }, 'Comprehensive insights and metrics')
       ),
-      React.createElement('button', {
-        onClick: fetchAnalytics,
-        className: 'px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition flex items-center gap-2'
-      },
-        React.createElement('svg', { className: 'w-4 h-4', fill: 'none', stroke: 'currentColor', viewBox: '0 0 24 24' },
-          React.createElement('path', { strokeLinecap: 'round', strokeLinejoin: 'round', strokeWidth: '2', d: 'M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15' })
+      React.createElement('div', { className: 'flex items-center gap-3' },
+        user && user.role_name === 'Super Admin' && React.createElement('button', {
+          onClick: generatePDF,
+          disabled: isGenerating,
+          className: `px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition flex items-center gap-2 ${isGenerating ? 'opacity-50 cursor-not-allowed' : ''}`
+        },
+          isGenerating ? React.createElement('div', { className: 'animate-spin rounded-full h-4 w-4 border-b-2 border-white' }) :
+            React.createElement('svg', { className: 'w-4 h-4', fill: 'none', stroke: 'currentColor', viewBox: '0 0 24 24' },
+              React.createElement('path', { strokeLinecap: 'round', strokeLinejoin: 'round', strokeWidth: '2', d: 'M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z' })
+            ),
+          isGenerating ? 'Generating...' : 'Export to PDF'
         ),
-        'Refresh'
+        React.createElement('button', {
+          onClick: fetchAnalytics,
+          className: 'px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition flex items-center gap-2'
+        },
+          React.createElement('svg', { className: 'w-4 h-4', fill: 'none', stroke: 'currentColor', viewBox: '0 0 24 24' },
+            React.createElement('path', { strokeLinecap: 'round', strokeLinejoin: 'round', strokeWidth: '2', d: 'M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15' })
+          ),
+          'Refresh'
+        )
       )
     ),
 
