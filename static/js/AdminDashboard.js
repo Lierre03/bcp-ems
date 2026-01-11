@@ -163,100 +163,99 @@ window.AdminDashboard = function AdminDashboard() {
           icon: <svg className="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" /></svg>
         }] : [])
       ]
+    },
+    {
+      title: "Staff Operations",
+      // Staff-related menu items
+      items: [
+        ...(isSuperAdmin ? [{
+          id: 'staff-scanner',
+          label: 'QR Attendance Scanner',
+          icon: <svg className="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M12 15h4.01M12 21h4.01M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M12 15h4.01M12 21h4.01M8 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M8 12h4.01M8 15h4.01M8 21h4.01" /></svg>
+        }, {
+          id: 'staff-approvals',
+          label: 'Resource Approvals',
+          icon: <svg className="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+        }] : [])
+      ]
     }
-  ]
-},
-{
-  title: "Staff Operations",
-  items: [
-    ...(isSuperAdmin ? [{
-      id: 'staff-scanner',
-      label: 'QR Attendance Scanner',
-      icon: <svg className="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M12 15h4.01M12 21h4.01M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M12 15h4.01M12 21h4.01M8 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M8 12h4.01M8 15h4.01M8 21h4.01" /></svg>
-    }, {
-      id: 'staff-approvals',
-      label: 'Resource Approvals',
-      icon: <svg className="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-    }] : [])
-  ]
-}
   ];
 
-return (
-  <div className="flex h-screen bg-gray-50">
-    <Sidebar
-      user={user}
-      menuItems={menuItems}
-      activeView={activeView}
-      onViewChange={setActiveView}
-      onLogout={handleLogout}
-      isOpen={isSidebarOpen}
-      onClose={() => setIsSidebarOpen(false)}
-    />
+  return (
+    <div className="flex h-screen bg-gray-50">
+      <Sidebar
+        user={user}
+        menuItems={menuItems}
+        activeView={activeView}
+        onViewChange={setActiveView}
+        onLogout={handleLogout}
+        isOpen={isSidebarOpen}
+        onClose={() => setIsSidebarOpen(false)}
+      />
 
-    <div className="flex-1 flex flex-col overflow-hidden w-full relative">
-      <header className="bg-white border-b border-gray-200 px-4 md:px-6 py-3 shadow-sm relative flex-shrink-0">
-        <div className="flex justify-between items-start">
-          <div className="flex-1 flex items-center gap-3">
-            <button
-              onClick={() => setIsSidebarOpen(true)}
-              className="md:hidden text-gray-500 hover:text-gray-700"
-            >
-              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 6h16M4 12h16M4 18h16" />
-              </svg>
-            </button>
-            <div>
-              <p className="text-blue-600 text-xs font-medium mb-0.5">Admin Dashboard</p>
-              <h1 className="text-xl md:text-2xl font-bold text-gray-900">
-                {activeView === 'events' ? 'Events Manager' :
-                  activeView === 'approvals' ? 'Account Approvals' :
-                    activeView === 'analytics' ? 'Analytics Dashboard' :
-                      activeView === 'feedback' ? 'Event Feedback' :
-                        activeView === 'ai-training' ? 'AI Training Center' :
-                          activeView === 'resources' ? 'Resource Management' :
+      <div className="flex-1 flex flex-col overflow-hidden w-full relative">
+        <header className="bg-white border-b border-gray-200 px-4 md:px-6 py-3 shadow-sm relative flex-shrink-0">
+          <div className="flex justify-between items-start">
+            <div className="flex-1 flex items-center gap-3">
+              <button
+                onClick={() => setIsSidebarOpen(true)}
+                className="md:hidden text-gray-500 hover:text-gray-700"
+              >
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 6h16M4 12h16M4 18h16" />
+                </svg>
+              </button>
+              <div>
+                <p className="text-blue-600 text-xs font-medium mb-0.5">Admin Dashboard</p>
+                <h1 className="text-xl md:text-2xl font-bold text-gray-900">
+                  {activeView === 'events' ? 'Events Manager' :
+                    activeView === 'approvals' ? 'Account Approvals' :
+                      activeView === 'analytics' ? 'Analytics Dashboard' :
+                        activeView === 'feedback' ? 'Event Feedback' :
+                          activeView === 'ai-training' ? 'AI Training Center' :
                             activeView === 'resources' ? 'Resource Management' :
-                              activeView === 'equipment-review' ? 'Equipment Approval Review' :
-                                activeView === 'staff-scanner' ? 'QR Attendance Scanner' :
-                                  activeView === 'staff-approvals' ? 'Resource Approvals' : 'User Management'}
-              </h1>
-              <p className="text-gray-500 text-xs mt-1">
-                {activeView === 'events' ? 'Create, manage, and track all school events' :
-                  activeView === 'approvals' ? 'Review and approve student registration requests' :
-                    activeView === 'analytics' ? 'Visualize event metrics, attendance, and performance data' :
-                      activeView === 'feedback' ? 'View feedback and ratings for your department events' :
-                        activeView === 'ai-training' ? 'Train and optimize your event planning AI' :
-                          activeView === 'resources' ? 'Manage venues, equipment, and view schedules' :
-                            activeView === 'equipment-review' ? 'Review and respond to equipment approval adjustments' :
-                              activeView === 'attendance' ? 'Monitor student attendance and check-ins' :
+                              activeView === 'resources' ? 'Resource Management' :
+                                activeView === 'equipment-review' ? 'Equipment Approval Review' :
+                                  activeView === 'staff-scanner' ? 'QR Attendance Scanner' :
+                                    activeView === 'staff-approvals' ? 'Resource Approvals' : 'User Management'}
+                </h1>
+                <p className="text-gray-500 text-xs mt-1">
+                  {activeView === 'events' ? 'Create, manage, and track all school events' :
+                    activeView === 'approvals' ? 'Review and approve student registration requests' :
+                      activeView === 'analytics' ? 'Visualize event metrics, attendance, and performance data' :
+                        activeView === 'feedback' ? 'View feedback and ratings for your department events' :
+                          activeView === 'ai-training' ? 'Train and optimize your event planning AI' :
+                            activeView === 'resources' ? 'Manage venues, equipment, and view schedules' :
+                              activeView === 'equipment-review' ? 'Review and respond to equipment approval adjustments' :
                                 activeView === 'attendance' ? 'Monitor student attendance and check-ins' :
-                                  activeView === 'staff-scanner' ? 'Scan participant QR codes for event attendance' :
-                                    activeView === 'staff-approvals' ? 'Approve or reject equipment and venue requests' :
-                                      'Manage system users and permissions'}
-              </p>
+                                  activeView === 'attendance' ? 'Monitor student attendance and check-ins' :
+                                    activeView === 'staff-scanner' ? 'Scan participant QR codes for event attendance' :
+                                      activeView === 'staff-approvals' ? 'Approve or reject equipment and venue requests' :
+                                        'Manage system users and permissions'}
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center">
+              <NotificationBell />
             </div>
           </div>
-          <div className="flex items-center">
-            <NotificationBell />
-          </div>
-        </div>
-      </header>
+        </header>
 
-      <main className="flex-1 overflow-y-auto p-4">
-        {activeView === 'events' && <AdminEventsManager eventIdToOpen={eventIdToOpen} />}
-        {activeView === 'approvals' && <AccountApprovalPanel />}
-        {activeView === 'analytics' && <AnalyticsDashboard />}
-        {activeView === 'feedback' && <DepartmentFeedback />}
-        {activeView === 'ai-training' && <AITrainingDashboard />}
-        {activeView === 'resources' && <ResourceManagement userRole={user ? user.role_name : 'Admin'} />}
-        {activeView === 'equipment-review' && <EquipmentApprovalReview eventId={equipmentReviewEventId} onClose={() => setActiveView('events')} />}
-        {activeView === 'attendance' && <AttendanceDashboard />}
-        {activeView === 'attendance' && <AttendanceDashboard />}
-        {activeView === 'users' && <UserManagement />}
-        {activeView === 'staff-scanner' && <StaffScannerView />}
-        {activeView === 'staff-approvals' && <EquipmentApprovals />}
-      </main>
+        <main className="flex-1 overflow-y-auto p-4">
+          {activeView === 'events' && <AdminEventsManager eventIdToOpen={eventIdToOpen} />}
+          {activeView === 'approvals' && <AccountApprovalPanel />}
+          {activeView === 'analytics' && <AnalyticsDashboard />}
+          {activeView === 'feedback' && <DepartmentFeedback />}
+          {activeView === 'ai-training' && <AITrainingDashboard />}
+          {activeView === 'resources' && <ResourceManagement userRole={user ? user.role_name : 'Admin'} />}
+          {activeView === 'equipment-review' && <EquipmentApprovalReview eventId={equipmentReviewEventId} onClose={() => setActiveView('events')} />}
+          {activeView === 'attendance' && <AttendanceDashboard />}
+          {activeView === 'attendance' && <AttendanceDashboard />}
+          {activeView === 'users' && <UserManagement />}
+          {activeView === 'staff-scanner' && <StaffScannerView />}
+          {activeView === 'staff-approvals' && <EquipmentApprovals />}
+        </main>
+      </div>
     </div>
-  </div>
-);
+  );
 }

@@ -245,10 +245,32 @@ def register():
                 user_id = cursor.fetchone()['id']
 
                 # Insert into students table
+                # Insert into students table
                 cursor.execute('''
                     INSERT INTO students (user_id, course, section)
                     VALUES (%s, %s, %s)
                 ''', (user_id, course, section))
+
+                # Notify Super Admins
+                # 1. Get Super Admin role ID
+                cursor.execute('SELECT id FROM roles WHERE name = %s', ('Super Admin',))
+                sa_role_row = cursor.fetchone()
+                
+                if sa_role_row:
+                    sa_role_id = sa_role_row['id'] if isinstance(sa_role_row, dict) else sa_role_row[0]
+                    
+                    # 2. Get all Super Admin users
+                    cursor.execute('SELECT id FROM users WHERE role_id = %s', (sa_role_id,))
+                    super_admins = cursor.fetchall()
+                    
+                    # 3. Insert notification for each
+                    notif_msg = f"New student registration: {first_name} {last_name} ({course} {section})"
+                    for admin in super_admins:
+                        admin_id = admin['id'] if isinstance(admin, dict) else admin[0]
+                        cursor.execute('''
+                            INSERT INTO notifications (user_id, type, title, message, is_read, created_at)
+                            VALUES (%s, 'account', 'New Registration Pending', %s, 0, NOW())
+                        ''', (admin_id, notif_msg))
             
             logger.info(f"New student registered: {username} ({email}) - {course} {section}")
 
