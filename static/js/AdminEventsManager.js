@@ -365,30 +365,26 @@ window.AdminEventsManager = function AdminEventsManager({ eventIdToOpen }) {
 
     setAiSuggestions(null);
 
-    // Check if this is a conflict-rejected event and set the active tab
-    const isConflictRejected = event.status === 'Conflict_Rejected';
-    if (isConflictRejected) {
-      setActiveModalTab('ai');
-    } else {
-      setActiveModalTab('details');
-    }
+    // Always set active tab to details so content is visible
+    setActiveModalTab('details');
 
     setShowModal(true);
   };
 
   // Auto-trigger AI for conflict-rejected events
   useEffect(() => {
-    if (showModal && editingId && formData.name && activeModalTab === 'ai') {
+    if (showModal && editingId && formData.name) {
       // Find the event to check if it's conflict rejected
       const event = events.find(e => e.id === editingId);
-      if (event && event.status === 'Conflict_Rejected') {
+      // Ensure we only trigger if not already loaded or loading
+      if (event && event.status === 'Conflict_Rejected' && !aiSuggestions && !aiLoading) {
         // Trigger AI after a short delay to ensure modal is rendered
         setTimeout(() => {
           handleAutoFill();
         }, 300);
       }
     }
-  }, [showModal, editingId, activeModalTab]);
+  }, [showModal, editingId]);
 
   // Expose function globally for notifications to trigger event editing
   useEffect(() => {
@@ -702,56 +698,56 @@ window.AdminEventsManager = function AdminEventsManager({ eventIdToOpen }) {
       </div>
 
       {/* Stats Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-4 gap-2 md:gap-4">
         {/* Total Events */}
-        <div className="bg-white rounded-xl p-6 border border-slate-200 shadow-sm flex items-center gap-4">
-          <div className="w-12 h-12 rounded-xl bg-slate-100 flex items-center justify-center text-slate-600">
-            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <div className="bg-white rounded-xl p-3 md:p-6 border border-slate-200 shadow-sm flex flex-col md:flex-row items-center md:gap-4">
+          <div className="w-8 h-8 md:w-12 md:h-12 rounded-xl bg-slate-100 flex items-center justify-center text-slate-600 mb-2 md:mb-0">
+            <svg className="w-4 h-4 md:w-6 md:h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
             </svg>
           </div>
-          <div>
-            <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">Total Events</p>
-            <p className="text-2xl font-bold text-slate-900">{stats.total}</p>
+          <div className="text-center md:text-left">
+            <p className="text-[10px] md:text-xs font-bold text-slate-400 uppercase tracking-wider leading-tight">Total Events</p>
+            <p className="text-lg md:text-2xl font-bold text-slate-900">{stats.total}</p>
           </div>
         </div>
 
         {/* Action Required */}
-        <div className="bg-white rounded-xl p-6 border border-slate-200 shadow-sm flex items-center gap-4">
-          <div className="w-12 h-12 rounded-xl bg-red-50 flex items-center justify-center text-red-500">
-            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <div className="bg-white rounded-xl p-3 md:p-6 border border-slate-200 shadow-sm flex flex-col md:flex-row items-center md:gap-4">
+          <div className="w-8 h-8 md:w-12 md:h-12 rounded-xl bg-red-50 flex items-center justify-center text-red-500 mb-2 md:mb-0">
+            <svg className="w-4 h-4 md:w-6 md:h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
             </svg>
           </div>
-          <div>
-            <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">Action Required</p>
-            <p className="text-2xl font-bold text-slate-900">{stats.actionRequired}</p>
+          <div className="text-center md:text-left">
+            <p className="text-[10px] md:text-xs font-bold text-slate-400 uppercase tracking-wider leading-tight">Action Required</p>
+            <p className="text-lg md:text-2xl font-bold text-slate-900">{stats.actionRequired}</p>
           </div>
         </div>
 
         {/* Upcoming Approved */}
-        <div className="bg-white rounded-xl p-6 border border-slate-200 shadow-sm flex items-center gap-4">
-          <div className="w-12 h-12 rounded-xl bg-blue-50 flex items-center justify-center text-blue-600">
-            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <div className="bg-white rounded-xl p-3 md:p-6 border border-slate-200 shadow-sm flex flex-col md:flex-row items-center md:gap-4">
+          <div className="w-8 h-8 md:w-12 md:h-12 rounded-xl bg-blue-50 flex items-center justify-center text-blue-600 mb-2 md:mb-0">
+            <svg className="w-4 h-4 md:w-6 md:h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
             </svg>
           </div>
-          <div>
-            <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">Upcoming Approved</p>
-            <p className="text-2xl font-bold text-slate-900">{stats.upcoming}</p>
+          <div className="text-center md:text-left">
+            <p className="text-[10px] md:text-xs font-bold text-slate-400 uppercase tracking-wider leading-tight">Upcoming Approved</p>
+            <p className="text-lg md:text-2xl font-bold text-slate-900">{stats.upcoming}</p>
           </div>
         </div>
 
         {/* Total Budget */}
-        <div className="bg-white rounded-xl p-6 border border-slate-200 shadow-sm flex items-center gap-4">
-          <div className="w-12 h-12 rounded-xl bg-emerald-50 flex items-center justify-center text-emerald-600">
-            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <div className="bg-white rounded-xl p-3 md:p-6 border border-slate-200 shadow-sm flex flex-col md:flex-row items-center md:gap-4">
+          <div className="w-8 h-8 md:w-12 md:h-12 rounded-xl bg-emerald-50 flex items-center justify-center text-emerald-600 mb-2 md:mb-0">
+            <svg className="w-4 h-4 md:w-6 md:h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
             </svg>
           </div>
-          <div>
-            <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">Total Budget</p>
-            <p className="text-2xl font-bold text-slate-900">{stats.formattedBudget}</p>
+          <div className="text-center md:text-left">
+            <p className="text-[10px] md:text-xs font-bold text-slate-400 uppercase tracking-wider leading-tight">Total Budget</p>
+            <p className="text-lg md:text-2xl font-bold text-slate-900">{stats.formattedBudget}</p>
           </div>
         </div>
       </div>
