@@ -73,9 +73,10 @@ window.AdminEventsManager = function AdminEventsManager({ eventIdToOpen }) {
       const [h, m] = t.split(':');
       const date = new Date();
       date.setHours(parseInt(h, 10), parseInt(m, 10));
-      return new Intl.DateTimeFormat('en', {
+      return new Intl.DateTimeFormat('en-US', {
         hour: 'numeric',
-        minute: '2-digit'
+        minute: '2-digit',
+        hour12: true
       }).format(date);
     };
     const startFmt = to12h(start);

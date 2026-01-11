@@ -102,7 +102,16 @@ const NotificationBell = () => {
 
     // Helper: Time Ago
     const formatTimeAgo = (dateString) => {
-        const date = new Date(dateString);
+        if (!dateString) return '';
+
+        // Ensure UTC interpretation if missing timezone offset
+        // Postgres timestamps usually come as 'YYYY-MM-DD HH:mm:ss' which implies UTC in our backend
+        let safeDateString = dateString;
+        if (typeof dateString === 'string' && !dateString.endsWith('Z') && !dateString.includes('+')) {
+            safeDateString = dateString + 'Z';
+        }
+
+        const date = new Date(safeDateString);
         const now = new Date();
         const seconds = Math.floor((now - date) / 1000);
 
@@ -110,7 +119,12 @@ const NotificationBell = () => {
         if (seconds < 3600) return `${Math.floor(seconds / 60)}m ago`;
         if (seconds < 86400) return `${Math.floor(seconds / 3600)}h ago`;
         if (seconds < 604800) return `${Math.floor(seconds / 86400)}d ago`;
-        return date.toLocaleDateString();
+
+        return date.toLocaleDateString('en-US', {
+            year: 'numeric',
+            month: 'short',
+            day: 'numeric'
+        });
     };
 
     // Helper: Icons & Styles
@@ -353,9 +367,17 @@ const NotificationBell = () => {
         if (!notification) return null;
 
         const style = getNotificationContext(notification.type);
-        const formattedDate = new Date(notification.created_at || notification.createdAt).toLocaleString(undefined, {
+
+        // Handle timezone safely
+        let dateToParse = notification.created_at || notification.createdAt;
+        if (typeof dateToParse === 'string' && !dateToParse.endsWith('Z') && !dateToParse.includes('+')) {
+            dateToParse += 'Z';
+        }
+
+        const formattedDate = new Date(dateToParse).toLocaleString('en-US', {
             dateStyle: 'full',
-            timeStyle: 'short'
+            timeStyle: 'short',
+            hour12: true
         });
 
         return (
