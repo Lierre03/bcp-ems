@@ -14,6 +14,7 @@ const UserManagement = window.UserManagement;
 const AttendanceDashboard = window.AttendanceDashboard;
 const StaffScannerView = window.StaffScannerView;
 const EquipmentApprovals = window.EquipmentApprovals;
+const RejectionResolutionPage = window.RejectionResolutionPage;
 
 window.AdminDashboard = function AdminDashboard() {
   const [user, setUser] = useState(null);
@@ -25,6 +26,7 @@ window.AdminDashboard = function AdminDashboard() {
   const [eventIdToOpen, setEventIdToOpen] = useState(null);
   const [equipmentReviewEventId, setEquipmentReviewEventId] = useState(null);
   const [rescheduleEventId, setRescheduleEventId] = useState(null);
+  const [rejectionEventId, setRejectionEventId] = useState(null);
 
   // Handle hash-based routing
   useEffect(() => {
@@ -34,9 +36,14 @@ window.AdminDashboard = function AdminDashboard() {
         const eventId = hash.split('/')[2];
         setRescheduleEventId(eventId);
         setActiveView('reschedule');
+      } else if (hash.startsWith('#/resolve-rejection/')) {
+        const eventId = hash.split('/')[2];
+        setRejectionEventId(eventId);
+        setActiveView('resolve-rejection');
       } else if (hash === '#/admin') {
         setActiveView('events');
         setRescheduleEventId(null);
+        setRejectionEventId(null);
       }
     };
 
@@ -101,6 +108,21 @@ window.AdminDashboard = function AdminDashboard() {
   // Don't render sidebar/header for reschedule view
   if (activeView === 'reschedule') {
     return React.createElement(RescheduleEvent, null);
+  }
+
+  if (activeView === 'resolve-rejection') {
+    return React.createElement(RejectionResolutionPage, {
+      eventId: rejectionEventId,
+      onBack: () => {
+        window.location.hash = '#/admin';
+        setActiveView('events');
+      },
+      onResolveComplete: () => {
+        window.location.hash = '#/admin';
+        setActiveView('events');
+        // Optionally trigger a refresh of events
+      }
+    });
   }
 
   const menuItems = [
