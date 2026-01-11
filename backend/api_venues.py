@@ -658,6 +658,10 @@ def update_request_status(event_id):
             )
             message = f'Venue {status.lower()} successfully'
             log_reason = f'Venue {status.lower()} by Staff. Reason: {reason}' if reason else f'Venue {status.lower()} by Staff'
+            
+            # Return success response for venue approval
+            return jsonify({'success': True, 'message': message})
+            
         else:  # equipment
             # Handle Batch Review (Full List Update)
             if equipment_list_payload:
