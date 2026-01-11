@@ -212,6 +212,7 @@
             };
 
             const [filterStatus, setFilterStatus] = useState('All');
+            const [searchQuery, setSearchQuery] = useState('');
 
             // ... (rest of the code)
 
@@ -1534,6 +1535,24 @@
                                         </p>
                                     </div>
 
+                                    {/* Search Bar */}
+                                    <div className="mb-4">
+                                        <div className="relative">
+                                            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                                <svg className="h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                                                </svg>
+                                            </div>
+                                            <input
+                                                type="text"
+                                                className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg leading-5 bg-white placeholder-gray-500 focus:outline-none focus:placeholder-gray-400 focus:border-blue-300 focus:shadow-outline-blue sm:text-sm transition duration-150 ease-in-out"
+                                                placeholder="Search proposals by name..."
+                                                value={searchQuery}
+                                                onChange={(e) => setSearchQuery(e.target.value)}
+                                            />
+                                        </div>
+                                    </div>
+
                                     {/* Status Info */}
                                     <div className="flex gap-2 mb-6 overflow-x-auto pb-2">
                                         <button
@@ -1552,7 +1571,7 @@
                                                 : 'bg-yellow-100 text-yellow-800 hover:bg-yellow-200'
                                                 }`}
                                         >
-                                            Pending Approval ({proposals.filter(p => p.status === 'Pending').length})
+                                            Pending ({proposals.filter(p => p.status === 'Pending').length})
                                         </button>
                                         <button
                                             onClick={() => setFilterStatus('Under Review')}
@@ -1561,7 +1580,7 @@
                                                 : 'bg-blue-100 text-blue-800 hover:bg-blue-200'
                                                 }`}
                                         >
-                                            Under Review ({proposals.filter(p => p.status === 'Under Review').length})
+                                            Review ({proposals.filter(p => p.status === 'Under Review').length})
                                         </button>
                                         <button
                                             onClick={() => setFilterStatus('Approved')}
@@ -1571,6 +1590,15 @@
                                                 }`}
                                         >
                                             Approved ({proposals.filter(p => p.status === 'Approved').length})
+                                        </button>
+                                        <button
+                                            onClick={() => setFilterStatus('Completed')}
+                                            className={`px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-colors ${filterStatus === 'Completed'
+                                                ? 'bg-purple-600 text-white shadow-md'
+                                                : 'bg-purple-100 text-purple-800 hover:bg-purple-200'
+                                                }`}
+                                        >
+                                            Completed ({proposals.filter(p => p.status === 'Completed').length})
                                         </button>
                                         <button
                                             onClick={() => setFilterStatus('Rejected')}
@@ -1601,7 +1629,11 @@
                                     ) : proposals.length > 0 ? (
                                         <div className="space-y-4">
                                             {proposals
-                                                .filter(p => filterStatus === 'All' || p.status === filterStatus)
+                                                .filter(p => {
+                                                    const matchesStatus = filterStatus === 'All' || p.status === filterStatus;
+                                                    const matchesSearch = p.name.toLowerCase().includes(searchQuery.toLowerCase());
+                                                    return matchesStatus && matchesSearch;
+                                                })
                                                 .map(proposal => (
                                                     <div key={proposal.id} className="border border-gray-200 rounded-lg p-6 hover:shadow-md transition bg-white">
                                                         <div className="flex justify-between items-start mb-4">
@@ -1612,7 +1644,8 @@
                                                                         proposal.status === 'Pending' ? 'bg-yellow-100 text-yellow-800 border-yellow-200' :
                                                                             proposal.status === 'Rejected' ? 'bg-red-100 text-red-800 border-red-200' :
                                                                                 proposal.status === 'Cancelled' ? 'bg-gray-100 text-gray-800 border-gray-200' :
-                                                                                    'bg-blue-100 text-blue-800 border-blue-200'
+                                                                                    proposal.status === 'Completed' ? 'bg-purple-100 text-purple-800 border-purple-200' :
+                                                                                        'bg-blue-100 text-blue-800 border-blue-200'
                                                                         }`}>
                                                                         {proposal.status}
                                                                     </span>
