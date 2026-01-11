@@ -17,6 +17,7 @@ const EquipmentApprovals = window.EquipmentApprovals;
 
 window.AdminDashboard = function AdminDashboard() {
   const [user, setUser] = useState(null);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   // Load last active view from localStorage, default to 'events'
   const [activeView, setActiveView] = useState(() => {
     return localStorage.getItem('adminActiveView') || 'events';
@@ -189,39 +190,51 @@ return (
       activeView={activeView}
       onViewChange={setActiveView}
       onLogout={handleLogout}
+      isOpen={isSidebarOpen}
+      onClose={() => setIsSidebarOpen(false)}
     />
 
-    <div className="flex-1 flex flex-col overflow-hidden">
-      <header className="bg-white border-b border-gray-200 px-6 py-3 shadow-sm relative">
+    <div className="flex-1 flex flex-col overflow-hidden w-full relative">
+      <header className="bg-white border-b border-gray-200 px-4 md:px-6 py-3 shadow-sm relative flex-shrink-0">
         <div className="flex justify-between items-start">
-          <div className="flex-1">
-            <p className="text-blue-600 text-xs font-medium mb-0.5">Admin Dashboard</p>
-            <h1 className="text-2xl font-bold text-gray-900">
-              {activeView === 'events' ? 'Events Manager' :
-                activeView === 'approvals' ? 'Account Approvals' :
-                  activeView === 'analytics' ? 'Analytics Dashboard' :
-                    activeView === 'feedback' ? 'Event Feedback' :
-                      activeView === 'ai-training' ? 'AI Training Center' :
-                        activeView === 'resources' ? 'Resource Management' :
+          <div className="flex-1 flex items-center gap-3">
+            <button
+              onClick={() => setIsSidebarOpen(true)}
+              className="md:hidden text-gray-500 hover:text-gray-700"
+            >
+              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 6h16M4 12h16M4 18h16" />
+              </svg>
+            </button>
+            <div>
+              <p className="text-blue-600 text-xs font-medium mb-0.5">Admin Dashboard</p>
+              <h1 className="text-xl md:text-2xl font-bold text-gray-900">
+                {activeView === 'events' ? 'Events Manager' :
+                  activeView === 'approvals' ? 'Account Approvals' :
+                    activeView === 'analytics' ? 'Analytics Dashboard' :
+                      activeView === 'feedback' ? 'Event Feedback' :
+                        activeView === 'ai-training' ? 'AI Training Center' :
                           activeView === 'resources' ? 'Resource Management' :
-                            activeView === 'equipment-review' ? 'Equipment Approval Review' :
-                              activeView === 'staff-scanner' ? 'QR Attendance Scanner' :
-                                activeView === 'staff-approvals' ? 'Resource Approvals' : 'User Management'}
-            </h1>
-            <p className="text-gray-500 text-xs mt-1">
-              {activeView === 'events' ? 'Create, manage, and track all school events' :
-                activeView === 'approvals' ? 'Review and approve student registration requests' :
-                  activeView === 'analytics' ? 'Visualize event metrics, attendance, and performance data' :
-                    activeView === 'feedback' ? 'View feedback and ratings for your department events' :
-                      activeView === 'ai-training' ? 'Train and optimize your event planning AI' :
-                        activeView === 'resources' ? 'Manage venues, equipment, and view schedules' :
-                          activeView === 'equipment-review' ? 'Review and respond to equipment approval adjustments' :
-                            activeView === 'attendance' ? 'Monitor student attendance and check-ins' :
+                            activeView === 'resources' ? 'Resource Management' :
+                              activeView === 'equipment-review' ? 'Equipment Approval Review' :
+                                activeView === 'staff-scanner' ? 'QR Attendance Scanner' :
+                                  activeView === 'staff-approvals' ? 'Resource Approvals' : 'User Management'}
+              </h1>
+              <p className="text-gray-500 text-xs mt-1">
+                {activeView === 'events' ? 'Create, manage, and track all school events' :
+                  activeView === 'approvals' ? 'Review and approve student registration requests' :
+                    activeView === 'analytics' ? 'Visualize event metrics, attendance, and performance data' :
+                      activeView === 'feedback' ? 'View feedback and ratings for your department events' :
+                        activeView === 'ai-training' ? 'Train and optimize your event planning AI' :
+                          activeView === 'resources' ? 'Manage venues, equipment, and view schedules' :
+                            activeView === 'equipment-review' ? 'Review and respond to equipment approval adjustments' :
                               activeView === 'attendance' ? 'Monitor student attendance and check-ins' :
-                                activeView === 'staff-scanner' ? 'Scan participant QR codes for event attendance' :
-                                  activeView === 'staff-approvals' ? 'Approve or reject equipment and venue requests' :
-                                    'Manage system users and permissions'}
-            </p>
+                                activeView === 'attendance' ? 'Monitor student attendance and check-ins' :
+                                  activeView === 'staff-scanner' ? 'Scan participant QR codes for event attendance' :
+                                    activeView === 'staff-approvals' ? 'Approve or reject equipment and venue requests' :
+                                      'Manage system users and permissions'}
+              </p>
+            </div>
           </div>
           <div className="flex items-center">
             <NotificationBell />
