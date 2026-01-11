@@ -712,15 +712,17 @@ def update_request_status(event_id):
                         (new_status, event_id)
                     )
                     
-                    # Determine notification type based on outcome
-                    notif_type = 'status_update'
-                    notif_title = f"Equipment Review Complete: {event_full['name']}"
-                    
-                    if rejected_items:
-                        notif_type = 'equipment_adjusted'  # Triggers resolution/withdraw flow
-                        notif_title = f"Action Required: Equipment Rejected for {event_full['name']}"
-                    
+                    # Send Notification
+                    event_full = db.execute_one("SELECT requestor_id, name FROM events WHERE id = %s", (event_id,))
                     if event_full:
+                        # Determine notification type based on outcome
+                        notif_type = 'status_update'
+                        notif_title = f"Equipment Review Complete: {event_full['name']}"
+                        
+                        if rejected_items:
+                            notif_type = 'equipment_adjusted'  # Triggers resolution/withdraw flow
+                            notif_title = f"Action Required: Equipment Rejected for {event_full['name']}"
+                        
                         db.execute_insert(
                             """INSERT INTO notifications (user_id, event_id, type, title, message, created_at)
                                VALUES (%s, %s, %s, %s, %s, NOW())""",
