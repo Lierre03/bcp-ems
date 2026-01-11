@@ -238,8 +238,8 @@ def register():
             with db.get_transaction() as cursor:
                 # Insert new user (pending admin approval)
                 cursor.execute('''
-                    INSERT INTO users (username, email, password_hash, first_name, last_name, role_id, is_active, account_status)
-                    VALUES (%s, %s, %s, %s, %s, %s, 0, 'Pending')
+                    INSERT INTO users (id, username, email, password_hash, first_name, last_name, role_id, is_active, account_status)
+                    VALUES (DEFAULT, %s, %s, %s, %s, %s, %s, 0, 'Pending')
                     RETURNING id
                 ''', (username, email, hashed_password, first_name, last_name, role_id))
                 user_id = cursor.fetchone()[0]
