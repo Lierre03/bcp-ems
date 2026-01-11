@@ -209,10 +209,13 @@ const NotificationBell = () => {
                 continue;
             }
 
-            // Check for equipment list items: "- ItemName (Quantity: X)"
+            // Check for equipment list items: "- ItemName (Quantity: X)" OR "- ItemName (Approved: X/Y)"
             const equipmentMatch = line.match(/^-\s*(.+?)\s*\(Quantity:\s*(\d+)\)/);
-            if (equipmentMatch && currentSection) {
-                const [, itemName, quantity] = equipmentMatch;
+            const partialMatch = line.match(/^-\s*(.+?)\s*\(Approved:\s*(\d+)\/(\d+)\)/);
+
+            if ((equipmentMatch || partialMatch) && currentSection) {
+                const itemName = equipmentMatch ? equipmentMatch[1] : partialMatch[1];
+                const quantity = equipmentMatch ? equipmentMatch[2] : `${partialMatch[2]}/${partialMatch[3]}`; // details
                 const status = currentSection;
 
                 let statusClass = 'bg-slate-100 text-slate-700 border-slate-200';
