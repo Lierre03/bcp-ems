@@ -691,34 +691,7 @@ const ApprovalStatusBadge = ({ status }) => {
   );
 };
 
-const StatusBadge = ({ status }) => {
-  const styles = {
-    Pending: 'bg-orange-100 text-orange-700 border-orange-200',
-    Approved: 'bg-emerald-100 text-emerald-700 border-emerald-200',
-    Rejected: 'bg-red-100 text-red-700 border-red-200'
-  };
 
-  const getIcon = (status) => {
-    if (status === 'Pending') {
-      return React.createElement('svg', { className: "w-3 h-3", fill: 'none', stroke: 'currentColor', viewBox: '0 0 24 24' },
-        React.createElement('path', { strokeLinecap: 'round', strokeLinejoin: 'round', strokeWidth: '2', d: 'M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z' })
-      );
-    } else if (status === 'Approved') {
-      return React.createElement('svg', { className: "w-3 h-3", fill: 'none', stroke: 'currentColor', viewBox: '0 0 24 24' },
-        React.createElement('path', { strokeLinecap: 'round', strokeLinejoin: 'round', strokeWidth: '2', d: 'M5 13l4 4L19 7' })
-      );
-    } else {
-      return React.createElement('svg', { className: "w-3 h-3", fill: 'none', stroke: 'currentColor', viewBox: '0 0 24 24' },
-        React.createElement('path', { strokeLinecap: 'round', strokeLinejoin: 'round', strokeWidth: '2', d: 'M6 18L18 6M6 6l12 12' })
-      );
-    }
-  };
-
-  return React.createElement('span', { className: `px-2 py-0.5 rounded text-xs font-medium border flex items-center gap-1 ${styles[status] || styles.Pending}` },
-    getIcon(status),
-    ' ' + status
-  );
-};
 
 const StatusModal = ({ isOpen, type, title, message, onClose }) => {
   if (!isOpen) return null;
