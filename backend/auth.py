@@ -242,7 +242,7 @@ def register():
                     VALUES (DEFAULT, %s, %s, %s, %s, %s, %s, 0, 'Pending')
                     RETURNING id
                 ''', (username, email, hashed_password, first_name, last_name, role_id))
-                user_id = cursor.fetchone()[0]
+                user_id = cursor.fetchone()['id']
 
                 # Insert into students table
                 cursor.execute('''
