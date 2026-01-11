@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
@@ -7,15 +8,15 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
-        
+
         * {
             font-family: 'Inter', sans-serif;
         }
-        
+
         .gradient-bg {
             background: linear-gradient(135deg, #1e3a8a 0%, #2563eb 50%, #3b82f6 100%);
         }
-        
+
         .password-toggle {
             cursor: pointer;
             user-select: none;
@@ -25,6 +26,7 @@
         .no-scrollbar::-webkit-scrollbar {
             display: none;
         }
+
         .no-scrollbar {
             -ms-overflow-style: none;
             scrollbar-width: none;
@@ -32,23 +34,48 @@
 
         /* Adjustments for smaller vertical screens */
         @media (max-height: 800px) {
-            .logo-img { height: 4rem !important; }
-            .form-header { margin-bottom: 0.5rem !important; }
-            .input-group { gap: 0.5rem !important; }
-            .space-y-5 > :not([hidden]) ~ :not([hidden]) { --tw-space-y-reverse: 0; margin-top: 0.5rem; }
-            input, select { padding-top: 0.5rem !important; padding-bottom: 0.5rem !important; }
-            p { font-size: 0.8rem !important; }
+            .logo-img {
+                height: 4rem !important;
+            }
+
+            .form-header {
+                margin-bottom: 0.5rem !important;
+            }
+
+            .input-group {
+                gap: 0.5rem !important;
+            }
+
+            .space-y-5> :not([hidden])~ :not([hidden]) {
+                --tw-space-y-reverse: 0;
+                margin-top: 0.5rem;
+            }
+
+            input,
+            select {
+                padding-top: 0.5rem !important;
+                padding-bottom: 0.5rem !important;
+            }
+
+            p {
+                font-size: 0.8rem !important;
+            }
         }
     </style>
 </head>
+
 <body class="h-screen overflow-hidden bg-gray-50">
     <div class="flex h-full flex-col lg:flex-row">
         <!-- Left Side - Gradient (Professional & Clean) -->
         <div class="hidden lg:flex lg:w-5/12 gradient-bg items-center justify-center p-12 relative overflow-hidden">
             <!-- decorative circles -->
-            <div class="absolute top-0 left-0 w-64 h-64 bg-white opacity-5 rounded-full -translate-x-1/2 -translate-y-1/2"></div>
-            <div class="absolute bottom-0 right-0 w-96 h-96 bg-white opacity-5 rounded-full translate-x-1/3 translate-y-1/3"></div>
-            
+            <div
+                class="absolute top-0 left-0 w-64 h-64 bg-white opacity-5 rounded-full -translate-x-1/2 -translate-y-1/2">
+            </div>
+            <div
+                class="absolute bottom-0 right-0 w-96 h-96 bg-white opacity-5 rounded-full translate-x-1/3 translate-y-1/3">
+            </div>
+
             <div class="text-white max-w-lg relative z-10">
                 <h2 class="text-4xl font-bold mb-6 tracking-tight">Welcome to SEMS</h2>
                 <p class="text-lg text-blue-100 mb-10 leading-relaxed font-light">
@@ -58,7 +85,8 @@
                     <div class="flex items-center gap-4 group">
                         <div class="bg-white/10 p-3 rounded-lg group-hover:bg-white/20 transition-colors">
                             <svg class="w-6 h-6 text-blue-50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
                             </svg>
                         </div>
                         <p class="text-lg text-blue-50 font-medium">Event Registration</p>
@@ -66,7 +94,8 @@
                     <div class="flex items-center gap-4 group">
                         <div class="bg-white/10 p-3 rounded-lg group-hover:bg-white/20 transition-colors">
                             <svg class="w-6 h-6 text-blue-50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
                             </svg>
                         </div>
                         <p class="text-lg text-blue-50 font-medium">Attendance Tracking</p>
@@ -74,7 +103,8 @@
                     <div class="flex items-center gap-4 group">
                         <div class="bg-white/10 p-3 rounded-lg group-hover:bg-white/20 transition-colors">
                             <svg class="w-6 h-6 text-blue-50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z" />
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z" />
                             </svg>
                         </div>
                         <p class="text-lg text-blue-50 font-medium">Instant Feedback</p>
@@ -86,26 +116,23 @@
         <!-- Right Side - Registration Form (Professional Look) -->
         <div class="w-full lg:w-7/12 bg-white flex flex-col items-center justify-center p-6 sm:p-12 relative">
             <div class="w-full max-w-xl mx-auto flex flex-col justify-center h-full">
-                
+
                 <!-- Logo Section -->
                 <div class="flex justify-center mb-6">
-                    <img 
-                        src="/static/bcp-olp-logo-mini2.png" 
-                        alt="Institution Logo" 
+                    <img src="/static/bcp-olp-logo-mini2.png" alt="Institution Logo"
                         class="logo-img h-20 lg:h-24 w-auto object-contain transition-all duration-300"
-                        onerror="this.src='https://via.placeholder.com/150x80?text=Logo'"
-                    >
+                        onerror="this.src='https://via.placeholder.com/150x80?text=Logo'">
                 </div>
-                
+
                 <!-- Header -->
                 <div class="text-center mb-8 form-header">
                     <h1 class="text-2xl lg:text-3xl font-bold text-gray-900 tracking-tight">Create your account</h1>
                     <p class="text-gray-500 text-sm lg:text-base mt-2">Enter your details to get started with SEMS</p>
                 </div>
-                
+
                 <!-- Form -->
                 <form id="registerForm" class="space-y-5">
-                    
+
                     <!-- Name Row -->
                     <div class="grid grid-cols-1 sm:grid-cols-2 gap-5 input-group">
                         <div class="space-y-1.5">
@@ -147,7 +174,7 @@
                                 <select id="course" name="course" required
                                     class="w-full px-4 py-2.5 bg-white border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 outline-none text-gray-900 text-sm transition-all hover:border-gray-400 appearance-none truncate">
                                     <option value="" disabled selected>Select Course</option>
-                                    
+
                                     <optgroup label="Information Technology & Engineering">
                                         <option value="BSIT">BS Information Technology (BSIT)</option>
                                         <option value="BSCpE">BS Computer Engineering (BSCpE)</option>
@@ -172,8 +199,10 @@
                                     </optgroup>
                                 </select>
                                 <div class="absolute inset-y-0 right-0 flex items-center px-2 pointer-events-none">
-                                    <svg class="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                                    <svg class="w-4 h-4 text-gray-500" fill="none" stroke="currentColor"
+                                        viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                            d="M19 9l-7 7-7-7" />
                                     </svg>
                                 </div>
                             </div>
@@ -188,8 +217,10 @@
                                     <option value="" disabled selected>Select Course First</option>
                                 </select>
                                 <div class="absolute inset-y-0 right-0 flex items-center px-2 pointer-events-none">
-                                    <svg class="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                                    <svg class="w-4 h-4 text-gray-500" fill="none" stroke="currentColor"
+                                        viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                            d="M19 9l-7 7-7-7" />
                                     </svg>
                                 </div>
                             </div>
@@ -204,19 +235,32 @@
                                 <input type="password" id="password" name="password" required minlength="8"
                                     class="w-full px-4 py-2.5 bg-white border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 outline-none text-gray-900 text-sm transition-all hover:border-gray-400 placeholder-gray-400"
                                     placeholder="8+ characters">
-                                <span class="absolute right-3 top-2.5 password-toggle text-gray-400 hover:text-gray-600" onclick="togglePassword('password')">
-                                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>
+                                <span class="absolute right-3 top-2.5 password-toggle text-gray-400 hover:text-gray-600"
+                                    onclick="togglePassword('password')">
+                                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                            d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                            d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                                    </svg>
                                 </span>
                             </div>
                         </div>
                         <div class="space-y-1.5">
-                            <label for="confirmPassword" class="block text-sm font-medium text-gray-700">Confirm Password</label>
+                            <label for="confirmPassword" class="block text-sm font-medium text-gray-700">Confirm
+                                Password</label>
                             <div class="relative">
                                 <input type="password" id="confirmPassword" name="confirmPassword" required
                                     class="w-full px-4 py-2.5 bg-white border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 outline-none text-gray-900 text-sm transition-all hover:border-gray-400 placeholder-gray-400"
                                     placeholder="Repeat password">
-                                <span class="absolute right-3 top-2.5 password-toggle text-gray-400 hover:text-gray-600" onclick="togglePassword('confirmPassword')">
-                                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>
+                                <span class="absolute right-3 top-2.5 password-toggle text-gray-400 hover:text-gray-600"
+                                    onclick="togglePassword('confirmPassword')">
+                                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                            d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                            d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                                    </svg>
                                 </span>
                             </div>
                         </div>
@@ -224,8 +268,12 @@
 
                     <!-- Messages -->
                     <div class="min-h-[24px]">
-                        <div id="errorMessage" class="hidden flex items-center justify-center gap-2 text-red-600 text-sm font-medium bg-red-50 py-2 px-4 rounded-lg">
-                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                        <div id="errorMessage"
+                            class="hidden flex items-center justify-center gap-2 text-red-600 text-sm font-medium bg-red-50 py-2 px-4 rounded-lg">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
                             <span id="errorText">Error message</span>
                         </div>
                     </div>
@@ -235,19 +283,24 @@
                         <button type="submit" id="registerBtn"
                             class="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 rounded-lg shadow-sm hover:shadow-md transition-all duration-200 transform active:scale-[0.99] flex items-center justify-center gap-2">
                             Create Account
-                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7l5 5m0 0l-5 5m5-5H6" /></svg>
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M13 7l5 5m0 0l-5 5m5-5H6" />
+                            </svg>
                         </button>
                     </div>
 
                     <!-- Sign In Link -->
                     <div class="text-center">
                         <p class="text-gray-500 text-sm">
-                            Already have an account? 
-                            <a href="/login" class="text-blue-600 hover:text-blue-700 font-semibold hover:underline decoration-2 underline-offset-2 transition-colors">Sign in</a>
+                            Already have an account?
+                            <a href="/"
+                                class="text-blue-600 hover:text-blue-700 font-semibold hover:underline decoration-2 underline-offset-2 transition-colors">Sign
+                                in</a>
                         </p>
                     </div>
                 </form>
-                
+
                 <!-- Footer -->
                 <div class="mt-8 text-center border-t border-gray-100 pt-4 hidden sm:block">
                     <p class="text-xs text-gray-400">&copy; 2025 SEMS. All rights reserved.</p>
@@ -283,10 +336,10 @@
             'BSCrim': ['Crim01', 'Crim02']
         };
 
-        courseSelect.addEventListener('change', function() {
+        courseSelect.addEventListener('change', function () {
             const selectedCourse = this.value;
             sectionSelect.innerHTML = '<option value="" disabled selected>Select Section</option>';
-            
+
             if (sectionsByCourse[selectedCourse]) {
                 sectionsByCourse[selectedCourse].forEach(section => {
                     const option = document.createElement('option');
@@ -380,28 +433,36 @@
             errorDiv.classList.remove('hidden');
         }
     </script>
-    
+
     <!-- Success Overlay (Full Screen) -->
-    <div id="successOverlay" class="hidden fixed top-0 left-0 w-full h-full bg-white z-[9999] flex items-center justify-center p-6" style="position: fixed;">
+    <div id="successOverlay"
+        class="hidden fixed top-0 left-0 w-full h-full bg-white z-[9999] flex items-center justify-center p-6"
+        style="position: fixed;">
         <div class="max-w-md w-full text-center">
             <div class="mb-6">
                 <svg class="w-20 h-20 mx-auto text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                        d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
                 </svg>
             </div>
             <h2 class="text-3xl font-bold text-gray-900 mb-4">Registration Successful!</h2>
-            <p class="text-lg text-gray-600 mb-3">Your account has been created and is <strong class="text-blue-600">pending admin approval</strong>.</p>
-            <p class="text-sm text-gray-500 mb-6">You will receive an email notification once your account is approved by the administrator.</p>
+            <p class="text-lg text-gray-600 mb-3">Your account has been created and is <strong
+                    class="text-blue-600">pending admin approval</strong>.</p>
+            <p class="text-sm text-gray-500 mb-6">You will receive an email notification once your account is approved
+                by the administrator.</p>
             <div class="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
                 <p class="text-sm text-blue-800">
                     <strong>What happens next?</strong><br>
-                    An administrator will review your registration and approve your account. This usually takes 24-48 hours.
+                    An administrator will review your registration and approve your account. This usually takes 24-48
+                    hours.
                 </p>
             </div>
-            <a href="/" class="inline-block w-full px-6 py-3 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 transition-colors">
+            <a href="/"
+                class="inline-block w-full px-6 py-3 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 transition-colors">
                 Return to Login
             </a>
         </div>
     </div>
 </body>
+
 </html>
