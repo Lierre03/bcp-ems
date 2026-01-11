@@ -10,9 +10,14 @@ import logging
 import qrcode
 import io
 import base64
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 
 logger = logging.getLogger(__name__)
+
+def get_ph_time():
+    """Get current time in Philippines (UTC+8)"""
+    return datetime.now(timezone.utc) + timedelta(hours=8)
+
 
 # Create blueprint
 attendance_bp = Blueprint('attendance', __name__, url_prefix='/api/attendance')
@@ -168,8 +173,8 @@ def check_in_attendance(qr_code):
         # Record attendance
         attendance_id = db.execute_insert(
             "INSERT INTO event_attendance (event_id, user_id, check_in_datetime, check_in_method) "
-            "VALUES (%s, %s, NOW(), 'QR')",
-            (registration['event_id'], user_id)
+            "VALUES (%s, %s, %s, 'QR')",
+            (registration['event_id'], user_id, get_ph_time())
         )
 
         logger.info(f"QR Check-in: {registration['first_name']} {registration['last_name']} for event {registration['event_name']}")
@@ -181,7 +186,7 @@ def check_in_attendance(qr_code):
                 'name': f"{registration['first_name']} {registration['last_name']}",
                 'username': registration['username'],
                 'event': registration['event_name'],
-                'check_in_time': datetime.now().strftime('%I:%M %p')
+                'check_in_time': get_ph_time().strftime('%I:%M %p')
             },
             'attendance_id': attendance_id
         }), 200
@@ -252,8 +257,8 @@ def manual_check_in():
         # Record attendance
         attendance_id = db.execute_insert(
             "INSERT INTO event_attendance (event_id, user_id, check_in_datetime, check_in_method) "
-            "VALUES (%s, %s, NOW(), 'Manual')",
-            (event_id, registration['user_id'])
+            "VALUES (%s, %s, %s, 'Manual')",
+            (event_id, registration['user_id'], get_ph_time())
         )
 
         logger.info(f"Manual Check-in: {registration['first_name']} {registration['last_name']} for event {registration['event_name']}")
@@ -265,7 +270,7 @@ def manual_check_in():
                 'name': f"{registration['first_name']} {registration['last_name']}",
                 'username': registration['username'],
                 'event': registration['event_name'],
-                'check_in_time': datetime.now().strftime('%I:%M %p')
+                'check_in_time': get_ph_time().strftime('%I:%M %p')
             },
             'attendance_id': attendance_id
         }), 200
