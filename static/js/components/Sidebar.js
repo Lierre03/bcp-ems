@@ -31,7 +31,7 @@ window.Sidebar = function Sidebar({ user, menuItems, activeView, onViewChange, o
           </button>
         </div>
 
-        <nav className="flex-1 py-4 space-y-6 overflow-y-auto">
+        <nav className="flex-1 py-4 space-y-6 overflow-y-auto sidebar-scroll">
           {menuItems.map((group, groupIndex) => (
             <div key={groupIndex}>
               {group.title && (
