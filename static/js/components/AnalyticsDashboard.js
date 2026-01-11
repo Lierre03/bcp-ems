@@ -156,7 +156,7 @@ window.AnalyticsDashboard = function AnalyticsDashboard() {
 
       // KPI Cards
       const kpis = [
-        { label: 'Total Events', value: totalEvents, icon: '📊' },
+        { label: 'Total Events', value: String(totalEvents), icon: '📊' },
         { label: 'Completion Rate', value: `${completionRate}%`, icon: '✅' },
         { label: 'Avg Feedback', value: `${analytics.feedback.avg_overall}/5`, icon: '⭐' },
         { label: 'Attendance Rate', value: `${analytics.attendance.attendance_rate}%`, icon: '👥' }
