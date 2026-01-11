@@ -164,7 +164,16 @@ class Database:
         """Execute INSERT query and return last insert ID"""
         with self.get_cursor() as cursor:
             cursor.execute(query, params or ())
-            return cursor.lastrowid
+            
+            # Check if query returns rows (e.g. RETURNING id)
+            if cursor.description:
+                result = cursor.fetchone()
+                if result:
+                    # Return 'id' if dict or first element if tuple
+                    return result['id'] if isinstance(result, dict) else result[0]
+            
+            # Fallback for databases supporting lastrowid (SQLite/MySQL)
+            return getattr(cursor, 'lastrowid', None)
     
     def execute_update(self, query, params=None):
         """Execute UPDATE/DELETE query and return affected rows"""

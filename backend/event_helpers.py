@@ -91,7 +91,7 @@ def validate_event_booking(db, venue, start_datetime, end_datetime, exclude_even
     exclude_id = exclude_event_id or 0
     
     # Hard conflicts: Already approved/under review events (blocks submission)
-    hard_conflicts = db.execute_all("""
+    hard_conflicts = db.execute_query("""
         SELECT id, name as event_name, start_datetime, end_datetime, status, requestor_id as created_by
         FROM events 
         WHERE venue = %s 
@@ -116,7 +116,7 @@ def validate_event_booking(db, venue, start_datetime, end_datetime, exclude_even
         }
     
     # Soft conflicts: Pending requests (allows submission with warning)
-    soft_conflicts = db.execute_all("""
+    soft_conflicts = db.execute_query("""
         SELECT id, name as event_name, start_datetime, end_datetime, requestor_id as created_by, created_at
         FROM events 
         WHERE venue = %s 

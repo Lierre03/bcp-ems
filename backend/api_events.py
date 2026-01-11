@@ -714,6 +714,7 @@ def create_event():
                 venue, organizer, expected_attendees, budget, equipment, timeline, budget_breakdown, additional_resources,
                 organizing_department, status, requestor_id
             ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+            RETURNING id
         """
         event_id = db.execute_insert(query, (
             data['name'],
@@ -841,7 +842,7 @@ def update_event(event_id):
         
         # Log status change if status updated
         if 'status' in data and data['status'] != event['status']:
-            db.execute_insert(
+            db.execute_update(
                 """INSERT INTO event_status_history (event_id, old_status, new_status, changed_by, reason)
                    VALUES (%s, %s, %s, %s, %s)""",
                 (event_id, event['status'], data['status'], session['user_id'], data.get('reason', 'Status updated'))
