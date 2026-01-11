@@ -796,6 +796,8 @@ window.AdminEventsManager = function AdminEventsManager({ eventIdToOpen }) {
                 <option>Academic</option>
                 <option>Sports</option>
                 <option>Cultural</option>
+                <option>Workshop</option>
+                <option>Other</option>
               </select>
 
               <select
