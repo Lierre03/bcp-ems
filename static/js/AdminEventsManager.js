@@ -693,10 +693,7 @@ window.AdminEventsManager = function AdminEventsManager({ eventIdToOpen }) {
     <div className="space-y-6">
 
       {/* Page Header */}
-      <div>
-        <h1 className="text-2xl font-bold text-slate-900">Events Manager</h1>
-        <p className="text-slate-500 mt-1">Create, manage, and track all school events.</p>
-      </div>
+      {/* Page Header Removed - Redundant with Dashboard Header */}
 
       {/* Stats Grid */}
       <div className="grid grid-cols-4 gap-2 md:gap-4">
