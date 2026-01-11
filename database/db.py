@@ -123,7 +123,7 @@ class Database:
             conn = self.get_connection()
             cursor = conn.cursor()
             # Temporarily disable autocommit for transaction
-            conn.autocommit(False)
+            conn.autocommit = False
             yield cursor
             conn.commit()
         except Exception as e:
@@ -143,7 +143,7 @@ class Database:
             # Re-enable autocommit before returning to pool
             if conn:
                 try:
-                    conn.autocommit(self.config.get('autocommit', True))
+                    conn.autocommit = self.config.get('autocommit', True)
                 except:
                     pass
                 self.return_connection(conn)

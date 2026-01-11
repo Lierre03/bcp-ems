@@ -240,8 +240,9 @@ def register():
                 cursor.execute('''
                     INSERT INTO users (username, email, password_hash, first_name, last_name, role_id, is_active, account_status)
                     VALUES (%s, %s, %s, %s, %s, %s, 0, 'Pending')
+                    RETURNING id
                 ''', (username, email, hashed_password, first_name, last_name, role_id))
-                user_id = cursor.lastrowid
+                user_id = cursor.fetchone()[0]
 
                 # Insert into students table
                 cursor.execute('''
