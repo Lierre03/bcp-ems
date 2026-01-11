@@ -297,7 +297,7 @@ def _change_event_status(event_id, action, reason=None, action_on_conflict=None)
 # ============================================================================
 
 @events_bp.route('/check-availability', methods=['GET'])
-@require_role(['Super Admin', 'Admin', 'Staff', 'Requestor'])
+@require_role(['Super Admin', 'Admin', 'Staff', 'Requestor', 'Participant', 'Student Organization Officer'])
 def check_availability():
     """
     Real-time venue availability check (hard and soft conflicts).

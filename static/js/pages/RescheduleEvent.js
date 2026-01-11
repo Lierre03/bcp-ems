@@ -220,12 +220,35 @@ const RescheduleEvent = () => {
 
       // Optional: Check for conflicts before saving (Bug #4)
       try {
-        const conflictCheck = await fetch('/api/events/check-availability', {
+        const queryParams = new URLSearchParams({
+          venue: formData.venue,
+          start: startDatetime,
+          end: endDatetime,
+          exclude_event_id: event.id
+        });
+
+        const conflictCheck = await fetch(`/api/events/check-availability?${queryParams}`, {
           method: 'GET',
           headers: { 'Content-Type': 'application/json' }
         });
-        // Note: This is a basic check - backend will do final validation
+
+        if (conflictCheck.ok) {
+          const checkData = await conflictCheck.json();
+          if (!checkData.can_submit) {
+            // If there is a hard conflict, warn the user
+            // But we generally allow submitting to 'Under Review' unless it's a hard block
+            // For now, let's just alert if it's a major conflict
+            if (checkData.conflict_type === 'hard') {
+              const proceed = confirm(`Warning: This slot has a conflict (${checkData.message}). Do you want to proceed anyway? It may be rejected.`);
+              if (!proceed) {
+                setSaving(false);
+                return;
+              }
+            }
+          }
+        }
       } catch (conflictError) {
+        console.warn('Conflict check failed, proceeding with save:', conflictError);
         // Non-blocking - backend will catch conflicts anyway
       }
 
@@ -306,15 +329,22 @@ const RescheduleEvent = () => {
         // Top sections (full width)
         React.createElement('div', null,
           // Conflict Alert Banner
-          React.createElement('div', { className: 'bg-red-500 px-6 py-4 rounded-t-xl' },
-            React.createElement('div', { className: 'flex items-center gap-3 text-white' },
-              React.createElement('svg', { className: 'w-6 h-6 flex-shrink-0', fill: 'currentColor', viewBox: '0 0 20 20' },
-                React.createElement('path', { fillRule: 'evenodd', d: 'M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z', clipRule: 'evenodd' })
-              ),
-              React.createElement('div', null,
-                React.createElement('h2', { className: 'font-bold text-base' }, 'Event Automatically Rejected'),
-                React.createElement('p', { className: 'text-sm text-red-50 mt-0.5' },
-                  'Another event reserved this venue first (First-Come-First-Served policy)'
+          // Only show if the event was actually auto-rejected due to conflict
+          (event.status === 'Conflict_Rejected' || event.status === 'Rejected') && (
+            React.createElement('div', { className: 'bg-red-500 px-6 py-4 rounded-t-xl' },
+              React.createElement('div', { className: 'flex items-center gap-3 text-white' },
+                React.createElement('svg', { className: 'w-6 h-6 flex-shrink-0', fill: 'currentColor', viewBox: '0 0 20 20' },
+                  React.createElement('path', { fillRule: 'evenodd', d: 'M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z', clipRule: 'evenodd' })
+                ),
+                React.createElement('div', null,
+                  React.createElement('h2', { className: 'font-bold text-base' },
+                    event.status === 'Conflict_Rejected' ? 'Event Automatically Rejected' : 'Event Rejected'
+                  ),
+                  React.createElement('p', { className: 'text-sm text-red-50 mt-0.5' },
+                    event.status === 'Conflict_Rejected'
+                      ? 'Another event reserved this venue first (First-Come-First-Served policy)'
+                      : (event.rejection_reason || 'Please select a new schedule to resubmit.')
+                  )
                 )
               )
             )
