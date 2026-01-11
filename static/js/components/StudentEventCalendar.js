@@ -181,36 +181,18 @@ window.StudentEventCalendar = function StudentEventCalendar() {
             </div>
           ) : (
             <>
-              {/* Mobile: List View */}
-              <div className="md:hidden space-y-1 max-h-96 overflow-y-auto">
-                {events.slice(0, 20).map(event => (
-                  <div key={event.id} className={`p-2 rounded-lg border text-xs ${event.colorClass}`}>
-                    <div className="font-semibold truncate">{event.title}</div>
-                    <div className="text-slate-600 text-xs mt-0.5">
-                      {new Date(event.start).toLocaleDateString()} {new Date(event.start).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                    </div>
-                    <div className="text-slate-600 text-xs">
-                      📍 {event.venue}
-                    </div>
-                  </div>
-                ))}
-                {events.length === 0 && (
-                  <div className="text-center text-slate-400 py-4 text-xs">No approved events this month</div>
-                )}
-              </div>
-
-              {/* Desktop: Calendar Grid */}
-              <div className="hidden md:grid grid-cols-7 gap-px bg-slate-200 border border-slate-200 rounded-lg overflow-hidden">
+              {/* Calendar Grid - Visible on all screens */}
+              <div className="grid grid-cols-7 gap-px bg-slate-200 border border-slate-200 rounded-lg overflow-hidden">
                 {/* Weekday Headers */}
                 {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(d => (
-                  <div key={d} className="bg-slate-50 p-1 text-center text-xs font-bold text-slate-500 uppercase tracking-wider">
+                  <div key={d} className="bg-slate-50 p-1 text-center text-[10px] md:text-xs font-bold text-slate-500 uppercase tracking-wider">
                     {d}
                   </div>
                 ))}
 
                 {/* Empty Cells */}
                 {emptyDays.map(i => (
-                  <div key={`empty-${i}`} className="bg-white h-20"></div>
+                  <div key={`empty-${i}`} className="bg-white min-h-[60px] md:h-20"></div>
                 ))}
 
                 {/* Days */}
@@ -222,23 +204,34 @@ window.StudentEventCalendar = function StudentEventCalendar() {
                     <div
                       key={day}
                       onClick={() => handleDateClick(day)}
-                      className={`bg-white h-20 p-1 transition hover:bg-slate-50 cursor-pointer relative group ${isToday ? 'bg-blue-50/30' : ''}`}
+                      className={`bg-white min-h-[60px] md:h-20 p-0.5 md:p-1 transition hover:bg-slate-50 cursor-pointer relative group ${isToday ? 'bg-blue-50/30' : ''}`}
                     >
-                      <span className={`text-xs font-medium ${isToday ? 'bg-blue-600 text-white w-5 h-5 flex items-center justify-center rounded-full' : 'text-slate-700'}`}>
+                      <span className={`text-[10px] md:text-xs font-medium block text-center md:text-left mb-0.5 ${isToday ? 'bg-blue-600 text-white w-5 h-5 flex items-center justify-center rounded-full mx-auto md:mx-0' : 'text-slate-700'}`}>
                         {day}
                       </span>
 
-                      <div className="mt-0.5 space-y-0.5 overflow-y-auto max-h-[60px]">
-                        {dayEvents.slice(0, 2).map(event => (
-                          <div key={event.id} className={`text-[9px] px-1 py-0.5 rounded border truncate ${event.colorClass}`}>
-                            {new Date(event.start).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} {event.title}
-                          </div>
-                        ))}
-                        {dayEvents.length > 2 && (
-                          <div className="text-[9px] text-slate-500 font-medium pl-1">
-                            +{dayEvents.length - 2}
-                          </div>
-                        )}
+                      {/* Events Container */}
+                      <div className="space-y-0.5 overflow-hidden">
+                        {/* Mobile: Dots or Very Compact View */}
+                        <div className="md:hidden flex flex-wrap gap-0.5 justify-center">
+                          {dayEvents.map(event => (
+                            <div key={event.id} className={`w-1.5 h-1.5 rounded-full ${event.colorClass.includes('bg-') ? event.colorClass.split(' ')[0] : 'bg-blue-500'}`} />
+                          ))}
+                        </div>
+
+                        {/* Desktop: Detailed View */}
+                        <div className="hidden md:block space-y-0.5 overflow-y-auto max-h-[60px]">
+                          {dayEvents.slice(0, 2).map(event => (
+                            <div key={event.id} className={`text-[9px] px-1 py-0.5 rounded border truncate ${event.colorClass}`}>
+                              {new Date(event.start).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} {event.title}
+                            </div>
+                          ))}
+                          {dayEvents.length > 2 && (
+                            <div className="text-[9px] text-slate-500 font-medium pl-1">
+                              +{dayEvents.length - 2}
+                            </div>
+                          )}
+                        </div>
                       </div>
                     </div>
                   );

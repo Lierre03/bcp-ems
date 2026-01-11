@@ -59,7 +59,10 @@
         function StudentDashboard() {
             const [user, setUser] = useState(null);
             const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-            const [activeView, setActiveView] = useState('calendar');
+            // Load last active view from localStorage, default to 'calendar'
+            const [activeView, setActiveView] = useState(() => {
+                return localStorage.getItem('studentActiveView') || 'calendar';
+            });
             const [showEventModal, setShowEventModal] = useState(false);
             const [proposals, setProposals] = useState([]);
             const [proposalsLoading, setProposalsLoading] = useState(false);
@@ -107,9 +110,11 @@
                 if (userJson) {
                     const userData = JSON.parse(userJson);
                     setUser(userData);
-                    // Set default view based on role
-                    if (userData.role_name === 'Student Organization Officer') {
-                        setActiveView('proposals');
+                    // Set default view based on role ONLY if no persisted view
+                    if (!localStorage.getItem('studentActiveView')) {
+                        if (userData.role_name === 'Student Organization Officer') {
+                            setActiveView('proposals');
+                        }
                     }
                     // Set organizer name
                     setFormData(prev => ({
@@ -144,6 +149,11 @@
                 window.addEventListener('hashchange', handleHashChange);
                 return () => window.removeEventListener('hashchange', handleHashChange);
             }, []);
+
+            // Persist active view on change
+            useEffect(() => {
+                localStorage.setItem('studentActiveView', activeView);
+            }, [activeView]);
 
             const checkModelStatus = async () => {
                 try {
@@ -418,10 +428,23 @@
 
 
 
+
+
+            // Helper function to convert 24-hour time to 12-hour AM/PM format
+            const formatTime12Hour = (time24) => {
+                if (!time24) return '';
+                const [hours, minutes] = time24.split(':');
+                const hour = parseInt(hours);
+                const ampm = hour >= 12 ? 'PM' : 'AM';
+                const hour12 = hour % 12 || 12;
+                return `${hour12}:${minutes} ${ampm}`;
+            };
+
             const handleLogout = async () => {
                 try {
                     await fetch('/api/auth/logout', { method: 'POST' });
                     localStorage.removeItem('user');
+                    localStorage.removeItem('studentActiveView'); // Clear active view preference
                     window.location.href = '/';
                 } catch (error) {
                     console.error('Logout failed:', error);
@@ -464,22 +487,38 @@
                             const statusColor = reg.registration_status === 'Registered' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800';
                             const statusText = reg.registration_status === 'Registered' ? '✅ Confirmed' : '⏳ Waitlisted';
 
+                            // Check for past event
+                            const eventEndDate = new Date(reg.start_datetime); // Using start time as proxy if end time not available
+                            const isPast = eventEndDate < new Date();
+
+                            // Apply styles
+                            const cardOpacity = isPast ? 'bg-gray-50 opacity-75' : 'bg-white';
+                            const grayscale = isPast ? 'grayscale' : '';
+                            const textColor = isPast ? 'text-gray-500' : 'text-gray-900';
+                            const dateColor = isPast ? 'text-gray-400' : 'text-gray-600';
+
                             const card = document.createElement('div');
-                            card.className = 'border border-gray-200 rounded-lg p-6 hover:shadow-md transition';
+                            card.className = `border border-gray-200 rounded-lg p-6 hover:shadow-md transition ${cardOpacity}`;
                             card.innerHTML = `
                                 <div class="flex justify-between items-start mb-4">
                                     <div class="flex-1">
-                                        <h3 class="font-semibold text-gray-900 mb-1">${reg.name}</h3>
-                                        <p class="text-sm text-gray-600 mb-2">${new Date(reg.start_datetime).toLocaleDateString()} • ${reg.venue} • ${new Date(reg.start_datetime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p>
+                                        <h3 class="font-semibold ${textColor} mb-1 ${grayscale}">${reg.name}</h3>
+                                        <p class="text-sm ${dateColor} mb-2 ${grayscale}">${new Date(reg.start_datetime).toLocaleDateString()} • ${reg.venue} • ${new Date(reg.start_datetime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p>
                                         <div class="flex items-center gap-4 text-sm">
-                                            <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${statusColor}">
-                                                ${statusText}
+                                            <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${isPast ? 'bg-gray-200 text-gray-500' : statusColor}">
+                                                ${isPast && reg.registration_status === 'Registered' ? 'Completed' : statusText}
                                             </span>
                                             <span class="text-gray-500">Reg ID: #${reg.id}</span>
                                         </div>
                                     </div>
                                     <div class="flex gap-2">
-                                        ${reg.registration_status === 'Registered' ? '<button class="px-3 py-1 border border-red-300 text-red-700 rounded-lg text-sm hover:bg-red-50 transition cancel-btn" data-event-id="' + reg.event_id + '">Cancel</button>' : '<button class="px-3 py-1 border border-gray-300 text-gray-700 rounded-lg text-sm hover:bg-gray-50 transition">Leave Waitlist</button>'}
+                                        ${isPast ?
+                                    '<span class="text-xs font-medium text-gray-400 border border-gray-200 px-2 py-1 rounded bg-gray-100">Event Ended</span>' :
+                                    (reg.registration_status === 'Registered' ?
+                                        '<button class="px-3 py-1 border border-red-300 text-red-700 rounded-lg text-sm hover:bg-red-50 transition cancel-btn" data-event-id="' + reg.event_id + '">Cancel</button>' :
+                                        '<button class="px-3 py-1 border border-gray-300 text-gray-700 rounded-lg text-sm hover:bg-gray-50 transition">Leave Waitlist</button>'
+                                    )
+                                }
                                     </div>
                                 </div>
 
@@ -1652,7 +1691,7 @@
                                                                     </span>
                                                                 </div>
                                                                 <p className="text-sm text-gray-600">
-                                                                    {new Date(proposal.date).toLocaleDateString()} • {proposal.venue} • {proposal.startTime} - {proposal.endTime}
+                                                                    {new Date(proposal.date).toLocaleDateString()} • {proposal.venue} • {formatTime12Hour(proposal.startTime)} - {formatTime12Hour(proposal.endTime)}
                                                                 </p>
                                                             </div>
                                                             <div className="text-right">
@@ -1706,8 +1745,7 @@
                     case 'calendar':
                         return (
                             <div>
-                                <div className="mb-6">
-                                    <p className="text-blue-600 text-sm font-medium mb-1">Student Portal</p>
+                                <div className="mb-6 hidden md:block">
                                     <p className="text-gray-500 text-sm mb-2">
                                         Browse and register for upcoming events
                                     </p>
@@ -1716,6 +1754,10 @@
 
                                 {/* Event Calendar with Month View */}
                                 <div className="bg-white rounded-lg shadow p-6">
+                                    <div className="md:hidden mb-4">
+                                        <h2 className="text-xl font-bold text-gray-900 leading-tight">Event Calendar</h2>
+                                        <p className="text-xs text-gray-500 mt-1">Browse and register for upcoming events</p>
+                                    </div>
                                     <StudentEventCalendar />
                                 </div>
                             </div>
@@ -1742,8 +1784,7 @@
                     case 'registrations':
                         return (
                             <div key="registrations-view">
-                                <div className="mb-6">
-                                    <p className="text-blue-600 text-sm font-medium mb-1">Student Portal</p>
+                                <div className="mb-6 hidden md:block">
                                     <p className="text-gray-500 text-sm mb-2">
                                         View and manage your event registrations
                                     </p>
@@ -1751,26 +1792,29 @@
                                 </div>
 
                                 <div className="bg-white rounded-lg shadow p-6">
-                                    <div className="flex justify-between items-center mb-6">
-                                        <h2 className="text-xl font-semibold text-gray-900">My Event Registrations</h2>
-                                        <button className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition text-sm">
+                                    <div className="flex justify-between items-center mb-4 md:mb-6 gap-2">
+                                        <div className="flex flex-col">
+                                            <h2 className="text-lg md:text-xl font-semibold text-gray-900 leading-tight">My Event Registrations</h2>
+                                            <p className="text-xs text-gray-500 md:hidden mt-1">View and manage your event registrations</p>
+                                        </div>
+                                        <button className="bg-blue-600 text-white px-3 py-1.5 md:px-4 md:py-2 rounded-lg hover:bg-blue-700 transition text-xs md:text-sm whitespace-nowrap shrink-0">
                                             Browse Events
                                         </button>
                                     </div>
 
                                     {/* Registration Stats */}
-                                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-                                        <div className="bg-green-50 border border-green-200 rounded-lg p-4 text-center">
-                                            <div className="text-2xl font-bold text-green-600" id="registeredCount">0</div>
-                                            <div className="text-sm text-green-800">Confirmed Registrations</div>
+                                    <div className="grid grid-cols-3 gap-2 md:gap-4 mb-6">
+                                        <div className="bg-green-50 border border-green-200 rounded-lg p-2 md:p-4 text-center flex flex-col justify-center items-center h-full">
+                                            <div className="text-xl md:text-2xl font-bold text-green-600 leading-tight" id="registeredCount">0</div>
+                                            <div className="text-xs md:text-sm text-green-800 leading-tight mt-1">Confirmed</div>
                                         </div>
-                                        <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 text-center">
-                                            <div className="text-2xl font-bold text-yellow-600" id="waitlistCount">0</div>
-                                            <div className="text-sm text-yellow-800">Waitlisted</div>
+                                        <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-2 md:p-4 text-center flex flex-col justify-center items-center h-full">
+                                            <div className="text-xl md:text-2xl font-bold text-yellow-600 leading-tight" id="waitlistCount">0</div>
+                                            <div className="text-xs md:text-sm text-yellow-800 leading-tight mt-1">Waitlisted</div>
                                         </div>
-                                        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 text-center">
-                                            <div className="text-2xl font-bold text-blue-600" id="upcomingCount">0</div>
-                                            <div className="text-sm text-blue-800">Upcoming Events</div>
+                                        <div className="bg-blue-50 border border-blue-200 rounded-lg p-2 md:p-4 text-center flex flex-col justify-center items-center h-full">
+                                            <div className="text-xl md:text-2xl font-bold text-blue-600 leading-tight" id="upcomingCount">0</div>
+                                            <div className="text-xs md:text-sm text-blue-800 leading-tight mt-1">Upcoming</div>
                                         </div>
                                     </div>
 
@@ -1807,8 +1851,7 @@
                     case 'attendance':
                         return (
                             <div key="attendance-view">
-                                <div className="mb-6">
-                                    <p className="text-blue-600 text-sm font-medium mb-1">Student Portal</p>
+                                <div className="mb-6 hidden md:block">
                                     <p className="text-gray-500 text-sm mb-2">
                                         Track your attendance across events
                                     </p>
@@ -1816,10 +1859,14 @@
                                 </div>
 
                                 <div className="bg-white rounded-lg shadow p-6">
-                                    <div className="flex justify-between items-center mb-6">
-                                        <h2 className="text-xl font-semibold text-gray-900">My Attendance Records</h2>
-                                        <div className="text-sm text-gray-600">
-                                            Real-time attendance tracking via QR codes
+                                    <div className="mb-4 md:mb-6">
+                                        <div className="flex flex-col md:flex-row md:justify-between md:items-center gap-2">
+                                            <div>
+                                                <h2 className="text-lg md:text-xl font-semibold text-gray-900 leading-tight">My Attendance Records</h2>
+                                                <p className="text-xs md:text-sm text-gray-500 md:text-gray-600 mt-1">
+                                                    <span className="md:hidden">Track your attendance across events • </span>Real-time tracking via QR codes
+                                                </p>
+                                            </div>
                                         </div>
                                     </div>
 
