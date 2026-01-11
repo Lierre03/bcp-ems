@@ -272,7 +272,6 @@ window.AdminDashboard = function AdminDashboard() {
           {activeView === 'resources' && <ResourceManagement userRole={user ? user.role_name : 'Admin'} />}
           {activeView === 'equipment-review' && <EquipmentApprovalReview eventId={equipmentReviewEventId} onClose={() => setActiveView('events')} />}
           {activeView === 'attendance' && <AttendanceDashboard />}
-          {activeView === 'attendance' && <AttendanceDashboard />}
           {activeView === 'users' && <UserManagement />}
           {activeView === 'staff-scanner' && <StaffScannerView />}
           {activeView === 'staff-approvals' && <EquipmentApprovals />}
