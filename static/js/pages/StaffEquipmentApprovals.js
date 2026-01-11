@@ -125,6 +125,8 @@ const EquipmentApprovals = () => {
   const handleAction = async (eventId, type, action, reason = null, rejectedItem = null) => {
     // Legacy handleAction for Venue only now, or single clicks if needed
     // ... (Keep existing implementation for Venue)
+    console.log('🔵 handleAction CALLED:', { eventId, type, action, reason, rejectedItem });
+
     try {
       console.log(`Updating ${type} for event ${eventId} to status: ${action}`);
 
@@ -136,24 +138,37 @@ const EquipmentApprovals = () => {
 
       // If it's a batch rejection being passed from RejectionModal (local state update)
       if (type === 'equipment_batch_local') {
+        console.log('🟡 Batch rejection - updating local state only');
         toggleDecision(eventId, rejectedItem, 'Rejected', reason);
         setRejectionModal({ isOpen: false, eventId: null, type: null, itemName: null });
         return;
       }
+
+      console.log('🟢 Sending API request to:', `/api/venues/requests/${eventId}/status`);
+      console.log('🟢 Payload:', payload);
 
       const response = await fetch(`/api/venues/requests/${eventId}/status`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
       });
-      // ... rest of function
+
+      console.log('🟢 Response status:', response.status, response.ok);
+
       const data = await response.json();
+      console.log('🟢 Response data:', data);
+
       if (response.ok && data.success) {
+        console.log('✅ Success! Showing modal and refreshing requests');
         setModal({ isOpen: true, type: 'success', title: 'Success', message: data.message });
         fetchRequests();
+      } else {
+        console.error('❌ API call failed:', data);
+        setModal({ isOpen: true, type: 'error', title: 'Error', message: data.error || 'Failed to update status' });
       }
     } catch (error) {
-      console.error(error);
+      console.error('❌ Exception in handleAction:', error);
+      setModal({ isOpen: true, type: 'error', title: 'Error', message: 'An error occurred while processing your request' });
     }
   };
 
