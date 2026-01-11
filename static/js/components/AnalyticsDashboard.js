@@ -78,74 +78,292 @@ window.AnalyticsDashboard = function AnalyticsDashboard() {
       const pdf = new jsPDF('p', 'mm', 'a4');
       const pageWidth = pdf.internal.pageSize.getWidth();
       const pageHeight = pdf.internal.pageSize.getHeight();
+      const margin = 20;
+      const contentWidth = pageWidth - (margin * 2);
 
-      // Add header
-      pdf.setFontSize(20);
-      pdf.setTextColor(99, 102, 241); // Indigo
-      pdf.text('Analytics Dashboard Report', pageWidth / 2, 20, { align: 'center' });
+      let yPosition = margin;
 
-      pdf.setFontSize(10);
-      pdf.setTextColor(100, 100, 100);
+      // Helper function to add new page if needed
+      const checkPageBreak = (requiredSpace) => {
+        if (yPosition + requiredSpace > pageHeight - margin) {
+          pdf.addPage();
+          yPosition = margin;
+          return true;
+        }
+        return false;
+      };
+
+      // Helper function to add section header
+      const addSectionHeader = (title, color = [99, 102, 241]) => {
+        checkPageBreak(15);
+        pdf.setFillColor(...color);
+        pdf.rect(margin, yPosition, contentWidth, 8, 'F');
+        pdf.setFontSize(12);
+        pdf.setTextColor(255, 255, 255);
+        pdf.setFont('helvetica', 'bold');
+        pdf.text(title, margin + 3, yPosition + 5.5);
+        yPosition += 12;
+        pdf.setTextColor(0, 0, 0);
+        pdf.setFont('helvetica', 'normal');
+      };
+
+      // ===== COVER PAGE =====
+      pdf.setFillColor(99, 102, 241);
+      pdf.rect(0, 0, pageWidth, 80, 'F');
+
+      pdf.setFontSize(28);
+      pdf.setTextColor(255, 255, 255);
+      pdf.setFont('helvetica', 'bold');
+      pdf.text('EVENT ANALYTICS REPORT', pageWidth / 2, 35, { align: 'center' });
+
+      pdf.setFontSize(12);
+      pdf.setFont('helvetica', 'normal');
+      pdf.text('School Event Management System', pageWidth / 2, 45, { align: 'center' });
+
       const reportDate = new Date().toLocaleDateString('en-US', {
         year: 'numeric',
         month: 'long',
         day: 'numeric'
       });
-      pdf.text(`Generated on: ${reportDate}`, pageWidth / 2, 28, { align: 'center' });
+      pdf.setFontSize(10);
+      pdf.text(`Generated: ${reportDate}`, pageWidth / 2, 55, { align: 'center' });
 
-      let yPosition = 40;
+      yPosition = 100;
 
-      // Add key metrics
-      pdf.setFontSize(14);
-      pdf.setTextColor(0, 0, 0);
-      pdf.text('Key Metrics', 15, yPosition);
-      yPosition += 10;
+      // ===== EXECUTIVE SUMMARY =====
+      addSectionHeader('EXECUTIVE SUMMARY');
 
       pdf.setFontSize(10);
       pdf.setTextColor(60, 60, 60);
-      pdf.text(`Total Budget: ₱${(analytics.budget.total / 1000).toFixed(0)}K (Avg: ₱${analytics.budget.average.toFixed(0)})`, 15, yPosition);
-      yPosition += 6;
-      pdf.text(`Attendance Rate: ${analytics.attendance.attendance_rate}% (${analytics.attendance.total_attendees}/${analytics.attendance.total_registrations} registered)`, 15, yPosition);
-      yPosition += 6;
-      pdf.text(`Average Feedback: ${analytics.feedback.avg_overall}/5 (${analytics.feedback.total_feedback} responses)`, 15, yPosition);
-      yPosition += 6;
-      pdf.text(`Upcoming Events: ${analytics.trends.upcoming_events}`, 15, yPosition);
-      yPosition += 15;
 
-      // Capture charts
+      const totalEvents = analytics.status_distribution.reduce((sum, s) => sum + s.count, 0);
+      const completedEvents = analytics.status_distribution.find(s => s.status === 'Completed')?.count || 0;
+      const completionRate = totalEvents > 0 ? ((completedEvents / totalEvents) * 100).toFixed(1) : 0;
+
+      const summaryText = `This report provides a comprehensive analysis of ${totalEvents} events managed through the system. ` +
+        `With a ${completionRate}% completion rate and an average feedback rating of ${analytics.feedback.avg_overall}/5, ` +
+        `the event management system demonstrates strong operational performance. Total budget allocation stands at ` +
+        `₱${(analytics.budget.total / 1000).toFixed(1)}K with an average attendance rate of ${analytics.attendance.attendance_rate}%.`;
+
+      const summaryLines = pdf.splitTextToSize(summaryText, contentWidth);
+      pdf.text(summaryLines, margin, yPosition);
+      yPosition += summaryLines.length * 5 + 10;
+
+      // ===== KEY PERFORMANCE INDICATORS =====
+      addSectionHeader('KEY PERFORMANCE INDICATORS', [16, 185, 129]);
+
+      checkPageBreak(40);
+
+      // KPI Cards
+      const kpis = [
+        { label: 'Total Events', value: totalEvents, icon: '📊' },
+        { label: 'Completion Rate', value: `${completionRate}%`, icon: '✅' },
+        { label: 'Avg Feedback', value: `${analytics.feedback.avg_overall}/5`, icon: '⭐' },
+        { label: 'Attendance Rate', value: `${analytics.attendance.attendance_rate}%`, icon: '👥' }
+      ];
+
+      const cardWidth = (contentWidth - 9) / 4;
+      kpis.forEach((kpi, idx) => {
+        const xPos = margin + (idx * (cardWidth + 3));
+        pdf.setFillColor(248, 250, 252);
+        pdf.roundedRect(xPos, yPosition, cardWidth, 20, 2, 2, 'F');
+        pdf.setDrawColor(226, 232, 240);
+        pdf.roundedRect(xPos, yPosition, cardWidth, 20, 2, 2, 'S');
+
+        pdf.setFontSize(8);
+        pdf.setTextColor(100, 116, 139);
+        pdf.text(kpi.label, xPos + cardWidth / 2, yPosition + 6, { align: 'center' });
+
+        pdf.setFontSize(14);
+        pdf.setTextColor(30, 41, 59);
+        pdf.setFont('helvetica', 'bold');
+        pdf.text(kpi.value, xPos + cardWidth / 2, yPosition + 15, { align: 'center' });
+        pdf.setFont('helvetica', 'normal');
+      });
+      yPosition += 30;
+
+      // ===== KEY INSIGHTS & FINDINGS =====
+      addSectionHeader('KEY INSIGHTS & FINDINGS', [245, 158, 11]);
+
+      pdf.setFontSize(10);
+      pdf.setTextColor(60, 60, 60);
+
+      // Generate insights based on data
+      const insights = [];
+
+      // Event Type Analysis
+      const topEventType = analytics.type_distribution.reduce((max, t) => t.count > max.count ? t : max, analytics.type_distribution[0]);
+      insights.push(`• ${topEventType.event_type} events are the most popular category with ${topEventType.count} events, indicating strong interest in this area.`);
+
+      // Attendance Analysis
+      if (analytics.attendance.attendance_rate >= 80) {
+        insights.push(`• Excellent attendance rate of ${analytics.attendance.attendance_rate}% demonstrates high student engagement and effective event promotion.`);
+      } else if (analytics.attendance.attendance_rate >= 60) {
+        insights.push(`• Moderate attendance rate of ${analytics.attendance.attendance_rate}% suggests room for improvement in event marketing and student outreach.`);
+      } else {
+        insights.push(`• Low attendance rate of ${analytics.attendance.attendance_rate}% indicates a need for enhanced promotional strategies and timing optimization.`);
+      }
+
+      // Feedback Analysis
+      if (analytics.feedback.avg_overall >= 4.0) {
+        insights.push(`• High satisfaction rating of ${analytics.feedback.avg_overall}/5 reflects quality event execution and positive participant experiences.`);
+      } else if (analytics.feedback.avg_overall >= 3.0) {
+        insights.push(`• Average satisfaction rating of ${analytics.feedback.avg_overall}/5 indicates acceptable performance with opportunities for enhancement.`);
+      } else {
+        insights.push(`• Below-average satisfaction rating of ${analytics.feedback.avg_overall}/5 requires immediate attention to event quality and participant experience.`);
+      }
+
+      // Budget Analysis
+      const avgBudget = analytics.budget.average;
+      insights.push(`• Average event budget of ₱${avgBudget.toFixed(0)} provides baseline for future planning and resource allocation.`);
+
+      // Venue Analysis
+      if (analytics.top_venues.length > 0) {
+        const topVenue = analytics.top_venues[0];
+        insights.push(`• ${topVenue.venue} is the most utilized venue with ${topVenue.usage_count} bookings, suggesting high demand and suitability for events.`);
+      }
+
+      insights.forEach(insight => {
+        checkPageBreak(10);
+        const lines = pdf.splitTextToSize(insight, contentWidth - 5);
+        pdf.text(lines, margin + 2, yPosition);
+        yPosition += lines.length * 5 + 3;
+      });
+
+      yPosition += 5;
+
+      // ===== TREND ANALYSIS =====
+      checkPageBreak(60);
+      addSectionHeader('TREND ANALYSIS', [139, 92, 246]);
+
+      if (analytics.trends.monthly.length > 0) {
+        const recentMonths = analytics.trends.monthly.slice(-3);
+        const trend = recentMonths[recentMonths.length - 1].event_count > recentMonths[0].event_count ? 'increasing' : 'decreasing';
+
+        pdf.setFontSize(10);
+        pdf.text(`Event activity shows a ${trend} trend over the past quarter. `, margin, yPosition);
+        yPosition += 6;
+
+        if (trend === 'increasing') {
+          pdf.text('This positive momentum suggests growing engagement and successful event programming.', margin, yPosition);
+        } else {
+          pdf.text('Consider reviewing event scheduling and promotional strategies to boost participation.', margin, yPosition);
+        }
+        yPosition += 10;
+      }
+
+      // Add monthly trends chart
+      if (trendsChartRef.current) {
+        checkPageBreak(80);
+        const canvas = await html2canvas(trendsChartRef.current.parentElement, {
+          scale: 2,
+          backgroundColor: '#ffffff'
+        });
+        const imgData = canvas.toDataURL('image/png');
+        const imgWidth = contentWidth;
+        const imgHeight = (canvas.height * imgWidth) / canvas.width;
+        pdf.addImage(imgData, 'PNG', margin, yPosition, imgWidth, Math.min(imgHeight, 70));
+        yPosition += Math.min(imgHeight, 70) + 10;
+      }
+
+      // ===== RECOMMENDATIONS =====
+      checkPageBreak(80);
+      addSectionHeader('STRATEGIC RECOMMENDATIONS', [239, 68, 68]);
+
+      pdf.setFontSize(10);
+      const recommendations = [];
+
+      // Attendance-based recommendations
+      if (analytics.attendance.attendance_rate < 70) {
+        recommendations.push({
+          title: 'Enhance Event Promotion',
+          desc: 'Implement multi-channel marketing campaigns including social media, email, and campus posters to increase awareness and registration.'
+        });
+      }
+
+      // Feedback-based recommendations
+      if (analytics.feedback.avg_overall < 4.0) {
+        recommendations.push({
+          title: 'Improve Event Quality',
+          desc: 'Conduct post-event surveys to identify specific areas for improvement. Focus on venue selection, activity planning, and organizational efficiency.'
+        });
+      }
+
+      // Budget recommendations
+      recommendations.push({
+        title: 'Optimize Budget Allocation',
+        desc: `With an average budget of ₱${avgBudget.toFixed(0)}, consider reallocating resources to high-impact events and exploring cost-effective alternatives for supplies.`
+      });
+
+      // Venue recommendations
+      if (analytics.top_venues.length > 0) {
+        recommendations.push({
+          title: 'Diversify Venue Usage',
+          desc: 'While popular venues are valuable, explore underutilized spaces to reduce scheduling conflicts and provide varied event experiences.'
+        });
+      }
+
+      // Upcoming events
+      if (analytics.trends.upcoming_events > 0) {
+        recommendations.push({
+          title: 'Prepare for Upcoming Events',
+          desc: `With ${analytics.trends.upcoming_events} approved events scheduled, ensure adequate resource allocation and staff coordination for successful execution.`
+        });
+      }
+
+      recommendations.forEach((rec, idx) => {
+        checkPageBreak(20);
+        pdf.setFont('helvetica', 'bold');
+        pdf.setTextColor(30, 41, 59);
+        pdf.text(`${idx + 1}. ${rec.title}`, margin, yPosition);
+        yPosition += 6;
+
+        pdf.setFont('helvetica', 'normal');
+        pdf.setTextColor(60, 60, 60);
+        const descLines = pdf.splitTextToSize(rec.desc, contentWidth - 5);
+        pdf.text(descLines, margin + 5, yPosition);
+        yPosition += descLines.length * 5 + 5;
+      });
+
+      // ===== APPENDIX: CHARTS =====
+      pdf.addPage();
+      yPosition = margin;
+      addSectionHeader('APPENDIX: DETAILED CHARTS', [71, 85, 105]);
+
       const charts = [
         { ref: statusChartRef, title: 'Events by Status' },
         { ref: typeChartRef, title: 'Events by Type' },
-        { ref: feedbackChartRef, title: 'Feedback Ratings' },
-        { ref: trendsChartRef, title: 'Event Trends (6 Months)' }
+        { ref: feedbackChartRef, title: 'Feedback Ratings' }
       ];
 
       for (const chart of charts) {
         if (chart.ref.current) {
+          checkPageBreak(90);
+
+          pdf.setFontSize(11);
+          pdf.setFont('helvetica', 'bold');
+          pdf.setTextColor(30, 41, 59);
+          pdf.text(chart.title, margin, yPosition);
+          yPosition += 8;
+
           const canvas = await html2canvas(chart.ref.current.parentElement, {
             scale: 2,
             backgroundColor: '#ffffff'
           });
 
           const imgData = canvas.toDataURL('image/png');
-          const imgWidth = pageWidth - 30;
+          const imgWidth = contentWidth;
           const imgHeight = (canvas.height * imgWidth) / canvas.width;
 
-          // Check if we need a new page
-          if (yPosition + imgHeight > pageHeight - 20) {
-            pdf.addPage();
-            yPosition = 20;
-          }
-
-          pdf.setFontSize(12);
-          pdf.setTextColor(0, 0, 0);
-          pdf.text(chart.title, 15, yPosition);
-          yPosition += 8;
-
-          pdf.addImage(imgData, 'PNG', 15, yPosition, imgWidth, imgHeight);
-          yPosition += imgHeight + 15;
+          pdf.addImage(imgData, 'PNG', margin, yPosition, imgWidth, Math.min(imgHeight, 80));
+          yPosition += Math.min(imgHeight, 80) + 15;
         }
       }
+
+      // Footer on last page
+      pdf.setFontSize(8);
+      pdf.setTextColor(150, 150, 150);
+      pdf.text('School Event Management System - Confidential', pageWidth / 2, pageHeight - 10, { align: 'center' });
 
       // Generate blob URL for preview
       const pdfBlob = pdf.output('blob');
