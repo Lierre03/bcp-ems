@@ -148,8 +148,16 @@ window.AnalyticsDashboard = function AnalyticsDashboard() {
       console.log('[PDF] Using manual word wrapping v3.1 - LATEST');
 
       // Set font explicitly before rendering
-      pdf.setFont('helvetica', 'normal');
-      pdf.setFontSize(9);
+      // Switch to 'times' for body text to avoid helvetica spacing issues
+      pdf.setFont('times', 'roman');
+      pdf.setFontSize(10);
+      try {
+        if (pdf.setCharSpace) {
+          pdf.setCharSpace(0);
+        }
+      } catch (e) {
+        console.warn('setCharSpace not supported');
+      }
 
       // Manual word wrapping to avoid splitTextToSize bug
       const maxWidth = contentWidth - 10;
