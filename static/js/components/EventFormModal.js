@@ -430,50 +430,65 @@ window.EventFormModal = function EventFormModal({
                           </select>
                         </div>
 
-                        {/* Cross-Department Sharing */}
-                        <div className="col-span-2 bg-blue-50 border border-blue-200 rounded-lg p-4">
-                          <label className="block text-sm font-semibold text-blue-900 mb-2">🔗 Share with Other Departments (Optional)</label>
-                          <p className="text-xs text-blue-700 mb-3">Select departments that can view and register for this event</p>
-                          <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
-                            {[
-                              { value: 'BSIT', label: 'BSIT' },
-                              { value: 'BSCpE', label: 'BSCpE' },
-                              { value: 'BSIS', label: 'BSIS' },
-                              { value: 'BSBA', label: 'BSBA' },
-                              { value: 'BSOA', label: 'BSOA' },
-                              { value: 'BSHRM', label: 'BSHRM' },
-                              { value: 'BSTM', label: 'BSTM' },
-                              { value: 'BSAct', label: 'BSAct' },
-                              { value: 'BEEd', label: 'BEEd' },
-                              { value: 'BSEd', label: 'BSEd' },
-                              { value: 'BTTE', label: 'BTTE' },
-                              { value: 'BSPsych', label: 'BSPsych' },
-                              { value: 'BSCrim', label: 'BSCrim' },
-                            ].filter(dept => dept.value !== formData.organizing_department).map(dept => (
-                              <label key={dept.value} className="flex items-center space-x-2 text-xs cursor-pointer hover:bg-blue-100 p-2 rounded transition">
-                                <input
-                                  type="checkbox"
-                                  value={dept.value}
-                                  checked={sharedDepartments.includes(dept.value)}
-                                  onChange={(e) => {
-                                    if (e.target.checked) {
-                                      setSharedDepartments([...sharedDepartments, dept.value]);
-                                    } else {
-                                      setSharedDepartments(sharedDepartments.filter(d => d !== dept.value));
-                                    }
-                                  }}
-                                  className="rounded border-blue-300 text-blue-600 focus:ring-blue-500"
-                                />
-                                <span className="text-blue-900">{dept.label}</span>
-                              </label>
-                            ))}
-                          </div>
-                          {sharedDepartments.length > 0 && (
-                            <div className="mt-2 text-xs text-blue-800">
-                              ✓ Shared with: {sharedDepartments.join(', ')}
+                        {/* Cross-Department Sharing - Only show when General/Cross-Department is selected */}
+                        {formData.organizing_department === 'General' && (
+                          <div className="col-span-2 bg-white border border-gray-200 rounded-lg p-4 shadow-sm">
+                            <div className="flex items-center gap-2 mb-2">
+                              <svg className="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
+                              </svg>
+                              <label className="text-sm font-semibold text-gray-900">Share with Other Departments</label>
+                              <span className="text-xs text-gray-500 font-normal">(Optional)</span>
                             </div>
-                          )}
-                        </div>
+                            <p className="text-xs text-gray-600 mb-3">Select departments that can view and register for this event</p>
+                            <div className="grid grid-cols-3 gap-2">
+                              {[
+                                { value: 'BSIT', label: 'BSIT' },
+                                { value: 'BSCpE', label: 'BSCpE' },
+                                { value: 'BSIS', label: 'BS IS' },
+                                { value: 'BSBA', label: 'BSBA' },
+                                { value: 'BSOA', label: 'BSOA' },
+                                { value: 'BSHRM', label: 'BSHRM' },
+                                { value: 'BSTM', label: 'BSTM' },
+                                { value: 'BSAct', label: 'BSAct' },
+                                { value: 'BEEd', label: 'BEEd' },
+                                { value: 'BSEd', label: 'BSEd' },
+                                { value: 'BTTE', label: 'BTTE' },
+                                { value: 'BSPsych', label: 'BSPsych' },
+                                { value: 'BSCrim', label: 'BSCrim' },
+                              ].map(dept => (
+                                <label key={dept.value} className="flex items-center space-x-2 text-xs cursor-pointer hover:bg-gray-50 p-2 rounded border border-transparent hover:border-gray-300 transition-all">
+                                  <input
+                                    type="checkbox"
+                                    value={dept.value}
+                                    checked={sharedDepartments.includes(dept.value)}
+                                    onChange={(e) => {
+                                      if (e.target.checked) {
+                                        setSharedDepartments([...sharedDepartments, dept.value]);
+                                      } else {
+                                        setSharedDepartments(sharedDepartments.filter(d => d !== dept.value));
+                                      }
+                                    }}
+                                    className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-2 focus:ring-blue-500 focus:ring-offset-0"
+                                  />
+                                  <span className="text-gray-700 font-medium">{dept.label}</span>
+                                </label>
+                              ))}
+                            </div>
+                            {sharedDepartments.length > 0 && (
+                              <div className="mt-3 pt-3 border-t border-gray-200">
+                                <div className="flex items-center gap-2 text-xs">
+                                  <svg className="w-4 h-4 text-green-600 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                                  </svg>
+                                  <span className="text-gray-700">
+                                    <span className="font-semibold">Shared with:</span> {sharedDepartments.join(', ')}
+                                  </span>
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        )}
 
                         <div>
                           <label className="block text-xs font-medium text-gray-600 mb-1">Estimated Attendees</label>
