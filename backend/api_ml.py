@@ -173,12 +173,13 @@ def add_training_data():
         activities_json = json.dumps(activities)
 
         # Note: 'id' column is auto-incremented, so we don't include it in the INSERT
+        # start_date and end_date removed - not needed for training data
         db.execute_insert("""
             INSERT INTO ai_training_data
-            (event_name, event_type, description, venue, organizer, start_date, end_date,
+            (event_name, event_type, description, venue, organizer,
              attendees, total_budget, budget_breakdown,
              equipment, activities, additional_resources, is_validated)
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, 1)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, 1)
             RETURNING id
         """, (
             data.get('eventName', ''),
@@ -186,8 +187,6 @@ def add_training_data():
             data.get('description', ''),
             data.get('venue', ''),
             data.get('organizer', ''),
-            data.get('startDate') or None,
-            data.get('endDate') or None,
             data.get('attendees', 0),
             data.get('budget', 0),
             json.dumps(data.get('budgetBreakdown', [])),

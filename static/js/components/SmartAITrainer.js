@@ -6,7 +6,7 @@ window.SmartAITrainer = function SmartAITrainer({ onViewChange }) {
   const [activeTab, setActiveTab] = useState('basic'); // basic | equipment | timeline | budget | resources
   const [eqTab, setEqTab] = useState('Audio & Visual');
   const [eqCats, setEqCats] = useState({ 'Audio & Visual': ['Projector', 'Speaker', 'Microphone', 'Screen'], 'Furniture': ['Tables', 'Chairs', 'Stage', 'Podium'], 'Sports': ['Scoreboard', 'Lighting', 'Camera', 'First Aid Kit'] });
-  const [form, setForm] = useState({ name: '', type: 'Academic', venue: 'Auditorium', equipment: [], attendees: '', budget: '', organizer: '', description: '', timelines: [], budgetCats: [], resources: [], startDate: '', endDate: '', timelineMode: 'single', currentDay: 1, multiDayTimelines: {} });
+  const [form, setForm] = useState({ name: '', type: 'Academic', venue: 'Auditorium', equipment: [], attendees: '', budget: '', organizer: '', description: '', timelines: [], budgetCats: [], resources: [], timelineMode: 'single', currentDay: 1, multiDayTimelines: {} });
   const [newRes, setNewRes] = useState('');
   const [history, setHistory] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -202,14 +202,14 @@ window.SmartAITrainer = function SmartAITrainer({ onViewChange }) {
 
       const res = await fetch('/api/ml/add-training-data', {
         method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'include',
-        body: JSON.stringify({ eventName: form.name, eventType: form.type, description: form.description, venue: form.venue, organizer: form.organizer, startDate: form.startDate || null, endDate: form.endDate || null, attendees: +form.attendees || 0, budget: +form.budget, budgetBreakdown: form.budgetCats, equipment: form.equipment, activities: activities, additionalResources: form.resources })
+        body: JSON.stringify({ eventName: form.name, eventType: form.type, description: form.description, venue: form.venue, organizer: form.organizer, attendees: +form.attendees || 0, budget: +form.budget, budgetBreakdown: form.budgetCats, equipment: form.equipment, activities: activities, additionalResources: form.resources })
       });
       const d = await res.json();
       if (!d.success) throw new Error(d.error);
       const t = await fetch('/api/ml/train-models', { method: 'POST', credentials: 'include' }).then(r => r.json());
       alert(t.success ? '✅ Training complete!' : '✅ Data saved!');
       load();
-      setForm({ name: '', type: 'Academic', venue: 'Auditorium', equipment: [], attendees: '', budget: '', organizer: '', description: '', timelines: [], budgetCats: [], resources: [], startDate: '', endDate: '', timelineMode: 'single', currentDay: 1, multiDayTimelines: {} });
+      setForm({ name: '', type: 'Academic', venue: 'Auditorium', equipment: [], attendees: '', budget: '', organizer: '', description: '', timelines: [], budgetCats: [], resources: [], timelineMode: 'single', currentDay: 1, multiDayTimelines: {} });
       setView('dashboard');
       setActiveTab('basic');
     } catch (e) { alert('Error: ' + e.message); }
@@ -706,14 +706,7 @@ window.SmartAITrainer = function SmartAITrainer({ onViewChange }) {
                     <label className="block text-sm font-semibold text-gray-900 mb-2.5">Organizer</label>
                     <input type="text" value={form.organizer} onChange={e => setForm({ ...form, organizer: e.target.value })} placeholder="Department or organization" className="w-full px-4 py-3 border border-gray-300 rounded-xl text-sm bg-white/50 backdrop-blur-sm focus:bg-white focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 outline-none transition-all shadow-sm hover:shadow-md" />
                   </div>
-                  <div>
-                    <label className="block text-sm font-semibold text-gray-900 mb-2.5">Start Date *</label>
-                    <input type="date" value={form.startDate} onChange={e => setForm({ ...form, startDate: e.target.value })} className="w-full px-4 py-3 border border-gray-300 rounded-xl text-sm bg-white/50 backdrop-blur-sm focus:bg-white focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 outline-none transition-all shadow-sm hover:shadow-md" />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-semibold text-gray-900 mb-2.5">End Date</label>
-                    <input type="date" value={form.endDate} min={form.startDate} onChange={e => setForm({ ...form, endDate: e.target.value })} className="w-full px-4 py-3 border border-gray-300 rounded-xl text-sm bg-white/50 backdrop-blur-sm focus:bg-white focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 outline-none transition-all shadow-sm hover:shadow-md" />
-                  </div>
+
                   <div className="md:col-span-2">
                     <label className="block text-sm font-semibold text-gray-900 mb-2.5">Description</label>
                     <textarea value={form.description} onChange={e => setForm({ ...form, description: e.target.value })} rows="4" placeholder="Brief description of the event..." className="w-full px-4 py-3 border border-gray-300 rounded-xl text-sm bg-white/50 backdrop-blur-sm focus:bg-white focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 outline-none transition-all resize-none shadow-sm hover:shadow-md" />
@@ -769,8 +762,8 @@ window.SmartAITrainer = function SmartAITrainer({ onViewChange }) {
 
             {activeTab === 'timeline' && (
               <div>
-                {/* Multi-day Timeline Options */}
-                {form.startDate && form.endDate && form.startDate !== form.endDate && (
+                {/* Multi-day Timeline Options - Hidden since dates removed */}
+                {false && (
                   <div className="mb-4 p-4 bg-blue-50 border border-blue-200 rounded-xl">
                     <label className="flex items-center gap-2 cursor-pointer">
                       <input
