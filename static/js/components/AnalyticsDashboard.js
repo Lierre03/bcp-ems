@@ -145,12 +145,30 @@ window.AnalyticsDashboard = function AnalyticsDashboard() {
         `the event management system demonstrates strong operational performance. Total budget allocation stands at ` +
         `₱${(analytics.budget.total / 1000).toFixed(1)}K with an average attendance rate of ${analytics.attendance.attendance_rate}%.`;
 
-      const summaryLines = pdf.splitTextToSize(summaryText, contentWidth - 10);
-      // Render each line individually to avoid character spacing issues
-      summaryLines.forEach((line, lineIdx) => {
-        pdf.text(String(line), margin, yPosition + (lineIdx * 4.5));
+      // Manual word wrapping to avoid splitTextToSize bug
+      const maxWidth = contentWidth - 10;
+      const words = summaryText.split(' ');
+      let currentLine = '';
+      const lines = [];
+
+      words.forEach(word => {
+        const testLine = currentLine ? currentLine + ' ' + word : word;
+        const testWidth = pdf.getTextWidth(testLine);
+
+        if (testWidth > maxWidth && currentLine) {
+          lines.push(currentLine);
+          currentLine = word;
+        } else {
+          currentLine = testLine;
+        }
       });
-      yPosition += summaryLines.length * 4.5 + 10;
+      if (currentLine) lines.push(currentLine);
+
+      // Render each line
+      lines.forEach((line, idx) => {
+        pdf.text(line, margin, yPosition + (idx * 5));
+      });
+      yPosition += lines.length * 5 + 10;
 
       // ===== KEY PERFORMANCE INDICATORS =====
       addSectionHeader('KEY PERFORMANCE INDICATORS', [16, 185, 129]);
@@ -228,12 +246,30 @@ window.AnalyticsDashboard = function AnalyticsDashboard() {
 
       insights.forEach(insight => {
         checkPageBreak(15);
-        const lines = pdf.splitTextToSize(insight, contentWidth - 10);
-        // Render each line individually to avoid character spacing issues
-        lines.forEach((line, lineIdx) => {
-          pdf.text(String(line), margin + 3, yPosition + (lineIdx * 4.5));
+
+        // Manual word wrapping
+        const maxWidth = contentWidth - 10;
+        const words = insight.split(' ');
+        let currentLine = '';
+        const lines = [];
+
+        words.forEach(word => {
+          const testLine = currentLine ? currentLine + ' ' + word : word;
+          const testWidth = pdf.getTextWidth(testLine);
+
+          if (testWidth > maxWidth && currentLine) {
+            lines.push(currentLine);
+            currentLine = word;
+          } else {
+            currentLine = testLine;
+          }
         });
-        yPosition += lines.length * 4.5 + 3;
+        if (currentLine) lines.push(currentLine);
+
+        lines.forEach((line, idx) => {
+          pdf.text(line, margin + 3, yPosition + (idx * 5));
+        });
+        yPosition += lines.length * 5 + 3;
       });
 
       yPosition += 5;
@@ -326,12 +362,29 @@ window.AnalyticsDashboard = function AnalyticsDashboard() {
 
         pdf.setFont('helvetica', 'normal');
         pdf.setTextColor(60, 60, 60);
-        const descLines = pdf.splitTextToSize(rec.desc, contentWidth - 15);
-        // Render each line individually to avoid character spacing issues
-        descLines.forEach((line, lineIdx) => {
-          pdf.text(String(line), margin + 5, yPosition + (lineIdx * 5));
+        // Manual word wrapping for recommendations
+        const maxWidth = contentWidth - 15;
+        const words = rec.desc.split(' ');
+        let currentLine = '';
+        const lines = [];
+
+        words.forEach(word => {
+          const testLine = currentLine ? currentLine + ' ' + word : word;
+          const testWidth = pdf.getTextWidth(testLine);
+
+          if (testWidth > maxWidth && currentLine) {
+            lines.push(currentLine);
+            currentLine = word;
+          } else {
+            currentLine = testLine;
+          }
         });
-        yPosition += descLines.length * 5 + 5;
+        if (currentLine) lines.push(currentLine);
+
+        lines.forEach((line, idx) => {
+          pdf.text(line, margin + 5, yPosition + (idx * 5));
+        });
+        yPosition += lines.length * 5 + 5;
       });
 
       // ===== APPENDIX: CHARTS =====
