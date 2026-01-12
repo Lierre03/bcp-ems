@@ -745,15 +745,14 @@ def predict_resources():
                     
                     print(f"[BREAKDOWN ML] Top 3 similar events for budget:")
                     for idx, sim in zip(top_indices, top_similarities):
-                        if sim > 0.01:  # Very low threshold - even weak matches are useful
+                        if sim > 0.30:  # Increased threshold - only use good matches (30%+)
                             similar_evt = type_df.iloc[idx]
                             top_similar_events.append(similar_evt)
                             print(f"  - {similar_evt['event_name']} (similarity: {sim:.2%})")
                     
-                    # If no matches found, use most similar event anyway
-                    if len(top_similar_events) == 0 and len(top_indices) > 0:
-                        print(f"[BREAKDOWN ML] No strong matches, using top event anyway")
-                        top_similar_events.append(type_df.iloc[top_indices[0]])
+                    # Only log if no good matches found - don't force bad matches
+                    if len(top_similar_events) == 0:
+                        print(f"[BREAKDOWN ML] No similar events found (threshold: 30%). Will use event-type fallback.")
             except Exception as e:
                 print(f"[BREAKDOWN ML] Similarity error: {e}")
         
@@ -884,16 +883,51 @@ def predict_resources():
                 import traceback
                 traceback.print_exc()
 
-        # Fallback timeline if none generated
+        # Fallback timeline if none generated - EVENT TYPE SPECIFIC
         if not predictions.get('timeline'):
-            predictions['timeline'] = [
-                {'phase': 'Registration', 'startTime': '08:00', 'endTime': '08:30'},
-                {'phase': 'Opening Ceremony', 'startTime': '08:30', 'endTime': '09:00'},
-                {'phase': 'Main Activities', 'startTime': '09:00', 'endTime': '12:00'},
-                {'phase': 'Lunch Break', 'startTime': '12:00', 'endTime': '13:00'},
-                {'phase': 'Afternoon Session', 'startTime': '13:00', 'endTime': '16:00'},
-                {'phase': 'Closing Ceremony', 'startTime': '16:00', 'endTime': '17:00'}
-            ]
+            print(f"[TIMELINE ML] Using event-type-specific fallback for {event_type}")
+            fallback_timelines = {
+                'Academic': [
+                    {'phase': 'Registration & Welcome', 'startTime': '08:00', 'endTime': '08:30'},
+                    {'phase': 'Opening Ceremony', 'startTime': '08:30', 'endTime': '09:00'},
+                    {'phase': 'Main Presentation', 'startTime': '09:00', 'endTime': '11:00'},
+                    {'phase': 'Q&A Session', 'startTime': '11:00', 'endTime': '11:30'},
+                    {'phase': 'Closing Remarks', 'startTime': '11:30', 'endTime': '12:00'}
+                ],
+                'Sports': [
+                    {'phase': 'Player Registration', 'startTime': '07:00', 'endTime': '07:30'},
+                    {'phase': 'Opening Ceremony', 'startTime': '07:30', 'endTime': '08:00'},
+                    {'phase': 'Competition Rounds', 'startTime': '08:00', 'endTime': '12:00'},
+                    {'phase': 'Lunch Break', 'startTime': '12:00', 'endTime': '13:00'},
+                    {'phase': 'Finals', 'startTime': '13:00', 'endTime': '15:00'},
+                    {'phase': 'Awarding Ceremony', 'startTime': '15:00', 'endTime': '16:00'}
+                ],
+                'Cultural': [
+                    {'phase': 'Setup & Sound Check', 'startTime': '08:00', 'endTime': '09:00'},
+                    {'phase': 'Opening Performance', 'startTime': '09:00', 'endTime': '09:30'},
+                    {'phase': 'Main Performances', 'startTime': '09:30', 'endTime': '12:00'},
+                    {'phase': 'Intermission', 'startTime': '12:00', 'endTime': '13:00'},
+                    {'phase': 'Afternoon Performances', 'startTime': '13:00', 'endTime': '16:00'},
+                    {'phase': 'Closing Performance', 'startTime': '16:00', 'endTime': '17:00'}
+                ],
+                'Workshop': [
+                    {'phase': 'Registration', 'startTime': '08:00', 'endTime': '08:30'},
+                    {'phase': 'Introduction & Icebreaker', 'startTime': '08:30', 'endTime': '09:00'},
+                    {'phase': 'Workshop Session 1', 'startTime': '09:00', 'endTime': '10:30'},
+                    {'phase': 'Break', 'startTime': '10:30', 'endTime': '10:45'},
+                    {'phase': 'Workshop Session 2', 'startTime': '10:45', 'endTime': '12:00'},
+                    {'phase': 'Wrap-up & Certificates', 'startTime': '12:00', 'endTime': '12:30'}
+                ],
+                'Seminar': [
+                    {'phase': 'Registration', 'startTime': '08:00', 'endTime': '08:30'},
+                    {'phase': 'Opening Remarks', 'startTime': '08:30', 'endTime': '09:00'},
+                    {'phase': 'Keynote Speaker', 'startTime': '09:00', 'endTime': '10:30'},
+                    {'phase': 'Break', 'startTime': '10:30', 'endTime': '10:45'},
+                    {'phase': 'Panel Discussion', 'startTime': '10:45', 'endTime': '12:00'},
+                    {'phase': 'Closing Remarks', 'startTime': '12:00', 'endTime': '12:30'}
+                ]
+            }
+            predictions['timeline'] = fallback_timelines.get(event_type, fallback_timelines['Academic'])
 
         print(f"\n{'='*60}")
         print(f"[ML SUMMARY] Prediction complete!")
