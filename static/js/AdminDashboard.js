@@ -54,6 +54,7 @@ window.AdminDashboard = function AdminDashboard() {
   }, []);
 
   useEffect(() => {
+    const userJson = localStorage.getItem('user');
     if (userJson) {
       const userData = JSON.parse(userJson);
       setUser(userData);
