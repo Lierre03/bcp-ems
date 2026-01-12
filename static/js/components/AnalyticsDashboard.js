@@ -145,6 +145,12 @@ window.AnalyticsDashboard = function AnalyticsDashboard() {
         `the event management system demonstrates strong operational performance. Total budget allocation stands at ` +
         `₱${(analytics.budget.total / 1000).toFixed(1)}K with an average attendance rate of ${analytics.attendance.attendance_rate}%.`;
 
+      console.log('[PDF] Using manual word wrapping v3.1 - LATEST');
+
+      // Set font explicitly before rendering
+      pdf.setFont('helvetica', 'normal');
+      pdf.setFontSize(9);
+
       // Manual word wrapping to avoid splitTextToSize bug
       const maxWidth = contentWidth - 10;
       const words = summaryText.split(' ');
@@ -163,6 +169,8 @@ window.AnalyticsDashboard = function AnalyticsDashboard() {
         }
       });
       if (currentLine) lines.push(currentLine);
+
+      console.log(`[PDF] Generated ${lines.length} lines for summary`);
 
       // Render each line
       lines.forEach((line, idx) => {
