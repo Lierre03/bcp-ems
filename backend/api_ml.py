@@ -862,25 +862,43 @@ def predict_resources():
                 for similar_event in top_similar_events:
                     activities = similar_event.get('activities_list', [])
                     
+                    # Parse activities - handle both string and object formats
+                    parsed_activities = []
                     if isinstance(activities, list):
                         for activity in activities:
-                            if isinstance(activity, dict) and activity.get('phase'):
-                                phase_name = activity.get('phase')
-                                
-                                if phase_name not in phase_occurrences:
-                                    phase_occurrences[phase_name] = {
-                                        'count': 0,
-                                        'start_times': [],
-                                        'end_times': []
-                                    }
-                                
-                                phase_occurrences[phase_name]['count'] += 1
-                                phase_occurrences[phase_name]['start_times'].append(
-                                    activity.get('startTime', activity.get('start_time', '09:00'))
-                                )
-                                phase_occurrences[phase_name]['end_times'].append(
-                                    activity.get('endTime', activity.get('end_time', '10:00'))
-                                )
+                            if isinstance(activity, str):
+                                # Parse string format: "08:00 - 08:30: Registration and attendance checking"
+                                import re
+                                match = re.match(r'(\d{2}:\d{2})\s*-\s*(\d{2}:\d{2}):\s*(.+)', activity)
+                                if match:
+                                    parsed_activities.append({
+                                        'phase': match.group(3).strip(),
+                                        'startTime': match.group(1),
+                                        'endTime': match.group(2)
+                                    })
+                            elif isinstance(activity, dict) and activity.get('phase'):
+                                # Already in object format
+                                parsed_activities.append(activity)
+                    
+                    # Process parsed activities
+                    for activity in parsed_activities:
+                        if activity.get('phase'):
+                            phase_name = activity.get('phase')
+                            
+                            if phase_name not in phase_occurrences:
+                                phase_occurrences[phase_name] = {
+                                    'count': 0,
+                                    'start_times': [],
+                                    'end_times': []
+                                }
+                            
+                            phase_occurrences[phase_name]['count'] += 1
+                            phase_occurrences[phase_name]['start_times'].append(
+                                activity.get('startTime', activity.get('start_time', '09:00'))
+                            )
+                            phase_occurrences[phase_name]['end_times'].append(
+                                activity.get('endTime', activity.get('end_time', '10:00'))
+                            )
                 
                 # Use phases that appear in majority of similar events
                 min_occurrences = max(1, len(top_similar_events) // 2)  # At least half
