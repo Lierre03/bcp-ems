@@ -50,7 +50,12 @@ window.Sidebar = function Sidebar({ user, menuItems, activeView, onViewChange, o
                     className={`w-full flex items-center px-6 py-2.5 transition-all duration-200 group ${activeView === item.id ? 'bg-blue-800 text-white border-r-4 border-blue-400' : 'text-blue-300 hover:bg-blue-900/50 hover:text-white'}`}
                   >
                     {item.icon}
-                    <span className="text-sm font-medium">{item.label}</span>
+                    <span className="text-sm font-medium flex-1 text-left">{item.label}</span>
+                    {item.badge > 0 && (
+                      <span className="bg-red-500 text-white text-xs font-bold px-2 py-0.5 rounded-full ml-2 shadow-sm animate-pulse">
+                        {item.badge}
+                      </span>
+                    )}
                   </button>
                 ))}
               </div>

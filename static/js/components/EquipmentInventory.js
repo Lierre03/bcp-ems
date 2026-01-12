@@ -14,6 +14,11 @@ window.EquipmentInventory = function EquipmentInventory() {
     const [showArchivesModal, setShowArchivesModal] = React.useState(false);
     const [archivedEquipment, setArchivedEquipment] = React.useState([]);
 
+    // Archive confirmation modal state
+    const [showArchiveConfirmModal, setShowArchiveConfirmModal] = React.useState(false);
+    const [itemToArchive, setItemToArchive] = React.useState(null);
+    const [archiveReason, setArchiveReason] = React.useState('');
+
     // Log Modal State
     const [showLogModal, setShowLogModal] = React.useState(false);
     const [logs, setLogs] = React.useState([]);
@@ -217,28 +222,37 @@ window.EquipmentInventory = function EquipmentInventory() {
         }
     };
 
-    const handleArchive = async (item) => {
-        // Prompt for reason
-        const reason = prompt(`Archive ${item.name}? Enter a reason (optional):`);
-        if (reason === null) return; // User cancelled
+    // Initiate archive process
+    const handleArchiveClick = (item) => {
+        setItemToArchive(item);
+        setArchiveReason('');
+        setShowArchiveConfirmModal(true);
+    };
+
+    // Confirm archive action
+    const confirmArchive = async () => {
+        if (!itemToArchive) return;
 
         try {
-            const response = await fetch(`/api/venues/equipment/${item.id}/archive`, {
+            const response = await fetch(`/api/venues/equipment/${itemToArchive.id}/archive`, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                credentials: 'include',
-                body: JSON.stringify({ reason: reason || 'Archived by user' })
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ reason: archiveReason }),
+                credentials: 'include'
             });
             const data = await response.json();
             if (data.success) {
+                handleSuccess("Equipment archived successfully");
                 fetchEquipment();
-                setSuccessMessage(data.message);
-                setShowSuccessModal(true);
+                setShowArchiveConfirmModal(false);
+                setItemToArchive(null);
             } else {
-                alert("Error: " + data.error);
+                alert("Error archiving equipment: " + data.message);
             }
         } catch (err) {
-            console.error("Error:", err);
+            console.error("Error archiving equipment:", err);
             alert("Failed to archive equipment");
         }
     };
@@ -503,7 +517,7 @@ window.EquipmentInventory = function EquipmentInventory() {
                                                             Edit
                                                         </button>
                                                         <button
-                                                            onClick={() => handleArchive(item)}
+                                                            onClick={() => handleArchiveClick(item)}
                                                             className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-slate-600 hover:bg-slate-700 text-white rounded-lg text-xs font-medium transition shadow-sm"
                                                             title="Archive"
                                                         >
@@ -973,6 +987,51 @@ window.EquipmentInventory = function EquipmentInventory() {
                                 className="px-4 py-2 bg-slate-200 text-slate-700 rounded-lg hover:bg-slate-300 font-medium text-sm transition"
                             >
                                 Close
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+            {/* Archive Confirmation Modal */}
+            {showArchiveConfirmModal && itemToArchive && (
+                <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+                    <div className="bg-white rounded-xl shadow-2xl w-full max-w-md overflow-hidden animate-fade-in-up">
+                        <div className="bg-slate-50 p-6 border-b border-slate-100">
+                            <h3 className="text-lg font-bold text-slate-900">Archive Equipment</h3>
+                            <p className="text-sm text-slate-500 mt-1">
+                                Are you sure you want to archive <strong>{itemToArchive.name}</strong>?
+                            </p>
+                        </div>
+                        <div className="p-6">
+                            <label className="block text-sm font-medium text-slate-700 mb-2">
+                                Reason for archiving (optional)
+                            </label>
+                            <textarea
+                                value={archiveReason}
+                                onChange={(e) => setArchiveReason(e.target.value)}
+                                placeholder="e.g., Broken, Lost, Out of Service..."
+                                className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 min-h-[100px]"
+                            />
+                            <div className="mt-4 flex items-center gap-2 text-amber-600 bg-amber-50 p-3 rounded-lg text-sm">
+                                <svg className="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                                <span>Archived items are hidden from lists but can be restored later.</span>
+                            </div>
+                        </div>
+                        <div className="bg-slate-50 px-6 py-4 border-t border-slate-100 flex justify-end gap-3">
+                            <button
+                                onClick={() => {
+                                    setShowArchiveConfirmModal(false);
+                                    setItemToArchive(null);
+                                }}
+                                className="px-4 py-2 bg-white border border-slate-300 rounded-lg text-slate-700 hover:bg-slate-50 font-medium transition"
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                onClick={confirmArchive}
+                                className="px-4 py-2 bg-slate-800 text-white rounded-lg hover:bg-slate-900 font-medium transition shadow-sm"
+                            >
+                                Confirm Archive
                             </button>
                         </div>
                     </div>
