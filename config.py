@@ -12,7 +12,7 @@ class Config:
     SECRET_KEY = os.environ.get('SECRET_KEY') or 'dev-secret-key-change-in-production'
     
     # Session configuration (Flask native - no Flask-Session extension)
-    PERMANENT_SESSION_LIFETIME = 1800  # 30 minutes
+    PERMANENT_SESSION_LIFETIME = 28800  # 8 hours (28800 seconds)
     SESSION_COOKIE_SECURE = False  # Set to True in production with HTTPS
     SESSION_COOKIE_HTTPONLY = True
     SESSION_COOKIE_SAMESITE = 'Lax'

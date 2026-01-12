@@ -101,6 +101,7 @@ def login():
         print(f"DEBUG: Password verified, creating session")
         # Create session
         session.clear()
+        session.permanent = True  # Make session persist according to PERMANENT_SESSION_LIFETIME
         session['user_id'] = user['id']
         session['username'] = user['username']
         session['role_id'] = user['role_id']
