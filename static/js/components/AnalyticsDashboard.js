@@ -145,46 +145,16 @@ window.AnalyticsDashboard = function AnalyticsDashboard() {
         `the event management system demonstrates strong operational performance. Total budget allocation stands at ` +
         `₱${(analytics.budget.total / 1000).toFixed(1)}K with an average attendance rate of ${analytics.attendance.attendance_rate}%.`;
 
-      console.log('[PDF] Using manual word wrapping v3.1 - LATEST');
-
       // Set font explicitly before rendering
-      // Switch to 'times' for body text to avoid helvetica spacing issues
-      pdf.setFont('times', 'roman');
+      pdf.setFont('helvetica', 'normal');
       pdf.setFontSize(10);
-      try {
-        if (pdf.setCharSpace) {
-          pdf.setCharSpace(0);
-        }
-      } catch (e) {
-        console.warn('setCharSpace not supported');
-      }
 
-      // Manual word wrapping to avoid splitTextToSize bug
-      const maxWidth = contentWidth - 10;
-      const words = summaryText.split(' ');
-      let currentLine = '';
-      const lines = [];
+      // Use native splitTextToSize for reliable wrapping
+      const summaryLines = pdf.splitTextToSize(summaryText, contentWidth);
+      pdf.text(summaryLines, margin, yPosition);
 
-      words.forEach(word => {
-        const testLine = currentLine ? currentLine + ' ' + word : word;
-        const testWidth = pdf.getTextWidth(testLine);
-
-        if (testWidth > maxWidth && currentLine) {
-          lines.push(currentLine);
-          currentLine = word;
-        } else {
-          currentLine = testLine;
-        }
-      });
-      if (currentLine) lines.push(currentLine);
-
-      console.log(`[PDF] Generated ${lines.length} lines for summary`);
-
-      // Render each line
-      lines.forEach((line, idx) => {
-        pdf.text(line, margin, yPosition + (idx * 5));
-      });
-      yPosition += lines.length * 5 + 10;
+      // Update Y position based on number of lines (approx 5mm per line)
+      yPosition += (summaryLines.length * 5) + 10;
 
       // ===== KEY PERFORMANCE INDICATORS =====
       addSectionHeader('KEY PERFORMANCE INDICATORS', [16, 185, 129]);
@@ -222,7 +192,7 @@ window.AnalyticsDashboard = function AnalyticsDashboard() {
       // ===== KEY INSIGHTS & FINDINGS =====
       addSectionHeader('KEY INSIGHTS & FINDINGS', [245, 158, 11]);
 
-      pdf.setFont('times', 'roman');
+      pdf.setFont('helvetica', 'normal');
       pdf.setFontSize(10);
       pdf.setTextColor(60, 60, 60);
 
@@ -262,31 +232,12 @@ window.AnalyticsDashboard = function AnalyticsDashboard() {
       }
 
       insights.forEach(insight => {
-        checkPageBreak(15);
+        const insightLines = pdf.splitTextToSize(insight, contentWidth);
+        const requiredSpace = (insightLines.length * 5) + 3;
+        checkPageBreak(requiredSpace);
 
-        // Manual word wrapping
-        const maxWidth = contentWidth - 10;
-        const words = insight.split(' ');
-        let currentLine = '';
-        const lines = [];
-
-        words.forEach(word => {
-          const testLine = currentLine ? currentLine + ' ' + word : word;
-          const testWidth = pdf.getTextWidth(testLine);
-
-          if (testWidth > maxWidth && currentLine) {
-            lines.push(currentLine);
-            currentLine = word;
-          } else {
-            currentLine = testLine;
-          }
-        });
-        if (currentLine) lines.push(currentLine);
-
-        lines.forEach((line, idx) => {
-          pdf.text(line, margin + 3, yPosition + (idx * 5));
-        });
-        yPosition += lines.length * 5 + 3;
+        pdf.text(insightLines, margin, yPosition);
+        yPosition += requiredSpace;
       });
 
       yPosition += 5;
@@ -299,17 +250,17 @@ window.AnalyticsDashboard = function AnalyticsDashboard() {
         const recentMonths = analytics.trends.monthly.slice(-3);
         const trend = recentMonths[recentMonths.length - 1].event_count > recentMonths[0].event_count ? 'increasing' : 'decreasing';
 
-        pdf.setFont('times', 'roman');
+        pdf.setFont('helvetica', 'normal');
         pdf.setFontSize(10);
-        pdf.text(`Event activity shows a ${trend} trend over the past quarter. `, margin, yPosition);
-        yPosition += 6;
 
-        if (trend === 'increasing') {
-          pdf.text('This positive momentum suggests growing engagement and successful event programming.', margin, yPosition);
-        } else {
-          pdf.text('Consider reviewing event scheduling and promotional strategies to boost participation.', margin, yPosition);
-        }
-        yPosition += 10;
+        const trendText = `Event activity shows a ${trend} trend over the past quarter. ` +
+          (trend === 'increasing'
+            ? 'This positive momentum suggests growing engagement and successful event programming.'
+            : 'Consider reviewing event scheduling and promotional strategies to boost participation.');
+
+        const trendLines = pdf.splitTextToSize(trendText, contentWidth);
+        pdf.text(trendLines, margin, yPosition);
+        yPosition += (trendLines.length * 5) + 10;
       }
 
       // Add monthly trends chart
@@ -372,37 +323,30 @@ window.AnalyticsDashboard = function AnalyticsDashboard() {
       }
 
       recommendations.forEach((rec, idx) => {
-        checkPageBreak(20);
         pdf.setFont('helvetica', 'bold');
         pdf.setTextColor(30, 41, 59);
-        pdf.text(`${idx + 1}. ${rec.title}`, margin, yPosition);
-        yPosition += 6;
 
+        // Title with potential wrapping
+        const titleLines = pdf.splitTextToSize(`${idx + 1}. ${rec.title}`, contentWidth);
+
+        // Calculate total space needed: Title lines + Description lines + gaps
+        pdf.setFont('helvetica', 'normal');
+        const descLines = pdf.splitTextToSize(rec.desc, contentWidth - 5);
+
+        const requiredSpace = (titleLines.length * 6) + (descLines.length * 5) + 5;
+        checkPageBreak(requiredSpace);
+
+        // Print Title
+        pdf.setFont('helvetica', 'bold');
+        pdf.text(titleLines, margin, yPosition);
+        yPosition += (titleLines.length * 6);
+
+        // Print Description
         pdf.setFont('helvetica', 'normal');
         pdf.setTextColor(60, 60, 60);
-        // Manual word wrapping for recommendations
-        const maxWidth = contentWidth - 15;
-        const words = rec.desc.split(' ');
-        let currentLine = '';
-        const lines = [];
 
-        words.forEach(word => {
-          const testLine = currentLine ? currentLine + ' ' + word : word;
-          const testWidth = pdf.getTextWidth(testLine);
-
-          if (testWidth > maxWidth && currentLine) {
-            lines.push(currentLine);
-            currentLine = word;
-          } else {
-            currentLine = testLine;
-          }
-        });
-        if (currentLine) lines.push(currentLine);
-
-        lines.forEach((line, idx) => {
-          pdf.text(line, margin + 5, yPosition + (idx * 5));
-        });
-        yPosition += lines.length * 5 + 5;
+        pdf.text(descLines, margin + 5, yPosition);
+        yPosition += (descLines.length * 5) + 5;
       });
 
       // ===== APPENDIX: CHARTS =====
