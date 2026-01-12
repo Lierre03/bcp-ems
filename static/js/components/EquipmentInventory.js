@@ -11,6 +11,8 @@ window.EquipmentInventory = function EquipmentInventory() {
     const [userRole, setUserRole] = React.useState('');
     const [showSuccessModal, setShowSuccessModal] = React.useState(false);
     const [successMessage, setSuccessMessage] = React.useState('');
+    const [showArchivesModal, setShowArchivesModal] = React.useState(false);
+    const [archivedEquipment, setArchivedEquipment] = React.useState([]);
 
     // Edit modal state
     const [editForm, setEditForm] = React.useState({
@@ -69,6 +71,19 @@ window.EquipmentInventory = function EquipmentInventory() {
             console.error(err);
         } finally {
             setLoading(false);
+        }
+    };
+
+    const fetchArchivedEquipment = async () => {
+        try {
+            const response = await fetch('/api/venues/equipment?include_archived=true');
+            const data = await response.json();
+            if (data.success) {
+                const archived = data.equipment.filter(item => item.archived);
+                setArchivedEquipment(archived);
+            }
+        } catch (err) {
+            console.error("Error fetching archives:", err);
         }
     };
 
@@ -198,6 +213,28 @@ window.EquipmentInventory = function EquipmentInventory() {
         }
     };
 
+    const handleUnarchive = async (item) => {
+        if (!confirm(`Restore ${item.name} to active inventory?`)) return;
+
+        try {
+            const response = await fetch(`/api/venues/equipment/${item.id}/unarchive`, {
+                method: 'POST'
+            });
+            const data = await response.json();
+            if (data.success) {
+                fetchArchivedEquipment(); // Refresh archived list
+                fetchEquipment(); // Refresh active list
+                setSuccessMessage(data.message);
+                setShowSuccessModal(true);
+            } else {
+                alert("Error: " + data.error);
+            }
+        } catch (err) {
+            console.error("Error:", err);
+            alert("Failed to unarchive equipment");
+        }
+    };
+
     const openEditModal = (item) => {
         setSelectedEquipment(item);
         setEditForm({
@@ -240,13 +277,25 @@ window.EquipmentInventory = function EquipmentInventory() {
             {/* Header */}
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
                 <h2 className="text-sm md:text-base font-semibold text-slate-800">Equipment Inventory</h2>
-                <button
-                    onClick={() => setShowAddModal(true)}
-                    className="bg-blue-900 hover:bg-blue-800 text-white px-3 py-1.5 rounded-lg text-xs font-medium flex items-center gap-2 transition shadow-sm"
-                >
-                    <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4" /></svg>
-                    Add Equipment
-                </button>
+                <div className="flex gap-2">
+                    <button
+                        onClick={() => {
+                            setShowArchivesModal(true);
+                            fetchArchivedEquipment();
+                        }}
+                        className="bg-slate-100 hover:bg-slate-200 text-slate-700 px-3 py-1.5 rounded-lg text-xs font-medium flex items-center gap-2 transition shadow-sm border border-slate-300"
+                    >
+                        <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4" /></svg>
+                        View Archives
+                    </button>
+                    <button
+                        onClick={() => setShowAddModal(true)}
+                        className="bg-blue-900 hover:bg-blue-800 text-white px-3 py-1.5 rounded-lg text-xs font-medium flex items-center gap-2 transition shadow-sm"
+                    >
+                        <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4" /></svg>
+                        Add Equipment
+                    </button>
+                </div>
             </div>
 
             {/* Stats Cards */}
@@ -723,6 +772,80 @@ window.EquipmentInventory = function EquipmentInventory() {
                                 className="w-full px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg text-sm font-medium transition"
                             >
                                 OK
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Archives Modal */}
+            {showArchivesModal && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/20 backdrop-blur-sm">
+                    <div className="bg-white rounded-xl shadow-2xl w-full max-w-4xl overflow-hidden animate-fade-in-up flex flex-col max-h-[90vh]">
+                        <div className="bg-slate-800 px-6 py-4 flex justify-between items-center shrink-0">
+                            <div className="flex items-center gap-3">
+                                <div className="bg-white/10 p-2 rounded-lg">
+                                    <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4" /></svg>
+                                </div>
+                                <div>
+                                    <h3 className="text-lg font-semibold text-white">Archived Equipment</h3>
+                                    <p className="text-slate-300 text-xs">Manage archived items</p>
+                                </div>
+                            </div>
+                            <button onClick={() => setShowArchivesModal(false)} className="text-slate-300 hover:text-white transition">
+                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" /></svg>
+                            </button>
+                        </div>
+
+                        <div className="p-6 overflow-y-auto grow">
+                            {archivedEquipment.length === 0 ? (
+                                <div className="text-center py-12 text-slate-500">
+                                    <svg className="w-12 h-12 mx-auto mb-3 text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4" /></svg>
+                                    <p>No archived equipment found.</p>
+                                </div>
+                            ) : (
+                                <table className="w-full text-left text-sm">
+                                    <thead className="bg-slate-50 text-slate-500 border-b border-slate-200">
+                                        <tr>
+                                            <th className="px-4 py-3 font-semibold">Equipment</th>
+                                            <th className="px-4 py-3 font-semibold">Category</th>
+                                            <th className="px-4 py-3 font-semibold">Archived Date</th>
+                                            <th className="px-4 py-3 font-semibold">Reason</th>
+                                            <th className="px-4 py-3 font-semibold text-right">Actions</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-slate-100">
+                                        {archivedEquipment.map((item, idx) => (
+                                            <tr key={idx} className="hover:bg-slate-50 transition">
+                                                <td className="px-4 py-3 font-medium text-slate-900">{item.name}</td>
+                                                <td className="px-4 py-3 text-slate-600">{item.category}</td>
+                                                <td className="px-4 py-3 text-slate-500">
+                                                    {item.archived_at ? new Date(item.archived_at).toLocaleDateString() : '-'}
+                                                </td>
+                                                <td className="px-4 py-3 text-slate-500 italic">
+                                                    "{item.archive_reason || 'No reason provided'}"
+                                                </td>
+                                                <td className="px-4 py-3 text-right">
+                                                    <button
+                                                        onClick={() => handleUnarchive(item)}
+                                                        className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-green-600 hover:bg-green-700 text-white rounded-lg text-xs font-medium transition shadow-sm"
+                                                    >
+                                                        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
+                                                        Restore
+                                                    </button>
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            )}
+                        </div>
+                        <div className="bg-slate-50 p-4 border-t border-slate-200 flex justify-end">
+                            <button
+                                onClick={() => setShowArchivesModal(false)}
+                                className="px-4 py-2 bg-slate-200 hover:bg-slate-300 text-slate-700 rounded-lg text-sm font-medium transition"
+                            >
+                                Close
                             </button>
                         </div>
                     </div>
