@@ -76,7 +76,7 @@ window.EquipmentInventory = function EquipmentInventory() {
 
     const fetchArchivedEquipment = async () => {
         try {
-            const response = await fetch('/api/venues/equipment?include_archived=true');
+            const response = await fetch('/api/venues/equipment?include_archived=true', { credentials: 'include' });
             const data = await response.json();
             if (data.success) {
                 const archived = data.equipment.filter(item => item.archived);
@@ -191,13 +191,16 @@ window.EquipmentInventory = function EquipmentInventory() {
     };
 
     const handleArchive = async (item) => {
-        if (!confirm(`Archive ${item.name}? This will hide it from the active inventory.`)) return;
+        // Prompt for reason
+        const reason = prompt(`Archive ${item.name}? Enter a reason (optional):`);
+        if (reason === null) return; // User cancelled
 
         try {
             const response = await fetch(`/api/venues/equipment/${item.id}/archive`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ reason: 'Archived by user' })
+                credentials: 'include',
+                body: JSON.stringify({ reason: reason || 'Archived by user' })
             });
             const data = await response.json();
             if (data.success) {
@@ -218,7 +221,8 @@ window.EquipmentInventory = function EquipmentInventory() {
 
         try {
             const response = await fetch(`/api/venues/equipment/${item.id}/unarchive`, {
-                method: 'POST'
+                method: 'POST',
+                credentials: 'include'
             });
             const data = await response.json();
             if (data.success) {
