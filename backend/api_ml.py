@@ -562,31 +562,63 @@ def predict_resources():
         print(f"\n[BUDGET SCALING] Calculating budget using attendee ratio from training data...")
         
         try:
+            # Strategy: 
+            # 1. Try to find the most similar event by name (same event type)
+            # 2. If found, use that event's budget-per-attendee ratio
+            # 3. Otherwise, use average of all events of the same type
+            
             # Filter training data by event type
-            type_df = df[df['event_type'] == event_type]
+            type_df = df[df['event_type'] == event_type].copy()
             
             if len(type_df) > 0:
                 # Calculate budget-per-attendee ratio for each training sample
-                type_df_copy = type_df.copy()
-                type_df_copy['budget_per_attendee'] = type_df_copy['total_budget'] / type_df_copy['attendees']
+                type_df['budget_per_attendee'] = type_df['total_budget'] / type_df['attendees']
                 
                 # Remove outliers (budget per attendee > 1000 or < 1)
-                type_df_copy = type_df_copy[
-                    (type_df_copy['budget_per_attendee'] >= 1) & 
-                    (type_df_copy['budget_per_attendee'] <= 1000)
+                type_df = type_df[
+                    (type_df['budget_per_attendee'] >= 1) & 
+                    (type_df['budget_per_attendee'] <= 1000)
                 ]
                 
-                if len(type_df_copy) > 0:
-                    # Calculate average budget per attendee for this event type
-                    avg_budget_per_attendee = type_df_copy['budget_per_attendee'].mean()
+                if len(type_df) > 0:
+                    # STEP 1: Try to find similar event by name
+                    best_match = None
+                    best_match_ratio = None
+                    
+                    if event_name:
+                        from difflib import SequenceMatcher
+                        
+                        # Calculate similarity score for each training event
+                        for idx, row in type_df.iterrows():
+                            training_name = row['event_name'].lower()
+                            input_name = event_name.lower()
+                            
+                            # Calculate similarity (0 to 1)
+                            similarity = SequenceMatcher(None, training_name, input_name).ratio()
+                            
+                            # If similarity > 50%, consider it a match
+                            if similarity > 0.5:
+                                if best_match is None or similarity > best_match:
+                                    best_match = similarity
+                                    best_match_ratio = row['budget_per_attendee']
+                                    print(f"[BUDGET SCALING] Found similar event: '{row['event_name']}' (similarity: {similarity:.1%})")
+                                    print(f"[BUDGET SCALING]   Training: {int(row['attendees'])} attendees, ₱{int(row['total_budget']):,} budget")
+                                    print(f"[BUDGET SCALING]   Ratio: ₱{row['budget_per_attendee']:.2f} per attendee")
+                    
+                    # STEP 2: Use best match ratio if found, otherwise use average
+                    if best_match_ratio is not None:
+                        avg_budget_per_attendee = best_match_ratio
+                        print(f"[BUDGET SCALING] ✓ Using similar event's ratio: ₱{avg_budget_per_attendee:.2f} per attendee")
+                    else:
+                        avg_budget_per_attendee = type_df['budget_per_attendee'].mean()
+                        print(f"[BUDGET SCALING] No similar event found, using type average: ₱{avg_budget_per_attendee:.2f} per attendee")
                     
                     # Scale to user's attendee count
                     predicted_budget = int(avg_budget_per_attendee * attendees)
                     predictions['estimatedBudget'] = max(500, predicted_budget)  # Minimum ₱500
                     
                     print(f"[BUDGET SCALING] Event Type: {event_type}")
-                    print(f"[BUDGET SCALING] Training samples: {len(type_df_copy)}")
-                    print(f"[BUDGET SCALING] Avg budget per attendee: ₱{avg_budget_per_attendee:.2f}")
+                    print(f"[BUDGET SCALING] Training samples: {len(type_df)}")
                     print(f"[BUDGET SCALING] User attendees: {attendees}")
                     print(f"[BUDGET SCALING] Scaled budget: ₱{predictions['estimatedBudget']:,}")
                 else:
