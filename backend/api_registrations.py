@@ -31,7 +31,7 @@ def register_for_event(event_id):
 
         # Check if event exists and is approved
         event = db.execute_one(
-            "SELECT id, name, status, max_attendees FROM events WHERE id = %s AND deleted_at IS NULL",
+            "SELECT id, name, status, max_attendees, organizing_department, shared_with_departments FROM events WHERE id = %s AND deleted_at IS NULL",
             (event_id,)
         )
 
@@ -40,6 +40,31 @@ def register_for_event(event_id):
 
         if event['status'] != 'Approved':
             return jsonify({'error': 'Event is not available for registration'}), 400
+
+        # Check if user's department matches event department
+        # Get user's department from students table
+        user_dept = db.execute_one(
+            "SELECT course FROM students WHERE user_id = %s",
+            (session['user_id'],)
+        )
+        
+        if user_dept and user_dept.get('course'):
+            student_department = user_dept['course']
+            event_department = event['organizing_department']
+            shared_departments = event.get('shared_with_departments', [])
+            
+            # Allow registration if:
+            # 1. Event is General/Cross-Department
+            # 2. Event is for student's department
+            # 3. Event is shared with student's department
+            is_general_event = event_department == 'General/Cross-Department'
+            is_own_department = event_department == student_department
+            is_shared_with_dept = shared_departments and student_department in shared_departments
+            
+            if not (is_general_event or is_own_department or is_shared_with_dept):
+                return jsonify({
+                    'error': f'This event is for {event_department} department only. You cannot register for events outside your department ({student_department}).'
+                }), 403
 
         # Check if user is already registered
         existing_registration = db.execute_one(
