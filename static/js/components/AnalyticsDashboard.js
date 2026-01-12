@@ -277,6 +277,64 @@ window.AnalyticsDashboard = function AnalyticsDashboard() {
         yPosition += Math.min(imgHeight, 70) + 10;
       }
 
+      // ===== DEPARTMENT BUDGET ANALYSIS =====
+      checkPageBreak(80);
+      addSectionHeader('DEPARTMENT BUDGET ANALYSIS', [79, 70, 229]);
+
+      if (analytics.department_budget && analytics.department_budget.length > 0) {
+        pdf.setFontSize(9);
+        pdf.setTextColor(100, 100, 100);
+
+        // Table Headers
+        const cols = {
+          dept: { x: margin, w: 80, label: 'Department' },
+          count: { x: margin + 85, w: 20, label: 'Events' },
+          budget: { x: margin + 110, w: 35, label: 'Total Budget' },
+          avg: { x: margin + 150, w: 35, label: 'Avg / Event' }
+        };
+
+        const tableY = yPosition;
+        pdf.setFont('helvetica', 'bold');
+        pdf.text(cols.dept.label, cols.dept.x, tableY);
+        pdf.text(cols.count.label, cols.count.x, tableY);
+        pdf.text(cols.budget.label, cols.budget.x, tableY);
+        pdf.text(cols.avg.label, cols.avg.x, tableY);
+
+        yPosition += 8;
+        pdf.setFont('helvetica', 'normal');
+        pdf.setTextColor(60, 60, 60);
+
+        analytics.department_budget.forEach((dept, i) => {
+          // Alternating row background
+          if (i % 2 === 0) {
+            pdf.setFillColor(249, 250, 251);
+            pdf.rect(margin - 2, yPosition - 5, contentWidth + 4, 8, 'F');
+          }
+
+          const deptName = dept.department.length > 35 ? dept.department.substring(0, 32) + '...' : dept.department;
+
+          pdf.text(deptName, cols.dept.x, yPosition);
+          pdf.text(String(dept.event_count), cols.count.x + 5, yPosition);
+          pdf.text(`PHP ${(dept.total_budget || 0).toLocaleString()}`, cols.budget.x, yPosition);
+          pdf.text(`PHP ${(dept.avg_budget || 0).toLocaleString(undefined, { maximumFractionDigits: 0 })}`, cols.avg.x, yPosition);
+
+          yPosition += 8;
+        });
+
+        // Add summary insight
+        yPosition += 5;
+        const topSpender = analytics.department_budget[0];
+        const totalBudget = analytics.department_budget.reduce((sum, d) => sum + Number(d.total_budget), 0);
+        const topSpenderPct = ((Number(topSpender.total_budget) / totalBudget) * 100).toFixed(1);
+
+        pdf.setFont('helvetica', 'italic');
+        pdf.setFontSize(9);
+        pdf.setTextColor(100, 116, 139);
+        const insight = `Insight: ${topSpender.department} accounts for ${topSpenderPct}% of the total allocated budget (PHP ${totalBudget.toLocaleString()}).`;
+        pdf.text(insight, margin, yPosition);
+        yPosition += 10;
+      }
+
       // ===== RECOMMENDATIONS =====
       checkPageBreak(80);
       addSectionHeader('STRATEGIC RECOMMENDATIONS', [239, 68, 68]);
