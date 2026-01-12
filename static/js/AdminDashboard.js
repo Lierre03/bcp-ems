@@ -104,6 +104,14 @@ window.AdminDashboard = function AdminDashboard() {
 
       try {
         const response = await fetch('/api/users/pending', { credentials: 'include' });
+
+        if (response.status === 401) {
+          console.log('Session expired, redirecting to login');
+          localStorage.removeItem('user');
+          window.location.href = '/';
+          return;
+        }
+
         const data = await response.json();
         if (data.success) {
           setPendingApprovalCount(data.users.length);
