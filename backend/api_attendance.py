@@ -523,6 +523,7 @@ def get_dashboard_stats():
         db = get_db()
         
         # Use subqueries to avoid Cartesian product in count
+        # Only show events that are Approved, Ongoing, or Completed (exclude Pending, Under Review, Rejected, etc.)
         query = """
             SELECT 
                 e.id, 
@@ -535,6 +536,7 @@ def get_dashboard_stats():
                 (SELECT COUNT(*) FROM event_attendance a WHERE a.event_id = e.id) as total_present
             FROM events e
             WHERE e.deleted_at IS NULL
+            AND e.status IN ('Approved', 'Ongoing', 'Completed')
             ORDER BY e.start_datetime DESC
         """
         
