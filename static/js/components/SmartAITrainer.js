@@ -106,7 +106,7 @@ window.SmartAITrainer = function SmartAITrainer({ onViewChange }) {
           ...p,
           multiDayTimelines: {
             ...p.multiDayTimelines,
-            [dayKey]: [...dayTimelines, { startTime, endTime, phase: '' }]
+            [dayKey]: [...dayTimelines, { startTime, endTime, phase: '', description: '' }]
           }
         };
       }
@@ -129,7 +129,7 @@ window.SmartAITrainer = function SmartAITrainer({ onViewChange }) {
         }
       }
 
-      return { ...p, timelines: [...p.timelines, { startTime, endTime, phase: '' }] };
+      return { ...p, timelines: [...p.timelines, { startTime, endTime, phase: '', description: '' }] };
     });
   };
 
@@ -838,15 +838,26 @@ window.SmartAITrainer = function SmartAITrainer({ onViewChange }) {
                         </p>
                       </div>
                     ) : currentTimeline.map((p, i) => (
-                      <div key={`${form.currentDay}-${i}`} className="flex items-center gap-3 p-4 bg-gray-50 rounded-xl border border-gray-200">
-                        <span className="text-sm text-gray-400 font-bold w-6">{i + 1}</span>
-                        <input type="text" ref={el => timeRefs.current[`start-${form.currentDay}-${i}`] = el} value={p.startTime} onChange={e => updatePhase(i, 'startTime', e.target.value)} placeholder="Start" className="w-20 px-3 py-2 bg-white border border-gray-300 rounded-lg text-sm text-center" />
-                        <span className="text-gray-400">→</span>
-                        <input type="text" ref={el => timeRefs.current[`end-${form.currentDay}-${i}`] = el} value={p.endTime} onChange={e => updatePhase(i, 'endTime', e.target.value)} placeholder="End" className="w-20 px-3 py-2 bg-white border border-gray-300 rounded-lg text-sm text-center" />
-                        <input type="text" value={p.phase} onChange={e => updatePhase(i, 'phase', e.target.value)} placeholder="Activity name" className="flex-1 px-3 py-2 bg-white border border-gray-300 rounded-lg text-sm" />
-                        <button onClick={() => delPhase(i)} className="text-gray-400 hover:text-red-500 p-2">
-                          <I d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" c="w-5 h-5" />
-                        </button>
+                      <div key={`${form.currentDay}-${i}`} className="p-4 bg-gray-50 rounded-xl border border-gray-200">
+                        <div className="flex items-center gap-3 mb-2">
+                          <span className="text-sm text-gray-400 font-bold w-6">{i + 1}</span>
+                          <input type="text" ref={el => timeRefs.current[`start-${form.currentDay}-${i}`] = el} value={p.startTime} onChange={e => updatePhase(i, 'startTime', e.target.value)} placeholder="Start" className="w-20 px-3 py-2 bg-white border border-gray-300 rounded-lg text-sm text-center" />
+                          <span className="text-gray-400">→</span>
+                          <input type="text" ref={el => timeRefs.current[`end-${form.currentDay}-${i}`] = el} value={p.endTime} onChange={e => updatePhase(i, 'endTime', e.target.value)} placeholder="End" className="w-20 px-3 py-2 bg-white border border-gray-300 rounded-lg text-sm text-center" />
+                          <input type="text" value={p.phase} onChange={e => updatePhase(i, 'phase', e.target.value)} placeholder="Activity name" className="flex-1 px-3 py-2 bg-white border border-gray-300 rounded-lg text-sm" />
+                          <button onClick={() => delPhase(i)} className="text-gray-400 hover:text-red-500 p-2">
+                            <I d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" c="w-5 h-5" />
+                          </button>
+                        </div>
+                        <div className="ml-8">
+                          <textarea
+                            value={p.description || ''}
+                            onChange={e => updatePhase(i, 'description', e.target.value)}
+                            placeholder="Description of this activity (optional)..."
+                            rows="2"
+                            className="w-full px-3 py-2 bg-white border border-gray-300 rounded-lg text-sm resize-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 outline-none"
+                          />
+                        </div>
                       </div>
                     ));
                   })()}
