@@ -172,12 +172,14 @@ def add_training_data():
         activities = data.get('activities', [])
         activities_json = json.dumps(activities)
 
+        # Note: 'id' column is auto-incremented, so we don't include it in the INSERT
         db.execute_insert("""
             INSERT INTO ai_training_data
             (event_name, event_type, description, venue, organizer, start_date, end_date,
              attendees, total_budget, budget_breakdown,
              equipment, activities, additional_resources, is_validated)
             VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, 1)
+            RETURNING id
         """, (
             data.get('eventName', ''),
             data.get('eventType', 'Academic'),
@@ -193,7 +195,7 @@ def add_training_data():
             activities_json,
             json.dumps(data.get('additionalResources', []))
         ))
-
+        
         return jsonify({'success': True, 'message': 'Training data added successfully'})
 
     except Exception as e:
@@ -555,37 +557,49 @@ def predict_resources():
             print(f"[TYPE ML] Could not get type confidence: {e}")
 
         # ========================================================================
-        # STEP 1: BUDGET PREDICTION - Learn from ALL events using ML
+        # STEP 1: BUDGET PREDICTION - Scale based on attendee ratio from training data
         # ========================================================================
-        print(f"\n[BUDGET ML] Predicting budget using regression on ALL {len(df)} events...")
+        print(f"\n[BUDGET SCALING] Calculating budget using attendee ratio from training data...")
         
         try:
-            # Use RandomForestRegressor for better accuracy
-            X_budget = df[['event_type_encoded', 'attendees']].values
-            y_budget = df['total_budget'].values
+            # Filter training data by event type
+            type_df = df[df['event_type'] == event_type]
             
-            # Train on ALL events
-            budget_regressor = RandomForestRegressor(n_estimators=50, random_state=42, max_depth=10)
-            budget_regressor.fit(X_budget, y_budget)
-            
-            # Predict for new event
-            predicted_budget = budget_regressor.predict([[event_type_encoded, attendees]])[0]
-            predictions['estimatedBudget'] = max(1000, int(predicted_budget))
-            
-            # Calculate confidence using cross-validation on training data
-            scores = cross_val_score(budget_regressor, X_budget, y_budget, cv=min(3, len(df)), scoring='r2')
-            budget_confidence = max(0.5, min(0.95, scores.mean()))
-            # DON'T overwrite type confidence if already set
-            if 'confidence' not in predictions or predictions['confidence'] == 0.85:
-                predictions['confidence'] = budget_confidence
-            
-            print(f"[BUDGET ML] Predicted: ₱{predictions['estimatedBudget']:,} (confidence: {budget_confidence:.2%})")
-            print(f"[BUDGET ML] Model trained on {len(df)} samples, R² score: {scores.mean():.3f}")
+            if len(type_df) > 0:
+                # Calculate budget-per-attendee ratio for each training sample
+                type_df_copy = type_df.copy()
+                type_df_copy['budget_per_attendee'] = type_df_copy['total_budget'] / type_df_copy['attendees']
+                
+                # Remove outliers (budget per attendee > 1000 or < 1)
+                type_df_copy = type_df_copy[
+                    (type_df_copy['budget_per_attendee'] >= 1) & 
+                    (type_df_copy['budget_per_attendee'] <= 1000)
+                ]
+                
+                if len(type_df_copy) > 0:
+                    # Calculate average budget per attendee for this event type
+                    avg_budget_per_attendee = type_df_copy['budget_per_attendee'].mean()
+                    
+                    # Scale to user's attendee count
+                    predicted_budget = int(avg_budget_per_attendee * attendees)
+                    predictions['estimatedBudget'] = max(500, predicted_budget)  # Minimum ₱500
+                    
+                    print(f"[BUDGET SCALING] Event Type: {event_type}")
+                    print(f"[BUDGET SCALING] Training samples: {len(type_df_copy)}")
+                    print(f"[BUDGET SCALING] Avg budget per attendee: ₱{avg_budget_per_attendee:.2f}")
+                    print(f"[BUDGET SCALING] User attendees: {attendees}")
+                    print(f"[BUDGET SCALING] Scaled budget: ₱{predictions['estimatedBudget']:,}")
+                else:
+                    raise ValueError("No valid training samples after outlier removal")
+            else:
+                raise ValueError(f"No training data for event type: {event_type}")
             
         except Exception as e:
-            print(f"[BUDGET ML] Error: {e}, using fallback")
+            print(f"[BUDGET SCALING] Error: {e}, using fallback")
+            # Fallback: use default rates
             rate = {'Academic': 200, 'Sports': 250, 'Cultural': 300, 'Workshop': 220, 'Seminar': 180}.get(event_type, 200)
             predictions['estimatedBudget'] = attendees * rate
+            print(f"[BUDGET SCALING] Fallback: ₱{rate} per attendee × {attendees} = ₱{predictions['estimatedBudget']:,}")
 
         # ========================================================================
         # STEP 2: EQUIPMENT PREDICTION - Learn equipment patterns from ALL events
