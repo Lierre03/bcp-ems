@@ -15,6 +15,15 @@ window.UserManagement = function UserManagement() {
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [userToDelete, setUserToDelete] = useState(null);
 
+  // Status Toggle Modal State
+  const [showStatusModal, setShowStatusModal] = useState(false);
+  const [statusActionUser, setStatusActionUser] = useState(null); // { id, status, username }
+
+  // Reset Password Modal State
+  const [showResetModal, setShowResetModal] = useState(false);
+  const [resetActionUserId, setResetActionUserId] = useState(null);
+  const [resetPasswordValue, setResetPasswordValue] = useState('');
+
   const [formData, setFormData] = useState({
     username: '',
     full_name: '',
@@ -132,19 +141,24 @@ window.UserManagement = function UserManagement() {
     }
   };
 
-  const handleToggleStatus = async (userId, currentStatus) => {
-    if (!confirm(`Are you sure you want to ${currentStatus === 'active' ? 'deactivate' : 'activate'} this user?`)) {
-      return;
-    }
+  const handleToggleStatusClick = (user) => {
+    setStatusActionUser(user);
+    setShowStatusModal(true);
+  };
+
+  const confirmToggleStatus = async () => {
+    if (!statusActionUser) return;
 
     try {
-      const res = await fetch(`/api/users/${userId}/toggle-status`, {
+      const res = await fetch(`/api/users/${statusActionUser.id}/toggle-status`, {
         method: 'POST',
         credentials: 'include'
       });
       const data = await res.json();
       if (data.success) {
         handleSuccess(data.message || 'Status updated successfully');
+        setShowStatusModal(false);
+        setStatusActionUser(null);
       } else {
         alert(data.message || 'Failed to update status');
       }
@@ -153,20 +167,31 @@ window.UserManagement = function UserManagement() {
     }
   };
 
-  const handleResetPassword = async (userId) => {
-    const newPassword = prompt('Enter new password:');
-    if (!newPassword) return;
+  const handleResetPasswordClick = (userId) => {
+    setResetActionUserId(userId);
+    setResetPasswordValue('');
+    setShowResetModal(true);
+  };
+
+  const confirmResetPassword = async () => {
+    if (!resetActionUserId || !resetPasswordValue) {
+      alert('Please enter a new password');
+      return;
+    }
 
     try {
-      const res = await fetch(`/api/users/${userId}/reset-password`, {
+      const res = await fetch(`/api/users/${resetActionUserId}/reset-password`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
-        body: JSON.stringify({ password: newPassword })
+        body: JSON.stringify({ password: resetPasswordValue })
       });
       const data = await res.json();
       if (data.success) {
         handleSuccess('Password reset successfully');
+        setShowResetModal(false);
+        setResetActionUserId(null);
+        setResetPasswordValue('');
       } else {
         alert(data.message || 'Failed to reset password');
       }
@@ -315,7 +340,7 @@ window.UserManagement = function UserManagement() {
                       </svg>
                     </button>
                     <button
-                      onClick={() => handleResetPassword(user.id)}
+                      onClick={() => handleResetPasswordClick(user.id)}
                       className="p-1.5 text-slate-600 hover:bg-slate-100 rounded-lg transition-colors"
                       title="Reset Password"
                     >
@@ -324,7 +349,7 @@ window.UserManagement = function UserManagement() {
                       </svg>
                     </button>
                     <button
-                      onClick={() => handleToggleStatus(user.id, user.status)}
+                      onClick={() => handleToggleStatusClick(user)}
                       className={`p-1.5 rounded-lg transition-colors ${user.status === 'active'
                         ? 'text-orange-600 hover:bg-orange-50'
                         : 'text-green-600 hover:bg-green-50'
@@ -568,6 +593,104 @@ window.UserManagement = function UserManagement() {
                   onClick={confirmDeleteUser}
                 >
                   Delete User
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Status Alert Modal */}
+      {showStatusModal && statusActionUser && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[80] p-4">
+          <div className="bg-white rounded-xl shadow-xl max-w-sm w-full transform transition-all scale-100 overflow-hidden">
+            <div className="p-6 text-center">
+              <div className={`mx-auto flex items-center justify-center h-16 w-16 rounded-full mb-6 ${statusActionUser.status === 'active' ? 'bg-orange-100' : 'bg-green-100'}`}>
+                {statusActionUser.status === 'active' ? (
+                  <svg className="h-8 w-8 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                  </svg>
+                ) : (
+                  <svg className="h-8 w-8 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                )}
+              </div>
+              <h3 className="text-xl font-bold text-slate-900 mb-2">
+                {statusActionUser.status === 'active' ? 'Deactivate User?' : 'Activate User?'}
+              </h3>
+              <p className="text-slate-600 mb-6">
+                Are you sure you want to {statusActionUser.status === 'active' ? 'deactivate' : 'activate'} <strong>{statusActionUser.username}</strong>?
+                {statusActionUser.status === 'active' && (
+                  <span className="block mt-2 text-xs text-orange-500">They will no longer be able to log in.</span>
+                )}
+              </p>
+
+              <div className="flex gap-3 justify-center">
+                <button
+                  type="button"
+                  className="inline-flex justify-center rounded-lg border border-slate-300 shadow-sm px-4 py-2.5 bg-white text-base font-medium text-slate-700 hover:bg-slate-50 focus:outline-none transition-colors"
+                  onClick={() => setShowStatusModal(false)}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  className={`inline-flex justify-center rounded-lg border border-transparent shadow-sm px-4 py-2.5 text-base font-semibold text-white focus:outline-none transition-colors ${statusActionUser.status === 'active' ? 'bg-orange-600 hover:bg-orange-700' : 'bg-green-600 hover:bg-green-700'
+                    }`}
+                  onClick={confirmToggleStatus}
+                >
+                  Confirm
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Reset Password Modal */}
+      {showResetModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[80] p-4">
+          <div className="bg-white rounded-xl shadow-xl max-w-sm w-full transform transition-all scale-100 overflow-hidden">
+            <div className="bg-slate-700 px-6 py-4 flex justify-between items-center">
+              <h3 className="text-lg font-bold text-white">Reset Password</h3>
+              <button onClick={() => setShowResetModal(false)} className="text-slate-300 hover:text-white">
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            <div className="p-6">
+              <div className="mb-4">
+                <label className="block text-sm font-semibold text-slate-700 mb-1">New Password</label>
+                <input
+                  type="password"
+                  name="modal_new_password"
+                  id="modal_new_password"
+                  autoComplete="new-password"
+                  value={resetPasswordValue}
+                  onChange={(e) => setResetPasswordValue(e.target.value)}
+                  placeholder="Enter new password"
+                  className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                  autoFocus
+                />
+              </div>
+
+              <div className="flex gap-3 justify-end mt-6">
+                <button
+                  type="button"
+                  className="inline-flex justify-center rounded-lg border border-slate-300 shadow-sm px-4 py-2 bg-white text-sm font-medium text-slate-700 hover:bg-slate-50 focus:outline-none transition-colors"
+                  onClick={() => setShowResetModal(false)}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  className="inline-flex justify-center rounded-lg border border-transparent shadow-sm px-4 py-2 bg-blue-600 text-sm font-semibold text-white hover:bg-blue-700 focus:outline-none transition-colors"
+                  onClick={confirmResetPassword}
+                >
+                  Reset Password
                 </button>
               </div>
             </div>
