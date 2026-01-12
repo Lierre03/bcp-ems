@@ -951,7 +951,12 @@ window.EventFormModal = function EventFormModal({
                         const newItems = suggestions
                           .map(item => {
                             const name = typeof item === 'string' ? item : (item.name || item);
-                            const quantity = typeof item === 'object' ? (item.quantity || 1) : 1;
+                            // Defensive parsing for quantity
+                            let quantity = 1;
+                            if (typeof item === 'object') {
+                              quantity = parseInt(item.quantity);
+                              if (isNaN(quantity) || quantity < 1) quantity = 1;
+                            }
                             return { name, quantity };
                           })
                           .filter(obj => !existingNames.has(obj.name));
@@ -979,8 +984,14 @@ window.EventFormModal = function EventFormModal({
                           key={rec.name || idx}
                           onClick={() => {
                             if (!isAlreadyAdded) {
+                              let quantity = 1;
+                              if (rec.quantity) {
+                                quantity = parseInt(rec.quantity);
+                                if (isNaN(quantity) || quantity < 1) quantity = 1;
+                              }
+
                               setUserEquipmentData(prev => ({
-                                equipment: [...prev.equipment, { name: rec.name, quantity: rec.quantity || 1 }]
+                                equipment: [...prev.equipment, { name: rec.name, quantity: quantity }]
                               }));
                             } else {
                               setUserEquipmentData(prev => ({

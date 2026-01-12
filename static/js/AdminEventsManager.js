@@ -550,7 +550,14 @@ window.AdminEventsManager = function AdminEventsManager({ eventIdToOpen }) {
         const rawEquipment = aiData.equipment || aiData.resources || [];
         // Fix: Normalize equipment strings to objects so EventFormModal can render .name
         const equipment = rawEquipment.map(item => {
-          return typeof item === 'string' ? { name: item, quantity: 1 } : item;
+          if (typeof item === 'string') {
+            return { name: item, quantity: 1 };
+          }
+          // Ensure quantity is present and numeric
+          return {
+            ...item,
+            quantity: typeof item.quantity === 'number' && item.quantity > 0 ? item.quantity : 1
+          };
         });
 
         // Filter additional resources to remove any items that are already in equipment
