@@ -221,6 +221,9 @@ window.UserManagement = function UserManagement() {
       <div className="flex flex-col sm:flex-row gap-3">
         <input
           type="text"
+          name="user_search"
+          id="user_search"
+          autoComplete="off"
           placeholder="Search users..."
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
@@ -379,6 +382,9 @@ window.UserManagement = function UserManagement() {
                 <label className="block text-sm font-semibold text-slate-700 mb-1">Username *</label>
                 <input
                   type="text"
+                  name="edit_username"
+                  id="edit_username"
+                  autoComplete="username"
                   value={formData.username}
                   onChange={(e) => setFormData({ ...formData, username: e.target.value })}
 
@@ -390,6 +396,9 @@ window.UserManagement = function UserManagement() {
                 <label className="block text-sm font-semibold text-slate-700 mb-1">Full Name *</label>
                 <input
                   type="text"
+                  name="edit_fullname"
+                  id="edit_fullname"
+                  autoComplete="name"
                   value={formData.full_name}
                   onChange={(e) => setFormData({ ...formData, full_name: e.target.value })}
                   className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
@@ -400,6 +409,9 @@ window.UserManagement = function UserManagement() {
                 <label className="block text-sm font-semibold text-slate-700 mb-1">Email</label>
                 <input
                   type="email"
+                  name="edit_email"
+                  id="edit_email"
+                  autoComplete="email"
                   value={formData.email}
                   onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                   className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
@@ -409,6 +421,8 @@ window.UserManagement = function UserManagement() {
               <div>
                 <label className="block text-sm font-semibold text-slate-700 mb-1">Role *</label>
                 <select
+                  name="edit_role"
+                  id="edit_role"
                   value={formData.role}
                   onChange={(e) => setFormData({ ...formData, role: e.target.value })}
                   className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
@@ -424,6 +438,8 @@ window.UserManagement = function UserManagement() {
                   Department {formData.role === 'Admin' ? '*' : ''}
                 </label>
                 <select
+                  name="edit_department"
+                  id="edit_department"
                   value={formData.department}
                   onChange={(e) => setFormData({ ...formData, department: e.target.value })}
                   disabled={formData.role === 'Super Admin' || formData.role === 'Staff'}
@@ -467,6 +483,9 @@ window.UserManagement = function UserManagement() {
                 </label>
                 <input
                   type="password"
+                  name="edit_password"
+                  id="edit_password"
+                  autoComplete="new-password"
                   value={formData.password}
                   onChange={(e) => setFormData({ ...formData, password: e.target.value })}
                   placeholder={editingUser ? 'Leave blank to keep current' : 'Enter password'}
