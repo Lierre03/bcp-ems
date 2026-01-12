@@ -145,9 +145,9 @@ window.AnalyticsDashboard = function AnalyticsDashboard() {
         `the event management system demonstrates strong operational performance. Total budget allocation stands at ` +
         `₱${(analytics.budget.total / 1000).toFixed(1)}K with an average attendance rate of ${analytics.attendance.attendance_rate}%.`;
 
-      const summaryLines = pdf.splitTextToSize(summaryText, contentWidth);
+      const summaryLines = pdf.splitTextToSize(summaryText, contentWidth - 10);
       pdf.text(summaryLines, margin, yPosition);
-      yPosition += summaryLines.length * 5 + 10;
+      yPosition += summaryLines.length * 4.5 + 10;
 
       // ===== KEY PERFORMANCE INDICATORS =====
       addSectionHeader('KEY PERFORMANCE INDICATORS', [16, 185, 129]);
@@ -224,10 +224,10 @@ window.AnalyticsDashboard = function AnalyticsDashboard() {
       }
 
       insights.forEach(insight => {
-        checkPageBreak(12);
-        const lines = pdf.splitTextToSize(insight, contentWidth - 4);
-        pdf.text(lines, margin + 2, yPosition);
-        yPosition += lines.length * 4.5 + 4;
+        checkPageBreak(15);
+        const lines = pdf.splitTextToSize(insight, contentWidth - 10);
+        pdf.text(lines, margin + 3, yPosition);
+        yPosition += lines.length * 4.5 + 3;
       });
 
       yPosition += 5;
@@ -320,7 +320,7 @@ window.AnalyticsDashboard = function AnalyticsDashboard() {
 
         pdf.setFont('helvetica', 'normal');
         pdf.setTextColor(60, 60, 60);
-        const descLines = pdf.splitTextToSize(rec.desc, contentWidth - 5);
+        const descLines = pdf.splitTextToSize(rec.desc, contentWidth - 15);
         pdf.text(descLines, margin + 5, yPosition);
         yPosition += descLines.length * 5 + 5;
       });
