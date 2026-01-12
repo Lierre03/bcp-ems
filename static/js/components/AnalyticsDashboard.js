@@ -143,7 +143,7 @@ window.AnalyticsDashboard = function AnalyticsDashboard() {
       const summaryText = `This report provides a comprehensive analysis of ${totalEvents} events managed through the system. ` +
         `With a ${completionRate}% completion rate and an average feedback rating of ${analytics.feedback.avg_overall}/5, ` +
         `the event management system demonstrates strong operational performance. Total budget allocation stands at ` +
-        `₱${(analytics.budget.total / 1000).toFixed(1)}K with an average attendance rate of ${analytics.attendance.attendance_rate}%.`;
+        `PHP ${(analytics.budget.total / 1000).toFixed(1)}K with an average attendance rate of ${analytics.attendance.attendance_rate}%.`;
 
       // Set font explicitly before rendering
       pdf.setFont('helvetica', 'normal');
@@ -163,10 +163,10 @@ window.AnalyticsDashboard = function AnalyticsDashboard() {
 
       // KPI Cards
       const kpis = [
-        { label: 'Total Events', value: String(totalEvents), icon: '📊' },
-        { label: 'Completion Rate', value: `${completionRate}%`, icon: '✅' },
-        { label: 'Avg Feedback', value: `${analytics.feedback.avg_overall}/5`, icon: '⭐' },
-        { label: 'Attendance Rate', value: `${analytics.attendance.attendance_rate}%`, icon: '👥' }
+        { label: 'Total Events', value: String(totalEvents), icon: '●' },
+        { label: 'Completion Rate', value: `${completionRate}%`, icon: '●' },
+        { label: 'Avg Feedback', value: `${analytics.feedback.avg_overall}/5`, icon: '★' },
+        { label: 'Attendance Rate', value: `${analytics.attendance.attendance_rate}%`, icon: '●' }
       ];
 
       const cardWidth = (contentWidth - 9) / 4;
@@ -201,34 +201,34 @@ window.AnalyticsDashboard = function AnalyticsDashboard() {
 
       // Event Type Analysis
       const topEventType = analytics.type_distribution.reduce((max, t) => t.count > max.count ? t : max, analytics.type_distribution[0]);
-      insights.push(`• ${topEventType.event_type} events are the most popular category with ${topEventType.count} events, indicating strong interest in this area.`);
+      insights.push(`- ${topEventType.event_type} events are the most popular category with ${topEventType.count} events, indicating strong interest in this area.`);
 
       // Attendance Analysis
       if (analytics.attendance.attendance_rate >= 80) {
-        insights.push(`• Excellent attendance rate of ${analytics.attendance.attendance_rate}% demonstrates high student engagement and effective event promotion.`);
+        insights.push(`- Excellent attendance rate of ${analytics.attendance.attendance_rate}% demonstrates high student engagement and effective event promotion.`);
       } else if (analytics.attendance.attendance_rate >= 60) {
-        insights.push(`• Moderate attendance rate of ${analytics.attendance.attendance_rate}% suggests room for improvement in event marketing and student outreach.`);
+        insights.push(`- Moderate attendance rate of ${analytics.attendance.attendance_rate}% suggests room for improvement in event marketing and student outreach.`);
       } else {
-        insights.push(`• Low attendance rate of ${analytics.attendance.attendance_rate}% indicates a need for enhanced promotional strategies and timing optimization.`);
+        insights.push(`- Low attendance rate of ${analytics.attendance.attendance_rate}% indicates a need for enhanced promotional strategies and timing optimization.`);
       }
 
       // Feedback Analysis
       if (analytics.feedback.avg_overall >= 4.0) {
-        insights.push(`• High satisfaction rating of ${analytics.feedback.avg_overall}/5 reflects quality event execution and positive participant experiences.`);
+        insights.push(`- High satisfaction rating of ${analytics.feedback.avg_overall}/5 reflects quality event execution and positive participant experiences.`);
       } else if (analytics.feedback.avg_overall >= 3.0) {
-        insights.push(`• Average satisfaction rating of ${analytics.feedback.avg_overall}/5 indicates acceptable performance with opportunities for enhancement.`);
+        insights.push(`- Average satisfaction rating of ${analytics.feedback.avg_overall}/5 indicates acceptable performance with opportunities for enhancement.`);
       } else {
-        insights.push(`• Below-average satisfaction rating of ${analytics.feedback.avg_overall}/5 requires immediate attention to event quality and participant experience.`);
+        insights.push(`- Below-average satisfaction rating of ${analytics.feedback.avg_overall}/5 requires immediate attention to event quality and participant experience.`);
       }
 
       // Budget Analysis
       const avgBudget = analytics.budget.average;
-      insights.push(`• Average event budget of ₱${avgBudget.toFixed(0)} provides baseline for future planning and resource allocation.`);
+      insights.push(`- Average event budget of PHP ${avgBudget.toFixed(0)} provides baseline for future planning and resource allocation.`);
 
       // Venue Analysis
       if (analytics.top_venues.length > 0) {
         const topVenue = analytics.top_venues[0];
-        insights.push(`• ${topVenue.venue} is the most utilized venue with ${topVenue.usage_count} bookings, suggesting high demand and suitability for events.`);
+        insights.push(`- ${topVenue.venue} is the most utilized venue with ${topVenue.usage_count} bookings, suggesting high demand and suitability for events.`);
       }
 
       insights.forEach(insight => {
@@ -303,7 +303,7 @@ window.AnalyticsDashboard = function AnalyticsDashboard() {
       // Budget recommendations
       recommendations.push({
         title: 'Optimize Budget Allocation',
-        desc: `With an average budget of ₱${avgBudget.toFixed(0)}, consider reallocating resources to high-impact events and exploring cost-effective alternatives for supplies.`
+        desc: `With an average budget of PHP ${avgBudget.toFixed(0)}, consider reallocating resources to high-impact events and exploring cost-effective alternatives for supplies.`
       });
 
       // Venue recommendations
