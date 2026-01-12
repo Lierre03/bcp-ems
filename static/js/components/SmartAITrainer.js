@@ -14,7 +14,7 @@ window.SmartAITrainer = function SmartAITrainer({ onViewChange }) {
   const [modal, setModal] = useState(null);
   const timeRefs = useRef({});
 
-  const venues = ['Auditorium', 'Gymnasium', 'Main Hall', 'Cafeteria', 'Lab', 'Courtyard', 'Library', 'Covered Court'];
+  const [venues, setVenues] = useState([]);
   const types = ['Academic', 'Sports', 'Cultural', 'Workshop', 'Seminar'];
 
   useEffect(() => { load(); }, []);
@@ -63,14 +63,16 @@ window.SmartAITrainer = function SmartAITrainer({ onViewChange }) {
 
   const load = async () => {
     try {
-      const [s, h, e] = await Promise.all([
+      const [s, h, e, v] = await Promise.all([
         fetch('/api/ml/training-stats').then(r => r.json()),
         fetch('/api/ml/training-data').then(r => r.json()),
-        fetch('/api/ml/equipment-options').then(r => r.json())
+        fetch('/api/ml/equipment-options').then(r => r.json()),
+        fetch('/api/venues').then(r => r.json())
       ]);
       if (s.success) setStats({ trained: s.total_samples || 0, accuracy: s.accuracy || 70 });
       if (h.success) setHistory(h.data || []);
       if (e.success) setEqCats(e.categories);
+      if (v.success && v.venues) setVenues(v.venues.map(venue => venue.name));
     } catch (e) { console.error(e); }
   };
 
@@ -807,8 +809,8 @@ window.SmartAITrainer = function SmartAITrainer({ onViewChange }) {
                             key={i}
                             onClick={() => setForm(p => ({ ...p, currentDay: i }))}
                             className={`px-4 py-2 rounded-lg text-sm font-semibold transition-all flex-shrink-0 ${form.currentDay === i
-                                ? 'bg-indigo-600 text-white shadow-md'
-                                : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
+                              ? 'bg-indigo-600 text-white shadow-md'
+                              : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
                               }`}
                           >
                             Day {i}
