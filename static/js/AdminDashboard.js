@@ -259,7 +259,9 @@ window.AdminDashboard = function AdminDashboard() {
                 </svg>
               </button>
               <div>
-                <p className="text-blue-600 text-xs font-medium mb-0.5">Admin Dashboard</p>
+                <p className="text-blue-600 text-xs font-medium mb-0.5">
+                  {user?.role_name === 'Super Admin' ? 'Super Admin Dashboard' : 'Admin Dashboard'}
+                </p>
                 <h1 className="text-xl md:text-2xl font-bold text-gray-900">
                   {activeView === 'events' ? 'Events Manager' :
                     activeView === 'approvals' ? 'Account Approvals' :
@@ -288,7 +290,13 @@ window.AdminDashboard = function AdminDashboard() {
                 </p>
               </div>
             </div>
-            <div className="flex items-center">
+            <div className="flex items-center gap-4">
+              {user && (
+                <div className="hidden md:block text-right">
+                  <p className="text-sm font-semibold text-gray-900 leading-tight">{user.full_name || user.username}</p>
+                  <p className="text-xs text-gray-500">{user.role_name || 'Admin'}</p>
+                </div>
+              )}
               <NotificationBell />
             </div>
           </div>
@@ -308,7 +316,7 @@ window.AdminDashboard = function AdminDashboard() {
           {activeView === 'staff-scanner' && <StaffScannerView />}
           {activeView === 'staff-approvals' && <EquipmentApprovals />}
         </main>
-      </div>
-    </div>
+      </div >
+    </div >
   );
 }
