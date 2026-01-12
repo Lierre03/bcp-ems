@@ -52,12 +52,25 @@ def get_equipment():
         db = get_db()
         print("Database connection obtained")
         
-        # First, get all equipment from the equipment table
-        equipment_list = db.execute_query("""
-            SELECT id, name, category, total_quantity, status
-            FROM equipment
-            ORDER BY category, name
-        """)
+        # Check if archived items should be included
+        include_archived = request.args.get('include_archived', 'false').lower() == 'true'
+        
+        # First, get all equipment from the equipment table (filter archived by default)
+        if include_archived:
+            equipment_query = """
+                SELECT id, name, category, total_quantity, status, archived, archived_at, archive_reason
+                FROM equipment
+                ORDER BY category, name
+            """
+        else:
+            equipment_query = """
+                SELECT id, name, category, total_quantity, status
+                FROM equipment
+                WHERE archived = FALSE OR archived IS NULL
+                ORDER BY category, name
+            """
+        
+        equipment_list = db.execute_query(equipment_query)
         
         # Then, get all approved/ongoing events with equipment JSON
         events_with_equipment = db.execute_query("""
