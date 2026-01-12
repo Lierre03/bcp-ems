@@ -78,17 +78,17 @@ def load_training_data():
     db = get_db()
 
     try:
-        # Get dedicated training data (Limit 5 to prevent timeout/OOM - USER REQUESTED)
+        # Get ALL dedicated training data (removed limit - models should learn from ALL examples)
         training_data = db.execute_query("""
             SELECT event_name, event_type, attendees, total_budget,
                    equipment, activities, additional_resources,
                    budget_breakdown, venue, organizer, description
             FROM ai_training_data
             WHERE is_validated = 1 AND total_budget > 0
-            ORDER BY created_at DESC LIMIT 5
+            ORDER BY created_at DESC
         """)
 
-        # ALSO get completed real events to learn from actual usage (Limit 5 to prevent timeout)
+        # ALSO get ALL completed real events to learn from actual usage
         completed_events = db.execute_query("""
             SELECT 
                 name as event_name,
@@ -106,7 +106,7 @@ def load_training_data():
             WHERE status = 'Completed' 
               AND budget > 0 
               AND deleted_at IS NULL
-            ORDER BY created_at DESC LIMIT 5
+            ORDER BY created_at DESC
         """)
         
         # Combine database training + completed events
