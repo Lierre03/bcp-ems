@@ -237,11 +237,12 @@ def register():
         try:
             with db.get_transaction() as cursor:
                 # Insert new user (pending admin approval)
+                # Map course to department for students so it shows in Admin Panel
                 cursor.execute('''
-                    INSERT INTO users (id, username, email, password_hash, first_name, last_name, role_id, is_active, account_status)
-                    VALUES (DEFAULT, %s, %s, %s, %s, %s, %s, 0, 'Pending')
+                    INSERT INTO users (id, username, email, password_hash, first_name, last_name, role_id, is_active, account_status, department)
+                    VALUES (DEFAULT, %s, %s, %s, %s, %s, %s, 0, 'Pending', %s)
                     RETURNING id
-                ''', (username, email, hashed_password, first_name, last_name, role_id))
+                ''', (username, email, hashed_password, first_name, last_name, role_id, course))
                 user_id = cursor.fetchone()['id']
 
                 # Insert into students table
