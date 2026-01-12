@@ -83,13 +83,21 @@ window.AccountApprovalPanel = function AccountApprovalPanel() {
 
   const formatDate = (dateString) => {
     if (!dateString) return 'N/A';
-    const date = new Date(dateString);
-    return date.toLocaleDateString('en-US', {
+    // Append 'Z' to treat the date as UTC if it's missing timezone info
+    const utcDateString = !dateString.endsWith('Z') && !dateString.includes('+')
+      ? dateString + 'Z'
+      : dateString;
+
+    const date = new Date(utcDateString);
+
+    return date.toLocaleString('en-US', {
       month: 'short',
       day: 'numeric',
       year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
+      hour: 'numeric',
+      minute: '2-digit',
+      hour12: true,
+      timeZone: 'Asia/Manila'
     });
   };
 
