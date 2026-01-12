@@ -9,6 +9,8 @@ window.EquipmentInventory = function EquipmentInventory() {
     const [selectedEquipment, setSelectedEquipment] = React.useState(null);
     const [openDropdown, setOpenDropdown] = React.useState(null);
     const [userRole, setUserRole] = React.useState('');
+    const [showSuccessModal, setShowSuccessModal] = React.useState(false);
+    const [successMessage, setSuccessMessage] = React.useState('');
 
     // Edit modal state
     const [editForm, setEditForm] = React.useState({
@@ -91,7 +93,8 @@ window.EquipmentInventory = function EquipmentInventory() {
                 setShowAddModal(false);
                 setNewEquipment({ name: '', category: '', customCategory: '', total_quantity: 0 });
                 fetchEquipment();
-                alert('Equipment added successfully!');
+                setSuccessMessage('Equipment added successfully!');
+                setShowSuccessModal(true);
             } else {
                 alert("Error: " + data.error);
             }
@@ -164,7 +167,8 @@ window.EquipmentInventory = function EquipmentInventory() {
             setShowEditModal(false);
             setSelectedEquipment(null);
             fetchEquipment();
-            alert('Equipment updated successfully!');
+            setSuccessMessage('Equipment updated successfully!');
+            setShowSuccessModal(true);
         } catch (err) {
             console.error("Error:", err);
             alert("Failed to update equipment");
@@ -183,7 +187,8 @@ window.EquipmentInventory = function EquipmentInventory() {
             const data = await response.json();
             if (data.success) {
                 fetchEquipment();
-                alert(data.message);
+                setSuccessMessage(data.message);
+                setShowSuccessModal(true);
             } else {
                 alert("Error: " + data.error);
             }
@@ -693,6 +698,33 @@ window.EquipmentInventory = function EquipmentInventory() {
                                 </button>
                             </div>
                         </form>
+                    </div>
+                </div>
+            )}
+
+            {/* Success Modal */}
+            {showSuccessModal && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/20 backdrop-blur-sm">
+                    <div className="bg-white rounded-xl shadow-2xl w-full max-w-md overflow-hidden animate-fade-in-up">
+                        <div className="bg-gradient-to-r from-green-500 to-emerald-600 px-6 py-4">
+                            <div className="flex items-center gap-3">
+                                <div className="bg-white/20 p-2 rounded-full">
+                                    <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
+                                    </svg>
+                                </div>
+                                <h3 className="text-lg font-semibold text-white">Success!</h3>
+                            </div>
+                        </div>
+                        <div className="p-6">
+                            <p className="text-slate-700 text-center mb-6">{successMessage}</p>
+                            <button
+                                onClick={() => setShowSuccessModal(false)}
+                                className="w-full px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg text-sm font-medium transition"
+                            >
+                                OK
+                            </button>
+                        </div>
                     </div>
                 </div>
             )}
