@@ -511,4 +511,58 @@ def get_detailed_attendance_list(event_id):
 
     except Exception as e:
         logger.error(f"Get detailed attendance list error: {e}")
-        return jsonify({'error': 'Failed to fetch attendance list'}), 500
+
+@attendance_bp.route('/dashboard-stats', methods=['GET'])
+@require_role(['Super Admin', 'Admin', 'Staff', 'Department Head', 'Student Organization Officer'])
+def get_dashboard_stats():
+    """
+    Get high-level stats for attendance dashboard
+    GET /api/attendance/dashboard-stats
+    """
+    try:
+        db = get_db()
+        
+        # Use subqueries to avoid Cartesian product in count
+        query = """
+            SELECT 
+                e.id, 
+                e.name, 
+                e.start_datetime, 
+                e.venue,
+                e.status,
+                e.event_type,
+                (SELECT COUNT(*) FROM event_registrations r WHERE r.event_id = e.id AND r.registration_status = 'Registered') as total_registered,
+                (SELECT COUNT(*) FROM event_attendance a WHERE a.event_id = e.id) as total_present
+            FROM events e
+            WHERE e.deleted_at IS NULL
+            ORDER BY e.start_datetime DESC
+        """
+        
+        stats = db.execute_query(query)
+        
+        formatted = []
+        for s in stats:
+             # Calculate percentage
+             reg = s['total_registered']
+             pres = s['total_present']
+             pct = (pres / reg * 100) if reg > 0 else 0
+             
+             formatted.append({
+                 'id': s['id'],
+                 'name': s['name'],
+                 'date': s['start_datetime'].strftime('%Y-%m-%d') if s['start_datetime'] else 'TBD',
+                 'time': s['start_datetime'].strftime('%I:%M %p') if s['start_datetime'] else '',
+                 'venue': s['venue'] or 'TBD',
+                 'status': s['status'],
+                 'type': s['event_type'],
+                 'total_registered': reg,
+                 'total_present': pres,
+                 'percentage': round(pct, 1)
+             })
+             
+        return jsonify({'success': True, 'events': formatted}), 200
+        
+    except Exception as e:
+        logger.error(f"Get dashboard stats error: {e}")
+        return jsonify({'error': 'Failed to fetch dashboard stats'}), 500
+
