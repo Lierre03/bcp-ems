@@ -161,7 +161,7 @@ def load_training_data():
 
 @ml_bp.route('/add-training-data', methods=['POST'])
 def add_training_data():
-    """Add new training example to MySQL"""
+    """Add new training example to PostgreSQL"""
     try:
         data = request.json
         db = get_db()
