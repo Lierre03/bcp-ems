@@ -14,6 +14,11 @@ window.EquipmentInventory = function EquipmentInventory() {
     const [showArchivesModal, setShowArchivesModal] = React.useState(false);
     const [archivedEquipment, setArchivedEquipment] = React.useState([]);
 
+    // Log Modal State
+    const [showLogModal, setShowLogModal] = React.useState(false);
+    const [logs, setLogs] = React.useState([]);
+    const [loadingLogs, setLoadingLogs] = React.useState(false);
+
     // Edit modal state
     const [editForm, setEditForm] = React.useState({
         name: '',
@@ -84,6 +89,28 @@ window.EquipmentInventory = function EquipmentInventory() {
             }
         } catch (err) {
             console.error("Error fetching archives:", err);
+        }
+    };
+
+    const fetchLogs = async (item) => {
+        setSelectedEquipment(item);
+        setLoadingLogs(true);
+        setShowLogModal(true);
+        setLogs([]);
+
+        try {
+            const response = await fetch(`/api/venues/equipment/${item.id}/logs`, { credentials: 'include' });
+            const data = await response.json();
+            if (data.success) {
+                setLogs(data.logs);
+            } else {
+                alert("Error fetching logs: " + data.error);
+            }
+        } catch (err) {
+            console.error("Error fetching logs:", err);
+            alert("Failed to fetch logs");
+        } finally {
+            setLoadingLogs(false);
         }
     };
 
@@ -459,6 +486,14 @@ window.EquipmentInventory = function EquipmentInventory() {
                                                 </td>
                                                 <td className="px-6 py-5 relative">
                                                     <div className="flex items-center gap-2">
+                                                        <button
+                                                            onClick={() => fetchLogs(item)}
+                                                            className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-medium transition shadow-sm border border-slate-300"
+                                                            title="View History"
+                                                        >
+                                                            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                                                            History
+                                                        </button>
                                                         <button
                                                             onClick={() => openEditModal(item)}
                                                             className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-medium transition shadow-sm"
@@ -848,6 +883,94 @@ window.EquipmentInventory = function EquipmentInventory() {
                             <button
                                 onClick={() => setShowArchivesModal(false)}
                                 className="px-4 py-2 bg-slate-200 hover:bg-slate-300 text-slate-700 rounded-lg text-sm font-medium transition"
+                            >
+                                Close
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Audit Log Modal */}
+            {showLogModal && selectedEquipment && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/20 backdrop-blur-sm">
+                    <div className="bg-white rounded-xl shadow-2xl w-full max-w-4xl overflow-hidden animate-fade-in-up flex flex-col max-h-[90vh]">
+                        <div className="bg-slate-800 px-6 py-4 flex justify-between items-center shrink-0">
+                            <div className="flex items-center gap-3">
+                                <div className="bg-white/10 p-2 rounded-lg">
+                                    <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                                </div>
+                                <div>
+                                    <h3 className="text-lg font-semibold text-white">Equipment History</h3>
+                                    <p className="text-slate-300 text-xs">Audit log for {selectedEquipment.name}</p>
+                                </div>
+                            </div>
+                            <button onClick={() => setShowLogModal(false)} className="text-slate-300 hover:text-white transition">
+                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" /></svg>
+                            </button>
+                        </div>
+
+                        <div className="p-6 overflow-y-auto">
+                            {loadingLogs ? (
+                                <div className="flex justify-center py-12">
+                                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-slate-800"></div>
+                                </div>
+                            ) : logs.length === 0 ? (
+                                <div className="text-center py-12 text-slate-500">
+                                    <svg className="w-12 h-12 mx-auto mb-3 text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                                    <p>No history records found for this item.</p>
+                                </div>
+                            ) : (
+                                <div className="overflow-hidden rounded-lg border border-slate-200">
+                                    <table className="min-w-full divide-y divide-slate-200">
+                                        <thead className="bg-slate-50">
+                                            <tr>
+                                                <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Date & Time</th>
+                                                <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Action</th>
+                                                <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Change</th>
+                                                <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Quantity</th>
+                                                <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Reason</th>
+                                                <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">User</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody className="bg-white divide-y divide-slate-200">
+                                            {logs.map((log) => (
+                                                <tr key={log.id} className="hover:bg-slate-50">
+                                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-600">
+                                                        {new Date(log.changed_at).toLocaleString()}
+                                                    </td>
+                                                    <td className="px-6 py-4 whitespace-nowrap">
+                                                        <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${log.change_type === 'ADD' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+                                                            }`}>
+                                                            {log.change_type}
+                                                        </span>
+                                                    </td>
+                                                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                                                        <span className={log.quantity_change > 0 ? 'text-green-600' : 'text-red-600'}>
+                                                            {log.quantity_change > 0 ? '+' : ''}{log.quantity_change}
+                                                        </span>
+                                                    </td>
+                                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500">
+                                                        {log.previous_quantity} → <span className="font-semibold text-slate-900">{log.new_quantity}</span>
+                                                    </td>
+                                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500">
+                                                        {log.reason || '—'}
+                                                    </td>
+                                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-600">
+                                                        {log.changed_by_name || 'System'}
+                                                    </td>
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            )}
+                        </div>
+
+                        <div className="bg-slate-50 px-6 py-4 border-t border-slate-200 flex justify-end">
+                            <button
+                                onClick={() => setShowLogModal(false)}
+                                className="px-4 py-2 bg-slate-200 text-slate-700 rounded-lg hover:bg-slate-300 font-medium text-sm transition"
                             >
                                 Close
                             </button>
