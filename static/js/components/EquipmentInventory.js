@@ -31,11 +31,11 @@ window.EquipmentInventory = function EquipmentInventory() {
         fetchEquipment();
         fetchCategories();
         // Get user role from session
-        fetch('/api/auth/me')
+        fetch('/api/auth/session')
             .then(res => res.json())
             .then(data => {
-                if (data.success) {
-                    setUserRole(data.user.role);
+                if (data.authenticated && data.user) {
+                    setUserRole(data.user.role_name);
                 }
             })
             .catch(err => console.error('Error fetching user:', err));
