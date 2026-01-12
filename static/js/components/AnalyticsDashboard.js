@@ -222,6 +222,7 @@ window.AnalyticsDashboard = function AnalyticsDashboard() {
       // ===== KEY INSIGHTS & FINDINGS =====
       addSectionHeader('KEY INSIGHTS & FINDINGS', [245, 158, 11]);
 
+      pdf.setFont('times', 'roman');
       pdf.setFontSize(10);
       pdf.setTextColor(60, 60, 60);
 
@@ -298,6 +299,7 @@ window.AnalyticsDashboard = function AnalyticsDashboard() {
         const recentMonths = analytics.trends.monthly.slice(-3);
         const trend = recentMonths[recentMonths.length - 1].event_count > recentMonths[0].event_count ? 'increasing' : 'decreasing';
 
+        pdf.setFont('times', 'roman');
         pdf.setFontSize(10);
         pdf.text(`Event activity shows a ${trend} trend over the past quarter. `, margin, yPosition);
         yPosition += 6;
