@@ -146,7 +146,10 @@ window.AnalyticsDashboard = function AnalyticsDashboard() {
         `₱${(analytics.budget.total / 1000).toFixed(1)}K with an average attendance rate of ${analytics.attendance.attendance_rate}%.`;
 
       const summaryLines = pdf.splitTextToSize(summaryText, contentWidth - 10);
-      pdf.text(summaryLines, margin, yPosition);
+      // Render each line individually to avoid character spacing issues
+      summaryLines.forEach((line, lineIdx) => {
+        pdf.text(line, margin, yPosition + (lineIdx * 4.5));
+      });
       yPosition += summaryLines.length * 4.5 + 10;
 
       // ===== KEY PERFORMANCE INDICATORS =====
@@ -226,7 +229,10 @@ window.AnalyticsDashboard = function AnalyticsDashboard() {
       insights.forEach(insight => {
         checkPageBreak(15);
         const lines = pdf.splitTextToSize(insight, contentWidth - 10);
-        pdf.text(lines, margin + 3, yPosition);
+        // Render each line individually to avoid character spacing issues
+        lines.forEach((line, lineIdx) => {
+          pdf.text(line, margin + 3, yPosition + (lineIdx * 4.5));
+        });
         yPosition += lines.length * 4.5 + 3;
       });
 
@@ -321,7 +327,10 @@ window.AnalyticsDashboard = function AnalyticsDashboard() {
         pdf.setFont('helvetica', 'normal');
         pdf.setTextColor(60, 60, 60);
         const descLines = pdf.splitTextToSize(rec.desc, contentWidth - 15);
-        pdf.text(descLines, margin + 5, yPosition);
+        // Render each line individually to avoid character spacing issues
+        descLines.forEach((line, lineIdx) => {
+          pdf.text(line, margin + 5, yPosition + (lineIdx * 5));
+        });
         yPosition += descLines.length * 5 + 5;
       });
 
