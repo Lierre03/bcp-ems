@@ -224,10 +224,10 @@ window.AnalyticsDashboard = function AnalyticsDashboard() {
       }
 
       insights.forEach(insight => {
-        checkPageBreak(10);
-        const lines = pdf.splitTextToSize(insight, contentWidth - 5);
+        checkPageBreak(12);
+        const lines = pdf.splitTextToSize(insight, contentWidth - 4);
         pdf.text(lines, margin + 2, yPosition);
-        yPosition += lines.length * 5 + 3;
+        yPosition += lines.length * 4.5 + 4;
       });
 
       yPosition += 5;
