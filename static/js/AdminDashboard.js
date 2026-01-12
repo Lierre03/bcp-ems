@@ -54,9 +54,10 @@ window.AdminDashboard = function AdminDashboard() {
   }, []);
 
   useEffect(() => {
-    const userJson = localStorage.getItem('user');
     if (userJson) {
-      setUser(JSON.parse(userJson));
+      const userData = JSON.parse(userJson);
+      setUser(userData);
+      document.title = userData.role_name === 'Super Admin' ? 'Super Admin Dashboard' : 'Admin Dashboard';
     }
 
     // Set up global function for opening events from notifications
