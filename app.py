@@ -137,6 +137,11 @@ def create_app(config_name='development'):
         """Serve admin dashboard"""
         return send_from_directory(app.template_folder, 'admin.html')
 
+    @app.route('/superadmin')
+    def superadmin():
+        """Serve admin dashboard for super admin"""
+        return send_from_directory(app.template_folder, 'admin.html')
+
     @app.route('/staff')
     def staff():
         """Serve staff dashboard"""

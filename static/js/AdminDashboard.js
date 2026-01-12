@@ -58,7 +58,16 @@ window.AdminDashboard = function AdminDashboard() {
     if (userJson) {
       const userData = JSON.parse(userJson);
       setUser(userData);
-      document.title = userData.role_name === 'Super Admin' ? 'Super Admin Dashboard' : 'Admin Dashboard';
+
+      if (userData.role_name === 'Super Admin') {
+        document.title = 'Super Admin Dashboard';
+        // Update URL to /superadmin if currently at /admin
+        if (window.location.pathname === '/admin') {
+          window.history.replaceState(null, 'Super Admin Dashboard', '/superadmin' + window.location.hash);
+        }
+      } else {
+        document.title = 'Admin Dashboard';
+      }
     }
 
     // Set up global function for opening events from notifications
