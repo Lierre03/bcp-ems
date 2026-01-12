@@ -212,6 +212,203 @@ def add_equipment_quantity(equipment_id):
         logger.error(f"Error adding equipment quantity: {e}")
         return jsonify({'success': False, 'error': str(e)}), 500
 
+@venues_bp.route('/equipment/<int:equipment_id>', methods=['PATCH'])
+@require_role(['Super Admin'])
+def update_equipment(equipment_id):
+    """Update equipment name and category (Super Admin only)"""
+    try:
+        data = request.get_json()
+        name = data.get('name')
+        category = data.get('category')
+
+        if not name or not category:
+            return jsonify({'success': False, 'error': 'Name and category are required'}), 400
+
+        db = get_db()
+        query = """
+            UPDATE equipment 
+            SET name = %s, category = %s
+            WHERE id = %s
+            RETURNING id, name, category, total_quantity
+        """
+        result = db.execute_one(query, (name, category, equipment_id))
+        
+        if not result:
+            return jsonify({'success': False, 'error': 'Equipment not found'}), 404
+
+        return jsonify({
+            'success': True,
+            'message': 'Equipment updated successfully',
+            'equipment': result
+        })
+    except Exception as e:
+        logger.error(f"Error updating equipment: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@venues_bp.route('/equipment/<int:equipment_id>/adjust-quantity', methods=['PATCH'])
+@require_role(['Super Admin', 'Admin', 'Staff'])
+def adjust_equipment_quantity(equipment_id):
+    """Add or reduce equipment quantity with audit logging"""
+    try:
+        data = request.get_json()
+        change_type = data.get('change_type')  # 'ADD' or 'REDUCE'
+        quantity = data.get('quantity')
+        reason = data.get('reason', '')
+
+        if not change_type or not quantity or quantity <= 0:
+            return jsonify({'success': False, 'error': 'Invalid parameters'}), 400
+
+        if change_type not in ['ADD', 'REDUCE']:
+            return jsonify({'success': False, 'error': 'Invalid change type'}), 400
+
+        if change_type == 'REDUCE' and not reason:
+            return jsonify({'success': False, 'error': 'Reason required for reducing quantity'}), 400
+
+        db = get_db()
+        
+        # Get current quantity
+        current = db.execute_one("SELECT total_quantity FROM equipment WHERE id = %s", (equipment_id,))
+        if not current:
+            return jsonify({'success': False, 'error': 'Equipment not found'}), 404
+
+        previous_qty = current['total_quantity']
+        
+        # Calculate new quantity
+        if change_type == 'ADD':
+            new_qty = previous_qty + quantity
+            quantity_change = quantity
+        else:  # REDUCE
+            if previous_qty < quantity:
+                return jsonify({'success': False, 'error': 'Cannot reduce more than available quantity'}), 400
+            new_qty = previous_qty - quantity
+            quantity_change = -quantity
+
+        # Update equipment quantity
+        update_query = """
+            UPDATE equipment 
+            SET total_quantity = %s
+            WHERE id = %s
+            RETURNING id, name, category, total_quantity
+        """
+        result = db.execute_one(update_query, (new_qty, equipment_id))
+
+        # Log the change
+        log_query = """
+            INSERT INTO equipment_quantity_logs 
+            (equipment_id, change_type, quantity_change, reason, changed_by, previous_quantity, new_quantity)
+            VALUES (%s, %s, %s, %s, %s, %s, %s)
+        """
+        db.execute_insert(log_query, (
+            equipment_id,
+            change_type,
+            quantity_change,
+            reason,
+            session.get('user_id'),
+            previous_qty,
+            new_qty
+        ))
+
+        return jsonify({
+            'success': True,
+            'message': f'Quantity {change_type.lower()}ed successfully',
+            'equipment': result,
+            'previous_quantity': previous_qty,
+            'new_quantity': new_qty
+        })
+    except Exception as e:
+        logger.error(f"Error adjusting equipment quantity: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@venues_bp.route('/equipment/<int:equipment_id>/archive', methods=['POST'])
+@require_role(['Super Admin', 'Admin'])
+def archive_equipment(equipment_id):
+    """Archive equipment"""
+    try:
+        data = request.get_json()
+        reason = data.get('reason', '')
+
+        db = get_db()
+        query = """
+            UPDATE equipment 
+            SET archived = TRUE,
+                archived_at = CURRENT_TIMESTAMP,
+                archived_by = %s,
+                archive_reason = %s
+            WHERE id = %s
+            RETURNING id, name
+        """
+        result = db.execute_one(query, (session.get('user_id'), reason, equipment_id))
+        
+        if not result:
+            return jsonify({'success': False, 'error': 'Equipment not found'}), 404
+
+        return jsonify({
+            'success': True,
+            'message': f"{result['name']} archived successfully"
+        })
+    except Exception as e:
+        logger.error(f"Error archiving equipment: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@venues_bp.route('/equipment/<int:equipment_id>/unarchive', methods=['POST'])
+@require_role(['Super Admin', 'Admin'])
+def unarchive_equipment(equipment_id):
+    """Restore archived equipment"""
+    try:
+        db = get_db()
+        query = """
+            UPDATE equipment 
+            SET archived = FALSE,
+                archived_at = NULL,
+                archived_by = NULL,
+                archive_reason = NULL
+            WHERE id = %s
+            RETURNING id, name
+        """
+        result = db.execute_one(query, (equipment_id,))
+        
+        if not result:
+            return jsonify({'success': False, 'error': 'Equipment not found'}), 404
+
+        return jsonify({
+            'success': True,
+            'message': f"{result['name']} restored successfully"
+        })
+    except Exception as e:
+        logger.error(f"Error unarchiving equipment: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@venues_bp.route('/equipment/<int:equipment_id>/logs', methods=['GET'])
+@require_role(['Super Admin', 'Admin', 'Staff'])
+def get_equipment_logs(equipment_id):
+    """Get quantity change history for equipment"""
+    try:
+        db = get_db()
+        query = """
+            SELECT 
+                l.id,
+                l.change_type,
+                l.quantity_change,
+                l.reason,
+                l.changed_at,
+                l.previous_quantity,
+                l.new_quantity,
+                u.first_name || ' ' || u.last_name as changed_by_name
+            FROM equipment_quantity_logs l
+            LEFT JOIN users u ON l.changed_by = u.id
+            WHERE l.equipment_id = %s
+            ORDER BY l.changed_at DESC
+        """
+        logs = db.execute_query(query, (equipment_id,))
+
+        return jsonify({
+            'success': True,
+            'logs': logs
+        })
+    except Exception as e:
+        logger.error(f"Error fetching equipment logs: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
 @venues_bp.route('/conflicts', methods=['GET'])
 def get_conflicts():
     """
