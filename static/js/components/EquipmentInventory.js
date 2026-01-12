@@ -1,13 +1,24 @@
-// EquipmentInventory Component - Updated to match design
+// EquipmentInventory Component - Professional with Edit, Archive, Quantity Adjustment
 window.EquipmentInventory = function EquipmentInventory() {
     const [equipment, setEquipment] = React.useState([]);
     const [loading, setLoading] = React.useState(true);
     const [error, setError] = React.useState(null);
     const [searchTerm, setSearchTerm] = React.useState('');
-    const [showModal, setShowModal] = React.useState(false);
-    const [showAddQuantityModal, setShowAddQuantityModal] = React.useState(false);
+    const [showAddModal, setShowAddModal] = React.useState(false);
+    const [showEditModal, setShowEditModal] = React.useState(false);
     const [selectedEquipment, setSelectedEquipment] = React.useState(null);
-    const [quantityToAdd, setQuantityToAdd] = React.useState(0);
+    const [openDropdown, setOpenDropdown] = React.useState(null);
+    const [userRole, setUserRole] = React.useState('');
+
+    // Edit modal state
+    const [editForm, setEditForm] = React.useState({
+        name: '',
+        category: '',
+        addQuantity: 0,
+        reduceQuantity: 0,
+        reduceReason: ''
+    });
+
     const [newEquipment, setNewEquipment] = React.useState({
         name: '',
         category: '',
@@ -19,6 +30,15 @@ window.EquipmentInventory = function EquipmentInventory() {
     React.useEffect(() => {
         fetchEquipment();
         fetchCategories();
+        // Get user role from session
+        fetch('/api/auth/me')
+            .then(res => res.json())
+            .then(data => {
+                if (data.success) {
+                    setUserRole(data.user.role);
+                }
+            })
+            .catch(err => console.error('Error fetching user:', err));
     }, []);
 
     const fetchCategories = async () => {
@@ -38,7 +58,6 @@ window.EquipmentInventory = function EquipmentInventory() {
             const response = await fetch('/api/venues/equipment');
             const data = await response.json();
             if (data.success) {
-                // Backend now provides calculated in_use, available, and used_by fields
                 setEquipment(data.equipment);
             } else {
                 setError('Failed to load equipment');
@@ -53,11 +72,8 @@ window.EquipmentInventory = function EquipmentInventory() {
 
     const handleAddSubmit = async (e) => {
         e.preventDefault();
-
-        // Determine the category to send
         const categoryToSend = newEquipment.category === 'Other' ? newEquipment.customCategory : newEquipment.category;
 
-        // Validate custom category if "Other" is selected
         if (newEquipment.category === 'Other' && !newEquipment.customCategory.trim()) {
             alert("Please specify a custom category.");
             return;
@@ -66,63 +82,128 @@ window.EquipmentInventory = function EquipmentInventory() {
         try {
             const response = await fetch('/api/venues/equipment', {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({
-                    ...newEquipment,
-                    category: categoryToSend
-                })
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ ...newEquipment, category: categoryToSend })
             });
 
             const data = await response.json();
-
             if (data.success) {
-                setShowModal(false);
+                setShowAddModal(false);
                 setNewEquipment({ name: '', category: '', customCategory: '', total_quantity: 0 });
-                // Refresh list
                 fetchEquipment();
+                alert('Equipment added successfully!');
             } else {
-                alert("Error adding equipment: " + data.error);
+                alert("Error: " + data.error);
             }
         } catch (err) {
-            console.error("Error submitting form:", err);
+            console.error("Error:", err);
             alert("Failed to connect to server");
         }
     };
 
-    const handleAddQuantitySubmit = async (e) => {
+    const handleEditSubmit = async (e) => {
         e.preventDefault();
 
-        if (!quantityToAdd || quantityToAdd <= 0) {
-            alert("Please enter a valid quantity");
-            return;
+        try {
+            // Update name/category if Super Admin
+            if (userRole === 'Super Admin' && (editForm.name || editForm.category)) {
+                const response = await fetch(`/api/venues/equipment/${selectedEquipment.id}`, {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        name: editForm.name,
+                        category: editForm.category
+                    })
+                });
+                const data = await response.json();
+                if (!data.success) {
+                    alert("Error updating equipment: " + data.error);
+                    return;
+                }
+            }
+
+            // Handle quantity adjustments
+            if (editForm.addQuantity > 0) {
+                const response = await fetch(`/api/venues/equipment/${selectedEquipment.id}/adjust-quantity`, {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        change_type: 'ADD',
+                        quantity: editForm.addQuantity,
+                        reason: 'New stock purchased'
+                    })
+                });
+                const data = await response.json();
+                if (!data.success) {
+                    alert("Error adding quantity: " + data.error);
+                    return;
+                }
+            }
+
+            if (editForm.reduceQuantity > 0) {
+                if (!editForm.reduceReason) {
+                    alert("Please provide a reason for reducing quantity");
+                    return;
+                }
+                const response = await fetch(`/api/venues/equipment/${selectedEquipment.id}/adjust-quantity`, {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        change_type: 'REDUCE',
+                        quantity: editForm.reduceQuantity,
+                        reason: editForm.reduceReason
+                    })
+                });
+                const data = await response.json();
+                if (!data.success) {
+                    alert("Error reducing quantity: " + data.error);
+                    return;
+                }
+            }
+
+            setShowEditModal(false);
+            setSelectedEquipment(null);
+            fetchEquipment();
+            alert('Equipment updated successfully!');
+        } catch (err) {
+            console.error("Error:", err);
+            alert("Failed to update equipment");
         }
+    };
+
+    const handleArchive = async (item) => {
+        if (!confirm(`Archive ${item.name}? This will hide it from the active inventory.`)) return;
 
         try {
-            const response = await fetch(`/api/venues/equipment/${selectedEquipment.id}/add-quantity`, {
-                method: 'PATCH',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({ quantity: quantityToAdd })
+            const response = await fetch(`/api/venues/equipment/${item.id}/archive`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ reason: 'Archived by user' })
             });
-
             const data = await response.json();
-
             if (data.success) {
-                setShowAddQuantityModal(false);
-                setSelectedEquipment(null);
-                setQuantityToAdd(0);
-                fetchEquipment(); // Refresh list
+                fetchEquipment();
                 alert(data.message);
             } else {
-                alert("Error adding quantity: " + data.error);
+                alert("Error: " + data.error);
             }
         } catch (err) {
-            console.error("Error adding quantity:", err);
-            alert("Failed to connect to server");
+            console.error("Error:", err);
+            alert("Failed to archive equipment");
         }
+    };
+
+    const openEditModal = (item) => {
+        setSelectedEquipment(item);
+        setEditForm({
+            name: item.name,
+            category: item.category,
+            addQuantity: 0,
+            reduceQuantity: 0,
+            reduceReason: ''
+        });
+        setShowEditModal(true);
+        setOpenDropdown(null);
     };
 
     // Calculate Summary Stats
@@ -155,7 +236,7 @@ window.EquipmentInventory = function EquipmentInventory() {
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
                 <h2 className="text-sm md:text-base font-semibold text-slate-800">Equipment Inventory</h2>
                 <button
-                    onClick={() => setShowModal(true)}
+                    onClick={() => setShowAddModal(true)}
                     className="bg-blue-900 hover:bg-blue-800 text-white px-3 py-1.5 rounded-lg text-xs font-medium flex items-center gap-2 transition shadow-sm"
                 >
                     <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4" /></svg>
@@ -165,7 +246,6 @@ window.EquipmentInventory = function EquipmentInventory() {
 
             {/* Stats Cards */}
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 md:gap-3">
-                {/* Total Items */}
                 <div className="bg-white p-3 md:p-4 rounded-lg border border-slate-200 shadow-sm relative overflow-hidden">
                     <div className="absolute top-0 right-0 w-12 h-12 bg-indigo-50 rounded-bl-full -mr-3 -mt-3"></div>
                     <div className="flex items-center justify-between">
@@ -175,10 +255,8 @@ window.EquipmentInventory = function EquipmentInventory() {
                         <p className="text-lg md:text-xl font-bold text-slate-800">{stats.totalItems}</p>
                     </div>
                     <p className="text-xs font-medium text-slate-500 mt-2">Total Items</p>
-                    <p className="text-xs text-slate-400">Equipment types</p>
                 </div>
 
-                {/* Total Units */}
                 <div className="bg-white p-3 md:p-4 rounded-lg border border-slate-200 shadow-sm relative overflow-hidden">
                     <div className="absolute top-0 right-0 w-12 h-12 bg-slate-50 rounded-bl-full -mr-3 -mt-3"></div>
                     <div className="flex items-center justify-between">
@@ -188,10 +266,8 @@ window.EquipmentInventory = function EquipmentInventory() {
                         <p className="text-lg md:text-xl font-bold text-slate-800">{stats.totalUnits}</p>
                     </div>
                     <p className="text-xs font-medium text-slate-500 mt-2">Total Units</p>
-                    <p className="text-xs text-slate-400">In inventory</p>
                 </div>
 
-                {/* Available */}
                 <div className="bg-white p-3 md:p-4 rounded-lg border border-slate-200 shadow-sm relative overflow-hidden">
                     <div className="absolute top-0 right-0 w-12 h-12 bg-green-50 rounded-bl-full -mr-3 -mt-3"></div>
                     <div className="flex items-center justify-between">
@@ -201,10 +277,8 @@ window.EquipmentInventory = function EquipmentInventory() {
                         <p className="text-lg md:text-xl font-bold text-green-600">{stats.available}</p>
                     </div>
                     <p className="text-xs font-medium text-slate-500 mt-2">Available</p>
-                    <p className="text-xs text-slate-400">Ready for use</p>
                 </div>
 
-                {/* In Use */}
                 <div className="bg-white p-3 md:p-4 rounded-lg border border-slate-200 shadow-sm relative overflow-hidden">
                     <div className="absolute top-0 right-0 w-12 h-12 bg-orange-50 rounded-bl-full -mr-3 -mt-3"></div>
                     <div className="flex items-center justify-between">
@@ -214,11 +288,10 @@ window.EquipmentInventory = function EquipmentInventory() {
                         <p className="text-lg md:text-xl font-bold text-orange-500">{stats.inUse}</p>
                     </div>
                     <p className="text-xs font-medium text-slate-500 mt-2">In Use</p>
-                    <p className="text-xs text-slate-400">Currently deployed</p>
                 </div>
             </div>
 
-            {/* Search & Filter */}
+            {/* Search */}
             <div className="bg-white p-1.5 md:p-2 rounded-lg border border-slate-200 shadow-sm flex gap-1.5 md:gap-2">
                 <div className="flex-1 relative">
                     <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
@@ -232,41 +305,23 @@ window.EquipmentInventory = function EquipmentInventory() {
                         onChange={(e) => setSearchTerm(e.target.value)}
                     />
                 </div>
-                <div className="w-px bg-slate-200 my-1"></div>
-                <button className="px-4 py-2 text-slate-500 hover:text-slate-700 hover:bg-slate-50 rounded-md transition">
-                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" /></svg>
-                </button>
-                <div className="w-32"></div> {/* Spacer for the empty filter box in design */}
             </div>
 
-            {/* Inventory Lists */}
+            {/* Equipment Lists */}
             <div className="space-y-4">
                 {Object.entries(groupedEquipment).map(([category, items]) => {
-                    // Calculate category stats
                     const catTotal = items.reduce((acc, i) => acc + i.total_quantity, 0);
                     const catAvailable = items.reduce((acc, i) => acc + i.available, 0);
                     const catInUse = items.reduce((acc, i) => acc + i.in_use, 0);
 
-                    // Determine icon based on category
-                    let Icon = (
-                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" /></svg>
-                    );
-                    if (category.includes('AV') || category.includes('Audio')) {
-                        Icon = <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" /></svg>;
-                    } else if (category.includes('Furniture')) {
-                        Icon = <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" /></svg>; // Box icon for furniture
-                    } else if (category.includes('IT') || category.includes('Computer')) {
-                        Icon = <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" /></svg>;
-                    }
+                    let Icon = <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" /></svg>;
 
                     return (
                         <div key={category} className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
                             {/* Category Header */}
                             <div className="bg-slate-50 px-4 py-3 border-b border-slate-200 flex items-center justify-between gap-2">
                                 <div className="flex items-center gap-3">
-                                    <div className={`p-2 rounded-lg ${category.includes('AV') ? 'bg-blue-100 text-blue-600' : 'bg-purple-100 text-purple-600'}`}>
-                                        {Icon}
-                                    </div>
+                                    <div className="p-2 rounded-lg bg-purple-100 text-purple-600">{Icon}</div>
                                     <div>
                                         <h3 className="font-bold text-slate-900 text-lg">{category}</h3>
                                         <p className="text-sm text-slate-500">{items.length} items</p>
@@ -286,50 +341,6 @@ window.EquipmentInventory = function EquipmentInventory() {
                                         <span className="font-bold text-orange-700">{catInUse}</span>
                                     </div>
                                 </div>
-                            </div>
-
-                            {/* Items - Mobile: Cards, Desktop: Table */}
-                            <div className="md:hidden divide-y divide-slate-100">
-                                {items.map((item, idx) => (
-                                    <div key={idx} className="p-4 hover:bg-slate-50 transition">
-                                        <div className="flex justify-between items-start mb-3">
-                                            <h4 className="font-semibold text-slate-900 text-base">{item.name}</h4>
-                                            <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold ${item.available > 0 ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
-                                                <span className={`w-2 h-2 rounded-full ${item.available > 0 ? 'bg-green-500' : 'bg-red-500'}`}></span>
-                                                {item.available > 0 ? 'In Stock' : 'Out'}
-                                            </span>
-                                        </div>
-                                        <div className="grid grid-cols-3 gap-3 text-sm mb-3">
-                                            <div className="bg-slate-50 p-2 rounded">
-                                                <span className="text-slate-500 text-xs uppercase tracking-wide">Total</span>
-                                                <p className="font-bold text-slate-800 text-lg">{item.total_quantity}</p>
-                                            </div>
-                                            <div className="bg-green-50 p-2 rounded">
-                                                <span className="text-green-600 text-xs uppercase tracking-wide">Avail</span>
-                                                <p className="font-bold text-green-700 text-lg">{item.available}</p>
-                                            </div>
-                                            <div className="bg-orange-50 p-2 rounded">
-                                                <span className="text-orange-600 text-xs uppercase tracking-wide">In Use</span>
-                                                <p className="font-bold text-orange-700 text-lg">{item.in_use}</p>
-                                            </div>
-                                        </div>
-                                        {item.used_by !== '—' && (
-                                            <div className="mt-3 pt-3 border-t border-slate-100">
-                                                <span className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-2 block">USED BY</span>
-                                                <div className="flex flex-wrap gap-2">
-                                                    {item.used_by.split(',').map((eventName, eIdx) => (
-                                                        <span
-                                                            key={eIdx}
-                                                            className="inline-flex items-center px-2.5 py-1 rounded text-xs font-medium bg-blue-50 text-blue-700 border border-blue-100"
-                                                        >
-                                                            {eventName.trim()}
-                                                        </span>
-                                                    ))}
-                                                </div>
-                                            </div>
-                                        )}
-                                    </div>
-                                ))}
                             </div>
 
                             {/* Desktop Table */}
@@ -388,18 +399,25 @@ window.EquipmentInventory = function EquipmentInventory() {
                                                         <span className="text-slate-300 font-light">—</span>
                                                     )}
                                                 </td>
-                                                <td className="px-6 py-5">
-                                                    <button
-                                                        onClick={() => {
-                                                            setSelectedEquipment(item);
-                                                            setQuantityToAdd(0);
-                                                            setShowAddQuantityModal(true);
-                                                        }}
-                                                        className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-900 hover:bg-blue-800 text-white rounded-lg text-xs font-medium transition shadow-sm"
-                                                    >
-                                                        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4" /></svg>
-                                                        Add Qty
-                                                    </button>
+                                                <td className="px-6 py-5 relative">
+                                                    <div className="flex items-center gap-2">
+                                                        <button
+                                                            onClick={() => openEditModal(item)}
+                                                            className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-medium transition shadow-sm"
+                                                            title="Edit"
+                                                        >
+                                                            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
+                                                            Edit
+                                                        </button>
+                                                        <button
+                                                            onClick={() => handleArchive(item)}
+                                                            className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-slate-600 hover:bg-slate-700 text-white rounded-lg text-xs font-medium transition shadow-sm"
+                                                            title="Archive"
+                                                        >
+                                                            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4" /></svg>
+                                                            Archive
+                                                        </button>
+                                                    </div>
                                                 </td>
                                             </tr>
                                         ))}
@@ -412,10 +430,9 @@ window.EquipmentInventory = function EquipmentInventory() {
             </div>
 
             {/* Add Equipment Modal */}
-            {showModal && (
+            {showAddModal && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/20 backdrop-blur-sm">
                     <div className="bg-white rounded-xl shadow-2xl w-full max-w-md overflow-hidden animate-fade-in-up">
-                        {/* Modal Header - Navy Blue */}
                         <div className="bg-blue-900 px-6 py-4 flex justify-between items-center">
                             <div className="flex items-center gap-3">
                                 <div className="bg-white/10 p-2 rounded-lg">
@@ -426,17 +443,12 @@ window.EquipmentInventory = function EquipmentInventory() {
                                     <p className="text-blue-200 text-xs">Add equipment to your inventory</p>
                                 </div>
                             </div>
-                            <button onClick={() => setShowModal(false)} className="text-blue-200 hover:text-white transition">
+                            <button onClick={() => setShowAddModal(false)} className="text-blue-200 hover:text-white transition">
                                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" /></svg>
                             </button>
                         </div>
 
-                        {/* Modal Body */}
                         <form onSubmit={handleAddSubmit} className="p-6 space-y-4">
-                            <div className="border-l-4 border-blue-900 pl-3 mb-6">
-                                <h4 className="text-sm font-semibold text-slate-800">Basic Information</h4>
-                            </div>
-
                             <div>
                                 <label className="block text-xs font-medium text-slate-500 mb-1">Equipment Name <span className="text-red-500">*</span></label>
                                 <input
@@ -483,24 +495,17 @@ window.EquipmentInventory = function EquipmentInventory() {
                                         type="text"
                                         required
                                         className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-900 focus:border-blue-900 text-sm"
-                                        placeholder="e.g., Lab Equipment, Kitchen Supplies..."
+                                        placeholder="e.g., Lab Equipment..."
                                         value={newEquipment.customCategory}
                                         onChange={(e) => setNewEquipment({ ...newEquipment, customCategory: e.target.value })}
                                     />
                                 </div>
                             )}
 
-                            <div className="bg-blue-50 border border-blue-100 rounded-lg p-3 flex gap-3 items-start">
-                                <svg className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-                                <p className="text-xs text-blue-700 leading-relaxed">
-                                    All units will be marked as available when first added. You can assign them to events later from the Events Manager.
-                                </p>
-                            </div>
-
                             <div className="flex gap-3 pt-2">
                                 <button
                                     type="button"
-                                    onClick={() => setShowModal(false)}
+                                    onClick={() => setShowAddModal(false)}
                                     className="flex-1 px-4 py-2 border border-slate-300 text-slate-700 rounded-lg text-sm font-medium hover:bg-slate-50 transition"
                                 >
                                     Cancel
@@ -518,30 +523,29 @@ window.EquipmentInventory = function EquipmentInventory() {
                 </div>
             )}
 
-            {/* Add Quantity Modal */}
-            {showAddQuantityModal && selectedEquipment && (
+            {/* Edit Equipment Modal */}
+            {showEditModal && selectedEquipment && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/20 backdrop-blur-sm">
-                    <div className="bg-white rounded-xl shadow-2xl w-full max-w-md overflow-hidden animate-fade-in-up">
-                        {/* Modal Header */}
-                        <div className="bg-blue-900 px-6 py-4 flex justify-between items-center">
+                    <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl overflow-hidden animate-fade-in-up max-h-[90vh] overflow-y-auto">
+                        <div className="bg-blue-900 px-6 py-4 flex justify-between items-center sticky top-0 z-10">
                             <div className="flex items-center gap-3">
                                 <div className="bg-white/10 p-2 rounded-lg">
-                                    <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" /></svg>
+                                    <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
                                 </div>
                                 <div>
-                                    <h3 className="text-lg font-semibold text-white">Add Quantity</h3>
+                                    <h3 className="text-lg font-semibold text-white">Edit Equipment</h3>
                                     <p className="text-blue-200 text-xs">{selectedEquipment.name}</p>
                                 </div>
                             </div>
-                            <button onClick={() => setShowAddQuantityModal(false)} className="text-blue-200 hover:text-white transition">
+                            <button onClick={() => setShowEditModal(false)} className="text-blue-200 hover:text-white transition">
                                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" /></svg>
                             </button>
                         </div>
 
-                        {/* Modal Body */}
-                        <form onSubmit={handleAddQuantitySubmit} className="p-6 space-y-4">
+                        <form onSubmit={handleEditSubmit} className="p-6 space-y-6">
+                            {/* Current Stats */}
                             <div className="bg-slate-50 p-4 rounded-lg border border-slate-200">
-                                <div className="grid grid-cols-2 gap-4 text-sm">
+                                <div className="grid grid-cols-3 gap-4 text-sm">
                                     <div>
                                         <span className="text-slate-500">Current Total:</span>
                                         <p className="font-bold text-slate-800 text-lg">{selectedEquipment.total_quantity}</p>
@@ -550,34 +554,132 @@ window.EquipmentInventory = function EquipmentInventory() {
                                         <span className="text-slate-500">Available:</span>
                                         <p className="font-bold text-green-600 text-lg">{selectedEquipment.available}</p>
                                     </div>
+                                    <div>
+                                        <span className="text-slate-500">In Use:</span>
+                                        <p className="font-bold text-orange-600 text-lg">{selectedEquipment.in_use}</p>
+                                    </div>
                                 </div>
                             </div>
 
-                            <div>
-                                <label className="block text-xs font-medium text-slate-500 mb-1">Quantity to Add <span className="text-red-500">*</span></label>
-                                <input
-                                    type="number"
-                                    min="1"
-                                    required
-                                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-900 focus:border-blue-900 text-sm"
-                                    placeholder="Enter quantity..."
-                                    value={quantityToAdd || ''}
-                                    onChange={(e) => setQuantityToAdd(parseInt(e.target.value) || 0)}
-                                />
-                            </div>
-
-                            {quantityToAdd > 0 && (
-                                <div className="bg-blue-50 border border-blue-100 rounded-lg p-3">
-                                    <p className="text-xs text-blue-700">
-                                        New total will be: <span className="font-bold">{selectedEquipment.total_quantity + quantityToAdd}</span> units
-                                    </p>
+                            {/* Name & Category (Super Admin Only) */}
+                            {userRole === 'Super Admin' && (
+                                <div className="space-y-4">
+                                    <div className="border-l-4 border-blue-900 pl-3">
+                                        <h4 className="text-sm font-semibold text-slate-800">Equipment Details (Super Admin Only)</h4>
+                                    </div>
+                                    <div className="grid grid-cols-2 gap-4">
+                                        <div>
+                                            <label className="block text-xs font-medium text-slate-500 mb-1">Equipment Name</label>
+                                            <input
+                                                type="text"
+                                                className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-900 focus:border-blue-900 text-sm"
+                                                value={editForm.name}
+                                                onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
+                                            />
+                                        </div>
+                                        <div>
+                                            <label className="block text-xs font-medium text-slate-500 mb-1">Category</label>
+                                            <select
+                                                className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-900 focus:border-blue-900 text-sm"
+                                                value={editForm.category}
+                                                onChange={(e) => setEditForm({ ...editForm, category: e.target.value })}
+                                            >
+                                                {categories.map(category => (
+                                                    <option key={category} value={category}>{category}</option>
+                                                ))}
+                                            </select>
+                                        </div>
+                                    </div>
                                 </div>
                             )}
+
+                            {/* Add Quantity */}
+                            <div className="space-y-4">
+                                <div className="border-l-4 border-green-600 pl-3">
+                                    <h4 className="text-sm font-semibold text-slate-800">Add Quantity</h4>
+                                    <p className="text-xs text-slate-500">Increase stock (e.g., new purchases)</p>
+                                </div>
+                                <div>
+                                    <label className="block text-xs font-medium text-slate-500 mb-1">Quantity to Add</label>
+                                    <input
+                                        type="number"
+                                        min="0"
+                                        className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-green-600 focus:border-green-600 text-sm"
+                                        placeholder="0"
+                                        value={editForm.addQuantity || ''}
+                                        onChange={(e) => setEditForm({ ...editForm, addQuantity: parseInt(e.target.value) || 0 })}
+                                    />
+                                </div>
+                                {editForm.addQuantity > 0 && (
+                                    <div className="bg-green-50 border border-green-100 rounded-lg p-3">
+                                        <p className="text-xs text-green-700">
+                                            New total will be: <span className="font-bold">{selectedEquipment.total_quantity + editForm.addQuantity}</span> units
+                                        </p>
+                                    </div>
+                                )}
+                            </div>
+
+                            {/* Reduce Quantity */}
+                            <div className="space-y-4">
+                                <div className="border-l-4 border-red-600 pl-3">
+                                    <h4 className="text-sm font-semibold text-slate-800">Reduce Quantity</h4>
+                                    <p className="text-xs text-slate-500">Decrease stock (requires reason)</p>
+                                </div>
+                                <div>
+                                    <label className="block text-xs font-medium text-slate-500 mb-1">Quantity to Reduce</label>
+                                    <input
+                                        type="number"
+                                        min="0"
+                                        max={selectedEquipment.total_quantity}
+                                        className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-red-600 focus:border-red-600 text-sm"
+                                        placeholder="0"
+                                        value={editForm.reduceQuantity || ''}
+                                        onChange={(e) => setEditForm({ ...editForm, reduceQuantity: parseInt(e.target.value) || 0 })}
+                                    />
+                                </div>
+                                {editForm.reduceQuantity > 0 && (
+                                    <>
+                                        <div>
+                                            <label className="block text-xs font-medium text-slate-500 mb-1">Reason <span className="text-red-500">*</span></label>
+                                            <select
+                                                className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-red-600 focus:border-red-600 text-sm"
+                                                value={editForm.reduceReason}
+                                                onChange={(e) => setEditForm({ ...editForm, reduceReason: e.target.value })}
+                                            >
+                                                <option value="">Select reason...</option>
+                                                <option value="Broken">Broken</option>
+                                                <option value="Lost">Lost</option>
+                                                <option value="Damaged">Damaged</option>
+                                                <option value="Donated">Donated</option>
+                                                <option value="Disposed">Disposed</option>
+                                                <option value="Other">Other</option>
+                                            </select>
+                                        </div>
+                                        {editForm.reduceReason === 'Other' && (
+                                            <div>
+                                                <label className="block text-xs font-medium text-slate-500 mb-1">Specify Reason</label>
+                                                <textarea
+                                                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-red-600 focus:border-red-600 text-sm"
+                                                    rows="2"
+                                                    placeholder="Please specify..."
+                                                    value={editForm.reduceReason === 'Other' ? editForm.reduceReason : ''}
+                                                    onChange={(e) => setEditForm({ ...editForm, reduceReason: e.target.value })}
+                                                ></textarea>
+                                            </div>
+                                        )}
+                                        <div className="bg-red-50 border border-red-100 rounded-lg p-3">
+                                            <p className="text-xs text-red-700">
+                                                New total will be: <span className="font-bold">{selectedEquipment.total_quantity - editForm.reduceQuantity}</span> units
+                                            </p>
+                                        </div>
+                                    </>
+                                )}
+                            </div>
 
                             <div className="flex gap-3 pt-2">
                                 <button
                                     type="button"
-                                    onClick={() => setShowAddQuantityModal(false)}
+                                    onClick={() => setShowEditModal(false)}
                                     className="flex-1 px-4 py-2 border border-slate-300 text-slate-700 rounded-lg text-sm font-medium hover:bg-slate-50 transition"
                                 >
                                     Cancel
@@ -586,8 +688,8 @@ window.EquipmentInventory = function EquipmentInventory() {
                                     type="submit"
                                     className="flex-1 px-4 py-2 bg-blue-900 text-white rounded-lg text-sm font-medium hover:bg-blue-800 transition flex items-center justify-center gap-2"
                                 >
-                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4" /></svg>
-                                    Add Quantity
+                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" /></svg>
+                                    Save Changes
                                 </button>
                             </div>
                         </form>
