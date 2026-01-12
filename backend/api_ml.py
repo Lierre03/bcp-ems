@@ -745,14 +745,15 @@ def predict_resources():
                     
                     print(f"[BREAKDOWN ML] Top 3 similar events for budget:")
                     for idx, sim in zip(top_indices, top_similarities):
-                        if sim > 0.30:  # Increased threshold - only use good matches (30%+)
-                            similar_evt = type_df.iloc[idx]
+                        similar_evt = type_df.iloc[idx]
+                        print(f"  - {similar_evt['event_name']} (similarity: {sim:.2%})")
+                        
+                        if sim > 0.15:  # Lowered threshold to 15% for better matching
                             top_similar_events.append(similar_evt)
-                            print(f"  - {similar_evt['event_name']} (similarity: {sim:.2%})")
                     
-                    # Only log if no good matches found - don't force bad matches
+                    # Only log if no good matches found
                     if len(top_similar_events) == 0:
-                        print(f"[BREAKDOWN ML] No similar events found (threshold: 30%). Will use event-type fallback.")
+                        print(f"[BREAKDOWN ML] No similar events found (threshold: 15%). Using event-type fallback.")
             except Exception as e:
                 print(f"[BREAKDOWN ML] Similarity error: {e}")
         
