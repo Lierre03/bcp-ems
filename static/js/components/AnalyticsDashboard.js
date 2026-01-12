@@ -315,24 +315,33 @@ window.AnalyticsDashboard = function AnalyticsDashboard() {
 
           pdf.text(deptName, cols.dept.x, yPosition);
           pdf.text(String(dept.event_count), cols.count.x + 5, yPosition);
-          pdf.text(`PHP ${(dept.total_budget || 0).toLocaleString()}`, cols.budget.x, yPosition);
-          pdf.text(`PHP ${(dept.avg_budget || 0).toLocaleString(undefined, { maximumFractionDigits: 0 })}`, cols.avg.x, yPosition);
+          pdf.text(`PHP ${(Number(dept.total_budget) || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`, cols.budget.x, yPosition);
+          pdf.text(`PHP ${(Number(dept.avg_budget) || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`, cols.avg.x, yPosition);
 
           yPosition += 8;
         });
 
-        // Add summary insight
+        // Add detailed summary insight
         yPosition += 5;
         const topSpender = analytics.department_budget[0];
         const totalBudget = analytics.department_budget.reduce((sum, d) => sum + Number(d.total_budget), 0);
-        const topSpenderPct = ((Number(topSpender.total_budget) / totalBudget) * 100).toFixed(1);
+        const topSpenderPct = totalBudget > 0 ? ((Number(topSpender.total_budget) / totalBudget) * 100).toFixed(1) : 0;
 
-        pdf.setFont('helvetica', 'italic');
-        pdf.setFontSize(9);
-        pdf.setTextColor(100, 116, 139);
-        const insight = `Insight: ${topSpender.department} accounts for ${topSpenderPct}% of the total allocated budget (PHP ${totalBudget.toLocaleString()}).`;
-        pdf.text(insight, margin, yPosition);
-        yPosition += 10;
+        // Find most active department
+        const mostActive = analytics.department_budget.reduce((max, d) => d.event_count > max.event_count ? d : max, analytics.department_budget[0]);
+
+        pdf.setFont('helvetica', 'normal');
+        pdf.setFontSize(10);
+        pdf.setTextColor(60, 60, 60);
+
+        const insightText = `${topSpender.department} dominates resource allocation with ${topSpenderPct}% of the total budget (PHP ${Number(topSpender.total_budget).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}). ` +
+          (topSpender.department === mostActive.department
+            ? `It is also the most active department with ${mostActive.event_count} events, justifying the significant resource utilization.`
+            : `However, ${mostActive.department} leads in activity volume with ${mostActive.event_count} events, suggesting highly efficient resource management.`);
+
+        const insightLines = pdf.splitTextToSize(insightText, contentWidth);
+        pdf.text(insightLines, margin, yPosition);
+        yPosition += (insightLines.length * 5) + 5;
       }
 
       // ===== RECOMMENDATIONS =====
