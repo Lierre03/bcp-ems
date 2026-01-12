@@ -78,9 +78,18 @@ window.AdminDashboard = function AdminDashboard() {
       setActiveView('attendance');
     };
 
+    return () => {
+      delete window.openEventForReview;
+      delete window.openEquipmentReview;
+    };
+  }, []); // Only run on mount
+
+  // Polling for pending approvals - Runs when user/role changes
+  useEffect(() => {
     // Function to fetch pending approvals count
     const fetchPendingApprovals = async () => {
-      if (!isSuperAdmin && !isAdmin) return;
+      if (!user) return; // Don't fetch if no user
+      if (user.role_name !== 'Super Admin' && user.role_name !== 'Admin') return;
 
       try {
         const response = await fetch('/api/users/pending', { credentials: 'include' });
@@ -97,11 +106,7 @@ window.AdminDashboard = function AdminDashboard() {
     // Poll every 60 seconds
     const pollInterval = setInterval(fetchPendingApprovals, 60000);
 
-    return () => {
-      clearInterval(pollInterval);
-      delete window.openEventForReview;
-      delete window.openEquipmentReview;
-    };
+    return () => clearInterval(pollInterval);
   }, [user]); // Re-run if user/role changes
 
   // Save active view to localStorage whenever it changes
