@@ -729,31 +729,59 @@ def predict_resources():
                 type_df = df[df['event_type'] == event_type]
                 
                 if not type_df.empty and 'event_name' in type_df.columns:
-                    vectorizer = TfidfVectorizer(max_features=100, stop_words='english')
-                    training_names = type_df['event_name'].tolist()
-                    all_names = training_names + [event_name]
-                    
-                    vectors = vectorizer.fit_transform(all_names)
-                    input_vector = vectors[-1]
-                    training_vectors = vectors[:-1]
-                    
-                    similarities = cosine_similarity(input_vector, training_vectors)[0]
-                    
-                    # Get TOP 3 similar events
-                    top_indices = similarities.argsort()[-3:][::-1]
-                    top_similarities = similarities[top_indices]
-                    
-                    print(f"[BREAKDOWN ML] Top 3 similar events for budget:")
-                    for idx, sim in zip(top_indices, top_similarities):
-                        similar_evt = type_df.iloc[idx]
-                        print(f"  - {similar_evt['event_name']} (similarity: {sim:.2%})")
+                    # STEP 1: Try exact match first (case-insensitive)
+                    exact_match = type_df[type_df['event_name'].str.lower() == event_name.lower()]
+                    if not exact_match.empty:
+                        top_similar_events.append(exact_match.iloc[0])
+                        print(f"[BREAKDOWN ML] ✅ EXACT MATCH found: {exact_match.iloc[0]['event_name']}")
+                    else:
+                        # STEP 2: Try fuzzy matching (contains key words)
+                        event_words = set(event_name.lower().split())
+                        best_fuzzy_match = None
+                        best_fuzzy_score = 0
                         
-                        if sim > 0.15:  # Lowered threshold to 15% for better matching
-                            top_similar_events.append(similar_evt)
+                        for idx, row in type_df.iterrows():
+                            training_words = set(row['event_name'].lower().split())
+                            # Calculate word overlap
+                            overlap = len(event_words & training_words)
+                            overlap_ratio = overlap / max(len(event_words), len(training_words))
+                            
+                            if overlap_ratio > best_fuzzy_score:
+                                best_fuzzy_score = overlap_ratio
+                                best_fuzzy_match = row
+                        
+                        # If fuzzy match is good (>40% word overlap), use it
+                        if best_fuzzy_score > 0.40:
+                            top_similar_events.append(best_fuzzy_match)
+                            print(f"[BREAKDOWN ML] ✅ FUZZY MATCH found: {best_fuzzy_match['event_name']} (score: {best_fuzzy_score:.2%})")
+                        else:
+                            # STEP 3: Fall back to TF-IDF only if no good fuzzy match
+                            print(f"[BREAKDOWN ML] No exact/fuzzy match. Trying TF-IDF similarity...")
+                            vectorizer = TfidfVectorizer(max_features=100, stop_words='english')
+                            training_names = type_df['event_name'].tolist()
+                            all_names = training_names + [event_name]
+                            
+                            vectors = vectorizer.fit_transform(all_names)
+                            input_vector = vectors[-1]
+                            training_vectors = vectors[:-1]
+                            
+                            similarities = cosine_similarity(input_vector, training_vectors)[0]
+                            
+                            # Get TOP 3 similar events
+                            top_indices = similarities.argsort()[-3:][::-1]
+                            top_similarities = similarities[top_indices]
+                            
+                            print(f"[BREAKDOWN ML] Top 3 TF-IDF matches:")
+                            for idx, sim in zip(top_indices, top_similarities):
+                                similar_evt = type_df.iloc[idx]
+                                print(f"  - {similar_evt['event_name']} (similarity: {sim:.2%})")
+                                
+                                if sim > 0.15:  # Lowered threshold to 15% for better matching
+                                    top_similar_events.append(similar_evt)
                     
                     # Only log if no good matches found
                     if len(top_similar_events) == 0:
-                        print(f"[BREAKDOWN ML] No similar events found (threshold: 15%). Using event-type fallback.")
+                        print(f"[BREAKDOWN ML] No similar events found. Using event-type fallback.")
             except Exception as e:
                 print(f"[BREAKDOWN ML] Similarity error: {e}")
         
