@@ -11,6 +11,9 @@ window.UserManagement = function UserManagement() {
   // Success Modal State
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [successMessage, setSuccessMessage] = useState('');
+  // Delete Modal State
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [userToDelete, setUserToDelete] = useState(null);
 
   const [formData, setFormData] = useState({
     username: '',
@@ -172,13 +175,16 @@ window.UserManagement = function UserManagement() {
     }
   };
 
-  const handleDeleteUser = async (user) => {
-    if (!confirm(`Are you sure you want to PERMANENTLY DELETE user "${user.username}"? This action cannot be undone.\n\nNote: Users with dependent events cannot be deleted.`)) {
-      return;
-    }
+  const handleDeleteClick = (user) => {
+    setUserToDelete(user);
+    setShowDeleteModal(true);
+  };
+
+  const confirmDeleteUser = async () => {
+    if (!userToDelete) return;
 
     try {
-      const res = await fetch(`/api/users/${user.id}`, {
+      const res = await fetch(`/api/users/${userToDelete.id}`, {
         method: 'DELETE',
         credentials: 'include'
       });
@@ -186,8 +192,13 @@ window.UserManagement = function UserManagement() {
 
       if (data.success) {
         handleSuccess('User deleted successfully');
+        setShowDeleteModal(false);
+        setUserToDelete(null);
       } else {
         alert(data.message || 'Failed to delete user');
+        setShowDeleteModal(false); // Close modal on error too? Or keep open? Usually close or show error in modal. 
+        // For consistency with existing behavior, alert is fine, but maybe better to keep modal open if we want to show error there. 
+        // Given current pattern, closing and alerting is okay for now.
       }
     } catch (err) {
       console.error('Delete failed:', err);
@@ -326,7 +337,7 @@ window.UserManagement = function UserManagement() {
                       </svg>
                     </button>
                     <button
-                      onClick={() => handleDeleteUser(user)}
+                      onClick={() => handleDeleteClick(user)}
                       className="p-1.5 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
                       title="Delete User"
                     >
@@ -370,7 +381,7 @@ window.UserManagement = function UserManagement() {
                   type="text"
                   value={formData.username}
                   onChange={(e) => setFormData({ ...formData, username: e.target.value })}
-                  
+
                   className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm "
                 />
               </div>
@@ -502,6 +513,44 @@ window.UserManagement = function UserManagement() {
               >
                 Okay, got it
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Confirmation Modal */}
+      {showDeleteModal && userToDelete && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[80] p-4">
+          <div className="bg-white rounded-xl shadow-xl max-w-sm w-full transform transition-all scale-100 overflow-hidden">
+            <div className="p-6 text-center">
+              <div className="mx-auto flex items-center justify-center h-16 w-16 rounded-full bg-red-100 mb-6">
+                <svg className="h-8 w-8 text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                </svg>
+              </div>
+              <h3 className="text-xl font-bold text-slate-900 mb-2">Delete User?</h3>
+              <p className="text-slate-600 mb-6">
+                Are you sure you want to PERMANENTLY delete <strong>{userToDelete.username}</strong>?
+                <br /><br />
+                <span className="text-xs text-red-500">Note: This action cannot be undone. Users with associated events cannot be deleted.</span>
+              </p>
+
+              <div className="flex gap-3 justify-center">
+                <button
+                  type="button"
+                  className="inline-flex justify-center rounded-lg border border-slate-300 shadow-sm px-4 py-2.5 bg-white text-base font-medium text-slate-700 hover:bg-slate-50 focus:outline-none transition-colors"
+                  onClick={() => setShowDeleteModal(false)}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  className="inline-flex justify-center rounded-lg border border-transparent shadow-sm px-4 py-2.5 bg-red-600 text-base font-semibold text-white hover:bg-red-700 focus:outline-none transition-colors"
+                  onClick={confirmDeleteUser}
+                >
+                  Delete User
+                </button>
+              </div>
             </div>
           </div>
         </div>
