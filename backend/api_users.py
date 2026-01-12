@@ -197,19 +197,22 @@ def update_user(user_id):
         )
         
         # Update user
+        # Update user
+        username = data.get('username')
+        
         if password:
             hashed_password = hash_password(password)
             db.execute_update('''
                 UPDATE users 
-                SET first_name = %s, last_name = %s, email = %s, role_id = %s, department = %s, password_hash = %s
+                SET username = %s, first_name = %s, last_name = %s, email = %s, role_id = %s, department = %s, password_hash = %s
                 WHERE id = %s
-            ''', (first_name, last_name, email, role_id, department, hashed_password, user_id))
+            ''', (username, first_name, last_name, email, role_id, department, hashed_password, user_id))
         else:
             db.execute_update('''
                 UPDATE users 
-                SET first_name = %s, last_name = %s, email = %s, role_id = %s, department = %s
+                SET username = %s, first_name = %s, last_name = %s, email = %s, role_id = %s, department = %s
                 WHERE id = %s
-            ''', (first_name, last_name, email, role_id, department, user_id))
+            ''', (username, first_name, last_name, email, role_id, department, user_id))
         
         # Send email notification if student was upgraded to Student Organization Officer
         email_sent = False
