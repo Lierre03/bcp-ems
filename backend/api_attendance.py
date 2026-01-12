@@ -445,72 +445,125 @@ def get_full_attendance_report(event_id):
 def get_detailed_attendance_list(event_id):
     """
     Get detailed attendance list for monitoring (includes Section/Course)
+    For Approved events: Returns registrants list
+    For Ongoing/Completed events: Returns attendance tracking
     GET /api/attendance/event/123/detailed-list
     """
     try:
         db = get_db()
         
-        # Get event info for header
+        # Get event info for header (including status)
         event = db.execute_one(
-            "SELECT name, start_datetime FROM events WHERE id = %s",
+            "SELECT name, start_datetime, status FROM events WHERE id = %s",
             (event_id,)
         )
         if not event:
             return jsonify({'error': 'Event not found'}), 404
 
-        # Get participants with Student details (Section/Course)
-        # Using LEFT JOIN on students to include non-student participants if any
-        query = """
-            SELECT 
-                u.id, u.first_name, u.last_name, u.username, u.email,
-                s.course, s.section,
-                r.registration_status,
-                a.check_in_datetime, a.check_in_method
-            FROM event_registrations r
-            JOIN users u ON r.user_id = u.id
-            LEFT JOIN students s ON u.id = s.user_id
-            LEFT JOIN event_attendance a ON r.event_id = a.event_id AND r.user_id = a.user_id
-            WHERE r.event_id = %s AND r.registration_status = 'Registered'
-            ORDER BY s.section, u.last_name, u.first_name
-        """
-        
-        attendees = db.execute_query(query, (event_id,))
+        # Check event status to determine what to show
+        is_approved_only = event['status'] == 'Approved'
 
-        formatted_list = []
-        checked_in_count = 0
-        
-        for p in attendees:
-            is_present = p['check_in_datetime'] is not None
-            if is_present:
-                checked_in_count += 1
-                
-            formatted_list.append({
-                'id': p['id'],
-                'name': f"{p['first_name']} {p['last_name']}",
-                'username': p['username'],
-                'section': p['section'] or 'N/A',
-                'course': p['course'] or 'N/A',
-                'status': 'Present' if is_present else 'Absent',
-                'check_in_time': p['check_in_datetime'].strftime('%I:%M %p') if p['check_in_datetime'] else None,
-                'check_in_method': p['check_in_method']
-            })
+        if is_approved_only:
+            # For Approved events: Show registrants only (no attendance tracking)
+            query = """
+                SELECT 
+                    u.id, u.first_name, u.last_name, u.username, u.email,
+                    s.course, s.section,
+                    r.registration_status
+                FROM event_registrations r
+                JOIN users u ON r.user_id = u.id
+                LEFT JOIN students s ON u.id = s.user_id
+                WHERE r.event_id = %s AND r.registration_status = 'Registered'
+                ORDER BY s.section, u.last_name, u.first_name
+            """
+            
+            registrants = db.execute_query(query, (event_id,))
 
-        return jsonify({
-            'success': True,
-            'event': {
-                'name': event['name'],
-                'date': event['start_datetime'].strftime('%Y-%m-%d')
-            },
-            'stats': {
-                'total': len(formatted_list),
-                'present': checked_in_count,
-                'absent': len(formatted_list) - checked_in_count
-            },
-            'attendees': formatted_list
-        }), 200
+            formatted_list = []
+            for p in registrants:
+                formatted_list.append({
+                    'id': p['id'],
+                    'name': f"{p['first_name']} {p['last_name']}",
+                    'username': p['username'],
+                    'section': p['section'] or 'N/A',
+                    'course': p['course'] or 'N/A',
+                    'status': 'Registered',  # All are registered
+                    'check_in_time': None,
+                    'check_in_method': None
+                })
+
+            return jsonify({
+                'success': True,
+                'event': {
+                    'name': event['name'],
+                    'date': event['start_datetime'].strftime('%Y-%m-%d'),
+                    'status': event['status']
+                },
+                'stats': {
+                    'total': len(formatted_list),
+                    'present': 0,  # No attendance tracking yet
+                    'absent': 0
+                },
+                'attendees': formatted_list,
+                'mode': 'registrants'  # Flag for frontend
+            }), 200
+
+        else:
+            # For Ongoing/Completed: Show attendance tracking
+            query = """
+                SELECT 
+                    u.id, u.first_name, u.last_name, u.username, u.email,
+                    s.course, s.section,
+                    r.registration_status,
+                    a.check_in_datetime, a.check_in_method
+                FROM event_registrations r
+                JOIN users u ON r.user_id = u.id
+                LEFT JOIN students s ON u.id = s.user_id
+                LEFT JOIN event_attendance a ON r.event_id = a.event_id AND r.user_id = a.user_id
+                WHERE r.event_id = %s AND r.registration_status = 'Registered'
+                ORDER BY s.section, u.last_name, u.first_name
+            """
+            
+            attendees = db.execute_query(query, (event_id,))
+
+            formatted_list = []
+            checked_in_count = 0
+            
+            for p in attendees:
+                is_present = p['check_in_datetime'] is not None
+                if is_present:
+                    checked_in_count += 1
+                    
+                formatted_list.append({
+                    'id': p['id'],
+                    'name': f"{p['first_name']} {p['last_name']}",
+                    'username': p['username'],
+                    'section': p['section'] or 'N/A',
+                    'course': p['course'] or 'N/A',
+                    'status': 'Present' if is_present else 'Absent',
+                    'check_in_time': p['check_in_datetime'].strftime('%I:%M %p') if p['check_in_datetime'] else None,
+                    'check_in_method': p['check_in_method']
+                })
+
+            return jsonify({
+                'success': True,
+                'event': {
+                    'name': event['name'],
+                    'date': event['start_datetime'].strftime('%Y-%m-%d'),
+                    'status': event['status']
+                },
+                'stats': {
+                    'total': len(formatted_list),
+                    'present': checked_in_count,
+                    'absent': len(formatted_list) - checked_in_count
+                },
+                'attendees': formatted_list,
+                'mode': 'attendance'  # Flag for frontend
+            }), 200
 
     except Exception as e:
         logger.error(f"Get detailed attendance list error: {e}")
+        return jsonify({'error': 'Failed to fetch attendance list'}), 500
 
 @attendance_bp.route('/dashboard-stats', methods=['GET'])
 @require_role(['Super Admin', 'Admin', 'Staff', 'Department Head', 'Student Organization Officer'])
