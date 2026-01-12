@@ -349,40 +349,9 @@ window.AnalyticsDashboard = function AnalyticsDashboard() {
         yPosition += (descLines.length * 5) + 5;
       });
 
-      // ===== APPENDIX: CHARTS =====
-      pdf.addPage();
-      yPosition = margin;
-      addSectionHeader('APPENDIX: DETAILED CHARTS', [71, 85, 105]);
-
-      const charts = [
-        { ref: statusChartRef, title: 'Events by Status' },
-        { ref: typeChartRef, title: 'Events by Type' },
-        { ref: feedbackChartRef, title: 'Feedback Ratings' }
-      ];
-
-      for (const chart of charts) {
-        if (chart.ref.current) {
-          checkPageBreak(90);
-
-          pdf.setFontSize(11);
-          pdf.setFont('helvetica', 'bold');
-          pdf.setTextColor(30, 41, 59);
-          pdf.text(chart.title, margin, yPosition);
-          yPosition += 8;
-
-          const canvas = await html2canvas(chart.ref.current.parentElement, {
-            scale: 2,
-            backgroundColor: '#ffffff'
-          });
-
-          const imgData = canvas.toDataURL('image/png');
-          const imgWidth = contentWidth;
-          const imgHeight = (canvas.height * imgWidth) / canvas.width;
-
-          pdf.addImage(imgData, 'PNG', margin, yPosition, imgWidth, Math.min(imgHeight, 80));
-          yPosition += Math.min(imgHeight, 80) + 15;
-        }
-      }
+      // ===== APPENDIX: CHARTS REMOVED AS REQUESTED =====
+      // The charts were removed to improve the professional look of the PDF report.
+      // Detailed charts are available in the dashboard view.
 
       // Footer on last page
       pdf.setFontSize(8);
