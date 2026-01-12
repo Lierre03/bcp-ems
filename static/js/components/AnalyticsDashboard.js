@@ -148,7 +148,7 @@ window.AnalyticsDashboard = function AnalyticsDashboard() {
       const summaryLines = pdf.splitTextToSize(summaryText, contentWidth - 10);
       // Render each line individually to avoid character spacing issues
       summaryLines.forEach((line, lineIdx) => {
-        pdf.text(line, margin, yPosition + (lineIdx * 4.5));
+        pdf.text(String(line), margin, yPosition + (lineIdx * 4.5));
       });
       yPosition += summaryLines.length * 4.5 + 10;
 
@@ -231,7 +231,7 @@ window.AnalyticsDashboard = function AnalyticsDashboard() {
         const lines = pdf.splitTextToSize(insight, contentWidth - 10);
         // Render each line individually to avoid character spacing issues
         lines.forEach((line, lineIdx) => {
-          pdf.text(line, margin + 3, yPosition + (lineIdx * 4.5));
+          pdf.text(String(line), margin + 3, yPosition + (lineIdx * 4.5));
         });
         yPosition += lines.length * 4.5 + 3;
       });
@@ -329,7 +329,7 @@ window.AnalyticsDashboard = function AnalyticsDashboard() {
         const descLines = pdf.splitTextToSize(rec.desc, contentWidth - 15);
         // Render each line individually to avoid character spacing issues
         descLines.forEach((line, lineIdx) => {
-          pdf.text(line, margin + 5, yPosition + (lineIdx * 5));
+          pdf.text(String(line), margin + 5, yPosition + (lineIdx * 5));
         });
         yPosition += descLines.length * 5 + 5;
       });
