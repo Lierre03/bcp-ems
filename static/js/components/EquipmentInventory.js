@@ -5,6 +5,9 @@ window.EquipmentInventory = function EquipmentInventory() {
     const [error, setError] = React.useState(null);
     const [searchTerm, setSearchTerm] = React.useState('');
     const [showModal, setShowModal] = React.useState(false);
+    const [showAddQuantityModal, setShowAddQuantityModal] = React.useState(false);
+    const [selectedEquipment, setSelectedEquipment] = React.useState(null);
+    const [quantityToAdd, setQuantityToAdd] = React.useState(0);
     const [newEquipment, setNewEquipment] = React.useState({
         name: '',
         category: '',
@@ -84,6 +87,40 @@ window.EquipmentInventory = function EquipmentInventory() {
             }
         } catch (err) {
             console.error("Error submitting form:", err);
+            alert("Failed to connect to server");
+        }
+    };
+
+    const handleAddQuantitySubmit = async (e) => {
+        e.preventDefault();
+
+        if (!quantityToAdd || quantityToAdd <= 0) {
+            alert("Please enter a valid quantity");
+            return;
+        }
+
+        try {
+            const response = await fetch(`/api/venues/equipment/${selectedEquipment.id}/add-quantity`, {
+                method: 'PATCH',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ quantity: quantityToAdd })
+            });
+
+            const data = await response.json();
+
+            if (data.success) {
+                setShowAddQuantityModal(false);
+                setSelectedEquipment(null);
+                setQuantityToAdd(0);
+                fetchEquipment(); // Refresh list
+                alert(data.message);
+            } else {
+                alert("Error adding quantity: " + data.error);
+            }
+        } catch (err) {
+            console.error("Error adding quantity:", err);
             alert("Failed to connect to server");
         }
     };
@@ -300,12 +337,13 @@ window.EquipmentInventory = function EquipmentInventory() {
                                 <table className="w-full text-left text-base">
                                     <thead className="bg-slate-50 text-slate-500 border-b border-slate-200">
                                         <tr>
-                                            <th className="px-6 py-4 font-semibold w-[35%]">Equipment</th>
-                                            <th className="px-6 py-4 font-semibold text-center w-[10%]">Total</th>
-                                            <th className="px-6 py-4 font-semibold text-center w-[10%]">Available</th>
-                                            <th className="px-6 py-4 font-semibold text-center w-[10%]">In Use</th>
-                                            <th className="px-6 py-4 font-semibold w-[15%]">Status</th>
+                                            <th className="px-6 py-4 font-semibold w-[30%]">Equipment</th>
+                                            <th className="px-6 py-4 font-semibold text-center w-[8%]">Total</th>
+                                            <th className="px-6 py-4 font-semibold text-center w-[8%]">Available</th>
+                                            <th className="px-6 py-4 font-semibold text-center w-[8%]">In Use</th>
+                                            <th className="px-6 py-4 font-semibold w-[12%]">Status</th>
                                             <th className="px-6 py-4 font-semibold w-[20%]">Used By</th>
+                                            <th className="px-6 py-4 font-semibold w-[14%]">Actions</th>
                                         </tr>
                                     </thead>
                                     <tbody className="divide-y divide-slate-100">
@@ -349,6 +387,19 @@ window.EquipmentInventory = function EquipmentInventory() {
                                                     ) : (
                                                         <span className="text-slate-300 font-light">—</span>
                                                     )}
+                                                </td>
+                                                <td className="px-6 py-5">
+                                                    <button
+                                                        onClick={() => {
+                                                            setSelectedEquipment(item);
+                                                            setQuantityToAdd(0);
+                                                            setShowAddQuantityModal(true);
+                                                        }}
+                                                        className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-900 hover:bg-blue-800 text-white rounded-lg text-xs font-medium transition shadow-sm"
+                                                    >
+                                                        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4" /></svg>
+                                                        Add Qty
+                                                    </button>
                                                 </td>
                                             </tr>
                                         ))}
@@ -460,6 +511,83 @@ window.EquipmentInventory = function EquipmentInventory() {
                                 >
                                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4" /></svg>
                                     Add Equipment
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            )}
+
+            {/* Add Quantity Modal */}
+            {showAddQuantityModal && selectedEquipment && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/20 backdrop-blur-sm">
+                    <div className="bg-white rounded-xl shadow-2xl w-full max-w-md overflow-hidden animate-fade-in-up">
+                        {/* Modal Header */}
+                        <div className="bg-blue-900 px-6 py-4 flex justify-between items-center">
+                            <div className="flex items-center gap-3">
+                                <div className="bg-white/10 p-2 rounded-lg">
+                                    <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" /></svg>
+                                </div>
+                                <div>
+                                    <h3 className="text-lg font-semibold text-white">Add Quantity</h3>
+                                    <p className="text-blue-200 text-xs">{selectedEquipment.name}</p>
+                                </div>
+                            </div>
+                            <button onClick={() => setShowAddQuantityModal(false)} className="text-blue-200 hover:text-white transition">
+                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" /></svg>
+                            </button>
+                        </div>
+
+                        {/* Modal Body */}
+                        <form onSubmit={handleAddQuantitySubmit} className="p-6 space-y-4">
+                            <div className="bg-slate-50 p-4 rounded-lg border border-slate-200">
+                                <div className="grid grid-cols-2 gap-4 text-sm">
+                                    <div>
+                                        <span className="text-slate-500">Current Total:</span>
+                                        <p className="font-bold text-slate-800 text-lg">{selectedEquipment.total_quantity}</p>
+                                    </div>
+                                    <div>
+                                        <span className="text-slate-500">Available:</span>
+                                        <p className="font-bold text-green-600 text-lg">{selectedEquipment.available}</p>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div>
+                                <label className="block text-xs font-medium text-slate-500 mb-1">Quantity to Add <span className="text-red-500">*</span></label>
+                                <input
+                                    type="number"
+                                    min="1"
+                                    required
+                                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-900 focus:border-blue-900 text-sm"
+                                    placeholder="Enter quantity..."
+                                    value={quantityToAdd || ''}
+                                    onChange={(e) => setQuantityToAdd(parseInt(e.target.value) || 0)}
+                                />
+                            </div>
+
+                            {quantityToAdd > 0 && (
+                                <div className="bg-blue-50 border border-blue-100 rounded-lg p-3">
+                                    <p className="text-xs text-blue-700">
+                                        New total will be: <span className="font-bold">{selectedEquipment.total_quantity + quantityToAdd}</span> units
+                                    </p>
+                                </div>
+                            )}
+
+                            <div className="flex gap-3 pt-2">
+                                <button
+                                    type="button"
+                                    onClick={() => setShowAddQuantityModal(false)}
+                                    className="flex-1 px-4 py-2 border border-slate-300 text-slate-700 rounded-lg text-sm font-medium hover:bg-slate-50 transition"
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    type="submit"
+                                    className="flex-1 px-4 py-2 bg-blue-900 text-white rounded-lg text-sm font-medium hover:bg-blue-800 transition flex items-center justify-center gap-2"
+                                >
+                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4" /></svg>
+                                    Add Quantity
                                 </button>
                             </div>
                         </form>

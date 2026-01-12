@@ -178,6 +178,40 @@ def add_equipment():
         logger.error(f"Error adding equipment: {e}")
         return jsonify({'success': False, 'error': str(e)}), 500
 
+@venues_bp.route('/equipment/<int:equipment_id>/add-quantity', methods=['PATCH'])
+@require_role(['Super Admin', 'Admin', 'Staff'])
+def add_equipment_quantity(equipment_id):
+    """Add quantity to existing equipment (for newly purchased stock)"""
+    try:
+        data = request.get_json()
+        quantity_to_add = data.get('quantity')
+
+        if not quantity_to_add or quantity_to_add <= 0:
+            return jsonify({'success': False, 'error': 'Invalid quantity'}), 400
+
+        db = get_db()
+        
+        # Update total_quantity by adding the new quantity
+        query = """
+            UPDATE equipment 
+            SET total_quantity = total_quantity + %s 
+            WHERE id = %s
+            RETURNING id, name, category, total_quantity
+        """
+        result = db.execute_one(query, (quantity_to_add, equipment_id))
+        
+        if not result:
+            return jsonify({'success': False, 'error': 'Equipment not found'}), 404
+
+        return jsonify({
+            'success': True,
+            'message': f'Added {quantity_to_add} units successfully',
+            'equipment': result
+        })
+    except Exception as e:
+        logger.error(f"Error adding equipment quantity: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
 @venues_bp.route('/conflicts', methods=['GET'])
 def get_conflicts():
     """
