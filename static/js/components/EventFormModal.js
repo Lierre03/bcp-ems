@@ -14,6 +14,7 @@ window.EventFormModal = function EventFormModal({
   // Manual input states
   const [manualResources, setManualResources] = React.useState([]);
   const [activeTab, setActiveTab] = React.useState(parentActiveTab || 'details');
+  const [sharedDepartments, setSharedDepartments] = React.useState([]);
 
   // Sync activeTab with parent when parentActiveTab changes
   React.useEffect(() => {
@@ -148,6 +149,11 @@ window.EventFormModal = function EventFormModal({
       setFormData(prev => ({ ...prev, activities }));
     }
   }, [userTimelineData, setFormData]);
+
+  // Sync sharedDepartments to formData
+  React.useEffect(() => {
+    setFormData(prev => ({ ...prev, shared_with_departments: sharedDepartments }));
+  }, [sharedDepartments, setFormData]);
 
   // Sync manualResources to parent formData.additionalResources
   React.useEffect(() => {
@@ -423,6 +429,52 @@ window.EventFormModal = function EventFormModal({
                             <option value="General">General/Cross-Department</option>
                           </select>
                         </div>
+
+                        {/* Cross-Department Sharing */}
+                        <div className="col-span-2 bg-blue-50 border border-blue-200 rounded-lg p-4">
+                          <label className="block text-sm font-semibold text-blue-900 mb-2">🔗 Share with Other Departments (Optional)</label>
+                          <p className="text-xs text-blue-700 mb-3">Select departments that can view and register for this event</p>
+                          <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+                            {[
+                              { value: 'BSIT', label: 'BSIT' },
+                              { value: 'BSCpE', label: 'BSCpE' },
+                              { value: 'BSIS', label: 'BSIS' },
+                              { value: 'BSBA', label: 'BSBA' },
+                              { value: 'BSOA', label: 'BSOA' },
+                              { value: 'BSHRM', label: 'BSHRM' },
+                              { value: 'BSTM', label: 'BSTM' },
+                              { value: 'BSAct', label: 'BSAct' },
+                              { value: 'BEEd', label: 'BEEd' },
+                              { value: 'BSEd', label: 'BSEd' },
+                              { value: 'BTTE', label: 'BTTE' },
+                              { value: 'BSPsych', label: 'BSPsych' },
+                              { value: 'BSCrim', label: 'BSCrim' },
+                            ].filter(dept => dept.value !== formData.organizing_department).map(dept => (
+                              <label key={dept.value} className="flex items-center space-x-2 text-xs cursor-pointer hover:bg-blue-100 p-2 rounded transition">
+                                <input
+                                  type="checkbox"
+                                  value={dept.value}
+                                  checked={sharedDepartments.includes(dept.value)}
+                                  onChange={(e) => {
+                                    if (e.target.checked) {
+                                      setSharedDepartments([...sharedDepartments, dept.value]);
+                                    } else {
+                                      setSharedDepartments(sharedDepartments.filter(d => d !== dept.value));
+                                    }
+                                  }}
+                                  className="rounded border-blue-300 text-blue-600 focus:ring-blue-500"
+                                />
+                                <span className="text-blue-900">{dept.label}</span>
+                              </label>
+                            ))}
+                          </div>
+                          {sharedDepartments.length > 0 && (
+                            <div className="mt-2 text-xs text-blue-800">
+                              ✓ Shared with: {sharedDepartments.join(', ')}
+                            </div>
+                          )}
+                        </div>
+
                         <div>
                           <label className="block text-xs font-medium text-gray-600 mb-1">Estimated Attendees</label>
                           <input
