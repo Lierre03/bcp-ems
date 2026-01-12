@@ -393,6 +393,7 @@ def get_events():
                    e.budget_breakdown,
                    e.additional_resources,
                    e.organizing_department,
+                   e.shared_with_departments,
                    COALESCE(e.organizer, u.first_name || ' ' || u.last_name) as organizer,
                    u.username as requestor_username,
                    e.requestor_id
@@ -413,32 +414,29 @@ def get_events():
         user_id = session.get('user_id')
         
         if user_role == 'Admin' and user_department:
-            # Admin is department-restricted
-            if user_department == 'IT Department':
-                 # IT Department sees BSIT, BSCS, BSIS events too
-                 query += " AND (e.organizing_department = %s OR e.organizing_department IN ('BSIT', 'BSCS', 'BSIS'))"
-                 params.append(user_department)
-                 logger.info(f"Filtering events for Admin department: {user_department} (incl. sub-departments)")
-            else:
-                 query += " AND e.organizing_department = %s"
-                 params.append(user_department)
-                 logger.info(f"Filtering events for Admin department: {user_department}")
+            # STRICT DEPARTMENT FILTERING with cross-department sharing support
+            # Admin sees: (1) Their department's events OR (2) Events shared with their department
+            query += " AND (e.organizing_department = %s OR %s = ANY(e.shared_with_departments))"
+            params.extend([user_department, user_department])
+            logger.info(f"Filtering events for Admin department: {user_department} (strict + shared)")
         elif user_role == 'Requestor':
             # Requestors see only their own events
             query += " AND e.requestor_id = %s"
             params.append(user_id)
             logger.info(f"Filtering events for requestor: {user_id}")
         elif user_role == 'Participant':
-            # Students/Participants see only their department's events
+            # STRICT DEPARTMENT FILTERING with cross-department sharing support
+            # Students/Participants see: (1) Their department's events OR (2) Events shared with their department
             # Get student's course from students table
             student = db.execute_one(
                 "SELECT course FROM students WHERE user_id = %s",
                 (user_id,)
             )
             if student and student.get('course'):
-                query += " AND e.organizing_department = %s"
-                params.append(student['course'])
-                logger.info(f"Filtering events for Participant department: {student['course']}")
+                student_dept = student['course']
+                query += " AND (e.organizing_department = %s OR %s = ANY(e.shared_with_departments))"
+                params.extend([student_dept, student_dept])
+                logger.info(f"Filtering events for Participant department: {student_dept} (strict + shared)")
             else:
                 # If student record not found, show only approved events as fallback
                 query += " AND e.status = 'Approved'"
@@ -701,19 +699,23 @@ def create_event():
         else:
             initial_status = 'Pending'
         
+        # Get shared departments from request (optional, defaults to empty array)
+        shared_departments = data.get('shared_with_departments', [])
+        
         logger.info(f"Creating event with JSON data:")
         logger.info(f"  Equipment: {equipment_json}")
         logger.info(f"  Activities/Timeline: {timeline_json}")
         logger.info(f"  Budget Breakdown: {budget_breakdown_json}")
         logger.info(f"  Organizing Department: {organizing_dept}")
+        logger.info(f"  Shared with Departments: {shared_departments}")
         logger.info(f"  Initial Status: {initial_status} (Role: {user_role})")
         
         query = """
             INSERT INTO events (
                 name, event_type, description, start_datetime, end_datetime,
                 venue, organizer, expected_attendees, budget, equipment, timeline, budget_breakdown, additional_resources,
-                organizing_department, status, requestor_id
-            ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                organizing_department, shared_with_departments, status, requestor_id
+            ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
             RETURNING id
         """
         event_id = db.execute_insert(query, (
@@ -731,6 +733,7 @@ def create_event():
             budget_breakdown_json,
             additional_resources_json,
             organizing_dept,
+            shared_departments,  # New field
             initial_status,
             session['user_id']
         ))
