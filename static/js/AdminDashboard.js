@@ -148,6 +148,22 @@ window.AdminDashboard = function AdminDashboard() {
 
   const isSuperAdmin = user && user.role_name === 'Super Admin';
   const isAdmin = user && (user.role_name === 'Admin' || user.role_name === 'Super Admin');
+  const isStaff = user && user.role_name === 'Staff';
+
+  // Redirect if on unauthorized view
+  useEffect(() => {
+    if (!user) return;
+
+    if (activeView === 'users' && !isSuperAdmin) {
+      setActiveView('events');
+    }
+    if (activeView === 'ai-training' && !isSuperAdmin) {
+      setActiveView('events');
+    }
+    if ((activeView === 'staff-scanner' || activeView === 'staff-approvals') && !isSuperAdmin && !isStaff) {
+      setActiveView('events');
+    }
+  }, [user, activeView, isSuperAdmin, isStaff]);
 
   // Don't render sidebar/header for reschedule view
   if (activeView === 'reschedule') {
@@ -236,11 +252,10 @@ window.AdminDashboard = function AdminDashboard() {
         }] : [])
       ]
     },
-    {
+    ...(isSuperAdmin || isStaff ? [{
       title: "Staff Operations",
-      // Staff-related menu items
       items: [
-        ...(isSuperAdmin ? [{
+        {
           id: 'staff-scanner',
           label: 'QR Attendance Scanner',
           icon: <svg className="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M12 15h4.01M12 21h4.01M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M12 15h4.01M12 21h4.01M8 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M8 12h4.01M8 15h4.01M8 21h4.01" /></svg>
@@ -248,9 +263,9 @@ window.AdminDashboard = function AdminDashboard() {
           id: 'staff-approvals',
           label: 'Resource Approvals',
           icon: <svg className="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-        }] : [])
+        }
       ]
-    }
+    }] : [])
   ];
 
   return (
