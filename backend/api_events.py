@@ -1534,7 +1534,7 @@ def export_event_pdf(event_id):
         if activities:
             story.append(PageBreak())
             story.append(Paragraph("📅 EVENT TIMELINE & ACTIVITY CHECKLIST", heading_style))
-            timeline_data = [[create_checkbox(), 'Time', 'Activity/Phase', 'Status']]
+            timeline_data = [[create_checkbox(), 'Time', 'Activity/Phase', 'Description', 'Status']]
             for activity in activities:
                 # Handle both timeline format (startTime, endTime, phase) and activity format
                 if isinstance(activity, dict):
@@ -1542,18 +1542,26 @@ def export_event_pdf(event_id):
                     if activity.get('endTime'):
                         time_str += f" - {activity.get('endTime')}"
                     phase = activity.get('phase', activity.get('activity_name', str(activity)))
+                    description = activity.get('description', '')
                 else:
                     time_str = ''
                     phase = str(activity)
+                    description = ''
+                
+                # Wrap description in Paragraph for text wrapping
+                desc_cell = Paragraph(description, styles['Normal']) if description else ''
                 
                 timeline_data.append([
                     create_checkbox(),
                     time_str,
                     phase,
+                    desc_cell,
                     ''
                 ])
             
-            t = Table(timeline_data, colWidths=[0.4*inch, 1.2*inch, 3.8*inch, 1.1*inch])
+            # Adjusted column widths to fit description
+            # Total width approx 7 inches available
+            t = Table(timeline_data, colWidths=[0.4*inch, 1.1*inch, 1.7*inch, 2.3*inch, 1.0*inch])
             t.setStyle(TableStyle([
                 ('FONTNAME', (1, 0), (-1, 0), 'Helvetica-Bold'),
                 ('FONTSIZE', (0, 0), (-1, -1), 9),
@@ -1562,7 +1570,8 @@ def export_event_pdf(event_id):
                 ('ALIGN', (0, 0), (0, -1), 'CENTER'),
                 ('VALIGN', (0, 0), (0, -1), 'MIDDLE'),
                 ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#cbd5e1')),
-                ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+                ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'), # Ensure vertical alignment is consistent
+                ('VALIGN', (3, 1), (3, -1), 'TOP'), # Top align descriptions
                 ('BOTTOMPADDING', (0, 0), (-1, -1), 6),
                 ('TOPPADDING', (0, 0), (-1, -1), 6),
             ]))
