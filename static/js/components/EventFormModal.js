@@ -933,6 +933,35 @@ window.EventFormModal = function EventFormModal({
                 </div>
               )}
 
+              {/* Suggested Venue (Moved below Description) */}
+              {aiSuggestions.suggestedVenue && (
+                <div className="bg-white rounded-lg p-4 border border-pink-100 shadow-sm">
+                  <div className="flex items-center justify-between mb-2">
+                    <h4 className="text-sm font-bold text-pink-900 flex items-center gap-2">
+                      <span className="w-2 h-2 bg-pink-500 rounded-full"></span>
+                      Suggested Venue
+                    </h4>
+                    {formData.venue !== aiSuggestions.suggestedVenue ? (
+                      <button
+                        onClick={() => setFormData({ ...formData, venue: aiSuggestions.suggestedVenue })}
+                        className="text-xs font-bold text-pink-600 hover:text-pink-800 hover:bg-pink-50 px-2 py-1 rounded transition"
+                      >
+                        Apply
+                      </button>
+                    ) : (
+                      <span className="text-xs font-bold text-emerald-600 flex items-center gap-1">
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" /></svg>
+                        Applied
+                      </span>
+                    )}
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-gray-800">{aiSuggestions.suggestedVenue}</p>
+                    <p className="text-xs text-gray-500 mt-1">Based on similar events</p>
+                  </div>
+                </div>
+              )}
+
               {/* AI Equipment Suggestions (Moved to First Actionable Item) */}
               {aiSuggestions.equipmentSuggestions && aiSuggestions.equipmentSuggestions.length > 0 && (
                 <div className="bg-white rounded-lg p-4 border border-blue-100 shadow-sm">
@@ -1321,35 +1350,7 @@ window.EventFormModal = function EventFormModal({
                 </div>
               )}
 
-              {/* Suggested Venue */}
-              {aiSuggestions.suggestedVenue && (
-                <div className="bg-white rounded-lg p-4 border border-gray-200 shadow-sm mb-4">
-                  <h4 className="text-xs font-bold text-gray-700 uppercase mb-3 flex items-center gap-2">
-                    <span className="w-2 h-2 bg-pink-500 rounded-full"></span>
-                    Suggested Venue
-                  </h4>
-                  <div className="flex items-center justify-between bg-pink-50 p-3 rounded-lg border border-pink-100">
-                    <div>
-                      <p className="text-sm font-semibold text-pink-700">{aiSuggestions.suggestedVenue}</p>
-                      <p className="text-xs text-pink-600 mt-1">Based on similar events</p>
-                    </div>
-                    {formData.venue !== aiSuggestions.suggestedVenue && (
-                      <button
-                        onClick={() => setFormData({ ...formData, venue: aiSuggestions.suggestedVenue })}
-                        className="text-xs font-bold bg-white text-pink-600 border border-pink-200 hover:bg-pink-100 px-3 py-1.5 rounded-full transition shadow-sm"
-                      >
-                        Apply
-                      </button>
-                    )}
-                    {formData.venue === aiSuggestions.suggestedVenue && (
-                      <span className="text-xs font-bold text-emerald-600 flex items-center gap-1">
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" /></svg>
-                        Applied
-                      </span>
-                    )}
-                  </div>
-                </div>
-              )}
+
 
               {/* Suggested Resources (Moved to End) */}
               {aiSuggestions.additionalResources && aiSuggestions.additionalResources.length > 0 && (
