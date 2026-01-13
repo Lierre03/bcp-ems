@@ -1037,6 +1037,16 @@ def predict_resources():
                     predictions['description'] = top_similar_events[0].get('description', '')
                     predictions['suggestedAttendees'] = int(top_similar_events[0].get('attendees', attendees))
                     
+                    # ---------------------------------------------------------
+                    # STEP 5: VENUE - Get most frequent venue from similar events
+                    # ---------------------------------------------------------
+                    venues = [e.get('venue') for e in top_similar_events if e.get('venue')]
+                    if venues:
+                        # Find mode (most common venue)
+                        suggested_venue = max(set(venues), key=venues.count)
+                        predictions['suggestedVenue'] = suggested_venue
+                        print(f"[VENUE ML] Suggested venue: {suggested_venue} (from {len(venues)} samples)")
+                    
                     print(f"[TIMELINE ML] Generated {len(combined_phases)} phases")
                     
             except Exception as e:
