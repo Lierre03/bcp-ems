@@ -1354,12 +1354,48 @@ window.EventFormModal = function EventFormModal({
 
               {/* Suggested Resources (Moved to End) */}
               {aiSuggestions.additionalResources && aiSuggestions.additionalResources.length > 0 && (
-                <div className="bg-white rounded-lg p-4 border border-gray-200 shadow-sm">
-                  <h4 className="text-xs font-bold text-gray-700 uppercase mb-3 flex items-center gap-2">
-                    <span className="w-2 h-2 bg-teal-500 rounded-full"></span>
-                    Suggested Resources
-                  </h4>
-                  <div className="flex flex-wrap gap-2">
+                <div className="bg-white rounded-lg p-4 border border-teal-100 shadow-sm">
+                  <div className="flex items-center justify-between mb-3">
+                    <h4 className="text-xs font-bold text-teal-800 uppercase flex items-center gap-2">
+                      <span className="w-2 h-2 bg-teal-500 rounded-full"></span>
+                      Suggested Resources
+                    </h4>
+
+                    {/* Check if all suggested resources are already added */}
+                    {(() => {
+                      const allSuggestedAdded = aiSuggestions.additionalResources.every(r => {
+                        const rName = typeof r === 'string' ? r : (r && r.name ? r.name : '');
+                        return manualResources.some(res => (typeof res === 'string' ? res : res.name) === rName);
+                      });
+
+                      return !allSuggestedAdded && (
+                        <button
+                          onClick={() => {
+                            // Add all suggested resources that aren't already added
+                            const resourcesToAdd = aiSuggestions.additionalResources
+                              .map(r => {
+                                const name = typeof r === 'string' ? r : (r && r.name ? r.name : '');
+                                return { name, description: '' };
+                              })
+                              .filter(r => !manualResources.some(existing =>
+                                (typeof existing === 'string' ? existing : existing.name) === r.name
+                              ));
+
+                            if (resourcesToAdd.length > 0) {
+                              setManualResources([...manualResources, ...resourcesToAdd]);
+                              if (handleTabChange) handleTabChange('resources');
+                            }
+                          }}
+                          className="text-xs font-bold text-teal-600 hover:text-teal-800 hover:bg-teal-50 px-2 py-1 rounded transition flex items-center gap-1"
+                        >
+                          <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4" /></svg>
+                          Apply All
+                        </button>
+                      );
+                    })()}
+                  </div>
+
+                  <div className="grid grid-cols-1 gap-2">
                     {aiSuggestions.additionalResources.map((r, idx) => {
                       // Handle both string and object formats
                       const resourceName = typeof r === 'string' ? r : (r && r.name ? r.name : '');
@@ -1380,18 +1416,37 @@ window.EventFormModal = function EventFormModal({
                             if (handleTabChange) {
                               handleTabChange('resources');
                             }
-
-                            // Also update parent CheckedResources for consistency (optional but good for tracking)
-                            if (setCheckedResources) {
-                              // We can't easily sync this perfectly without useEffect, but preserving prop usage is fine for now
-                              // However, we are decoupling visual state from this prop.
-                            }
                           }}
-                          className={`px-2.5 py-1.5 rounded text-xs border font-medium transition flex items-center gap-1.5 ${isChecked ? 'bg-teal-50 text-teal-700 border-teal-200 shadow-inner' : 'bg-gray-50 text-gray-600 border-gray-200 hover:bg-white hover:shadow-sm'
+                          className={`w-full flex items-center justify-between p-3 rounded-lg border transition-all duration-200 group text-left ${isChecked
+                              ? 'bg-teal-50 border-teal-200 shadow-sm'
+                              : 'bg-white border-gray-100 hover:border-teal-200 hover:bg-teal-50/30 hover:shadow-sm'
                             }`}
                         >
-                          {isChecked ? <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" /></svg> : null}
-                          {resourceName}
+                          <div className="flex items-center gap-3">
+                            <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${isChecked ? 'bg-teal-100 text-teal-600' : 'bg-gray-100 text-gray-400 group-hover:bg-teal-50 group-hover:text-teal-500'
+                              }`}>
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+                              </svg>
+                            </div>
+                            <div>
+                              <p className={`text-sm font-semibold transition-colors ${isChecked ? 'text-teal-800' : 'text-gray-700 group-hover:text-gray-900'}`}>
+                                {resourceName}
+                              </p>
+                            </div>
+                          </div>
+
+                          {isChecked ? (
+                            <span className="text-xs font-bold text-teal-600 flex items-center gap-1 bg-white px-2 py-1 rounded-full border border-teal-100">
+                              <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" /></svg>
+                              Added
+                            </span>
+                          ) : (
+                            <span className="text-xs font-medium text-gray-400 group-hover:text-teal-500 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                              <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4" /></svg>
+                              Add
+                            </span>
+                          )}
                         </button>
                       );
                     })}
