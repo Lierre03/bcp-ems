@@ -14,6 +14,7 @@ window.SmartAITrainer = function SmartAITrainer({ onViewChange }) {
   const [loading, setLoading] = useState(false);
   const [stats, setStats] = useState({ trained: 0, accuracy: 70 });
   const [modal, setModal] = useState(null);
+  const [confirmModal, setConfirmModal] = useState(null);
   const timeRefs = useRef({});
 
   const [venues, setVenues] = useState([]);
@@ -178,18 +179,25 @@ window.SmartAITrainer = function SmartAITrainer({ onViewChange }) {
   const delRes = (i) => setForm(p => ({ ...p, resources: p.resources.filter((_, j) => j !== i) }));
 
   const trainModels = async () => {
-    if (history.length === 0) return alert("No training data available. Please add training data first.");
+    if (history.length === 0) return setConfirmModal({ title: 'No Data', message: "No training data available. Please add training data first.", singleButton: true });
     setLoading(true);
     try {
       const t = await fetch('/api/ml/train-models', { method: 'POST', credentials: 'include' }).then(r => r.json());
-      alert(t.success ? '✅ AI models trained successfully!' : 'Training initiated!');
+      setConfirmModal({
+        title: t.success ? 'Success' : 'Training Started',
+        message: t.success ? '✅ AI models retrained successfully! Predictions will be even better now.' : 'Training initiated!',
+        singleButton: true,
+        type: t.success ? 'success' : 'info'
+      });
       load();
-    } catch (e) { alert('Error training models: ' + e.message); }
+    } catch (e) {
+      setConfirmModal({ title: 'Error', message: 'Error training models: ' + e.message, singleButton: true, type: 'danger' });
+    }
     finally { setLoading(false); }
   };
 
   const save = async () => {
-    if (!form.name || !form.budget) return alert("Please fill Event Name and Budget.");
+    if (!form.name || !form.budget) return setConfirmModal({ title: 'Missing Info', message: "Please fill Event Name and Budget.", singleButton: true, type: 'warning' });
     setLoading(true);
     try {
       const activities = form.timelineMode === 'single' ? form.timelines : form.multiDayTimelines;
@@ -215,13 +223,21 @@ window.SmartAITrainer = function SmartAITrainer({ onViewChange }) {
       if (!d.success) throw new Error(d.error);
 
 
-      alert(editingId ? '✅ Data updated!' : '✅ Data saved!');
-
-      load();
-      resetForm();
-      setView('dashboard');
-      setActiveTab('basic');
-    } catch (e) { alert('Error: ' + e.message); }
+      setConfirmModal({
+        title: 'Success',
+        message: editingId ? '✅ Data updated successfully!' : '✅ Data saved successfully!',
+        singleButton: true,
+        type: 'success',
+        onConfirm: () => {
+          load();
+          resetForm();
+          setView('dashboard');
+          setActiveTab('basic');
+        }
+      });
+    } catch (e) {
+      setConfirmModal({ title: 'Error', message: 'Error: ' + e.message, singleButton: true, type: 'danger' });
+    }
     finally { setLoading(false); }
   };
 
@@ -267,11 +283,12 @@ window.SmartAITrainer = function SmartAITrainer({ onViewChange }) {
         setHistory(prev => prev.filter(h => h.id !== id));
         // Also reload to be sure
         load();
+        setConfirmModal({ title: 'Deleted', message: 'Record deleted successfully.', singleButton: true, type: 'success' });
       } else {
-        alert('Error deleting data: ' + d.error);
+        setConfirmModal({ title: 'Error', message: 'Error deleting data: ' + d.error, singleButton: true, type: 'danger' });
       }
     } catch (e) {
-      alert('Error deleting data: ' + e.message);
+      setConfirmModal({ title: 'Error', message: 'Error deleting data: ' + e.message, singleButton: true, type: 'danger' });
     }
   };
 
@@ -522,6 +539,59 @@ window.SmartAITrainer = function SmartAITrainer({ onViewChange }) {
     );
   };
 
+  const renderConfirmModal = () => {
+    if (!confirmModal) return null;
+    return (
+      <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[100] p-4 animate-fade-in" onClick={() => !confirmModal.singleButton && setConfirmModal(null)}>
+        <div className="bg-white rounded-xl shadow-2xl max-w-sm w-full p-6 animate-scale-in border border-gray-100" onClick={e => e.stopPropagation()}>
+          <div className={`w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-4 ${confirmModal.title === 'Stop Editing?' || confirmModal.title === 'Missing Info' ? 'bg-amber-100 text-amber-600' :
+              confirmModal.title === 'Error' ? 'bg-red-100 text-red-600' :
+                confirmModal.title === 'Success' || confirmModal.title === 'Deleted' ? 'bg-green-100 text-green-600' :
+                  'bg-blue-100 text-blue-600'
+            }`}>
+            {confirmModal.title === 'Error' ? (
+              <I d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" c="w-6 h-6" />
+            ) : (confirmModal.title === 'Stop Editing?' || confirmModal.title === 'Missing Info') ? (
+              <I d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" c="w-6 h-6" />
+            ) : (confirmModal.title === 'Success' || confirmModal.title === 'Deleted') ? (
+              <I d="M5 13l4 4L19 7" c="w-6 h-6" />
+            ) : (
+              <I d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" c="w-6 h-6" />
+            )}
+          </div>
+          <h3 className="text-lg font-bold text-center text-gray-900 mb-2">{confirmModal.title}</h3>
+          <p className="text-sm text-gray-500 text-center mb-6 leading-relaxed">
+            {confirmModal.message}
+          </p>
+          <div className="flex gap-3">
+            {!confirmModal.singleButton && (
+              <button
+                onClick={() => setConfirmModal(null)}
+                className="flex-1 py-2.5 bg-gray-50 text-gray-700 rounded-xl font-semibold hover:bg-gray-100 transition-colors border border-gray-200"
+              >
+                {confirmModal.cancelText || 'Cancel'}
+              </button>
+            )}
+            <button
+              onClick={() => {
+                if (confirmModal.onConfirm) confirmModal.onConfirm();
+                setConfirmModal(null);
+              }}
+              className={`flex-1 py-2.5 text-white rounded-xl font-semibold transition-colors shadow-lg shadow-indigo-200 ${confirmModal.singleButton ? 'w-full' : ''
+                } ${confirmModal.title === 'Error' ? 'bg-red-600 hover:bg-red-700' :
+                  (confirmModal.title === 'Stop Editing?' || confirmModal.title === 'Missing Info') ? 'bg-amber-500 hover:bg-amber-600' :
+                    (confirmModal.title === 'Success' || confirmModal.title === 'Deleted') ? 'bg-green-600 hover:bg-green-700' :
+                      'bg-indigo-600 hover:bg-indigo-700'
+                }`}
+            >
+              {confirmModal.confirmText || (confirmModal.singleButton ? 'Okay' : 'Confirm')}
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   // Dashboard View
   if (view === 'dashboard') {
     return (
@@ -607,6 +677,7 @@ window.SmartAITrainer = function SmartAITrainer({ onViewChange }) {
           </div>
         </div>
         {renderModal()}
+        {renderConfirmModal()}
       </>
     );
   }
@@ -698,6 +769,7 @@ window.SmartAITrainer = function SmartAITrainer({ onViewChange }) {
             </div>
           </div>
         )}
+        {renderConfirmModal()}
       </>
     );
   }
@@ -722,10 +794,15 @@ window.SmartAITrainer = function SmartAITrainer({ onViewChange }) {
               <button
                 onClick={() => {
                   if (editingId) {
-                    if (confirm('Stop editing? Unsaved changes will be lost.')) {
-                      resetForm();
-                      setView('dashboard');
-                    }
+                    setConfirmModal({
+                      title: 'Stop Editing?',
+                      message: 'Unsaved changes will be lost. Are you sure you want to exit?',
+                      type: 'warning',
+                      onConfirm: () => {
+                        resetForm();
+                        setView('dashboard');
+                      }
+                    });
                   } else {
                     setView('dashboard');
                   }
@@ -1085,6 +1162,7 @@ window.SmartAITrainer = function SmartAITrainer({ onViewChange }) {
         </div>
       </div>
       {renderModal()}
+      {renderConfirmModal()}
     </div>
   );
 };
