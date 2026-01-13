@@ -216,6 +216,23 @@ window.SmartAITrainer = function SmartAITrainer({ onViewChange }) {
     finally { setLoading(false); }
   };
 
+  const deleteTrainingData = async (id) => {
+    try {
+      const res = await fetch(`/api/ml/training-data/${id}`, { method: 'DELETE' });
+      const d = await res.json();
+      if (d.success) {
+        // Remove from local state immediately
+        setHistory(prev => prev.filter(h => h.id !== id));
+        // Also reload to be sure
+        load();
+      } else {
+        alert('Error deleting data: ' + d.error);
+      }
+    } catch (e) {
+      alert('Error deleting data: ' + e.message);
+    }
+  };
+
   const I = ({ d, c = "w-5 h-5" }) => <svg className={c} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d={d} /></svg>;
 
   // Shared Modal Component
@@ -575,7 +592,17 @@ window.SmartAITrainer = function SmartAITrainer({ onViewChange }) {
                     <span>{h.attendees} attendees</span>
                   </div>
                 </div>
-                <I d="M9 5l7 7-7 7" c="w-5 h-5 text-gray-400" />
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    if (confirm('Are you sure you want to delete this training data? This cannot be undone.')) {
+                      deleteTrainingData(h.id);
+                    }
+                  }}
+                  className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+                >
+                  <I d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" c="w-5 h-5" />
+                </button>
               </div>
             ))}
           </div>

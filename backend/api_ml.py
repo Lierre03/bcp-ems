@@ -200,6 +200,17 @@ def add_training_data():
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)})
 
+@ml_bp.route('/training-data/<int:id>', methods=['DELETE'])
+def delete_training_data(id):
+    """Delete training example from PostgreSQL"""
+    try:
+        db = get_db()
+        # Delete the record
+        db.execute_query("DELETE FROM ai_training_data WHERE id = %s", (id,))
+        return jsonify({'success': True, 'message': 'Training data deleted successfully'})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)})
+
 @ml_bp.route('/training-data', methods=['GET'])
 def get_training_history():
     """Fetch recent training data for display"""
