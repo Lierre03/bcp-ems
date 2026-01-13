@@ -373,14 +373,18 @@ window.SmartAITrainer = function SmartAITrainer({ onViewChange }) {
                               } else if (typeof activity === 'object') {
                                 const startTime = activity.start_time || activity.startTime || '';
                                 const endTime = activity.end_time || activity.endTime || '';
-                                const phase = activity.phase || activity.description || '';
+                                const phase = activity.phase || '';
+                                const description = activity.description || '';
 
                                 return (
                                   <div key={i} className="flex gap-3 text-sm py-1.5">
                                     {(startTime && endTime) && (
                                       <span className="text-gray-500 font-mono text-xs w-24 flex-shrink-0">{startTime} - {endTime}</span>
                                     )}
-                                    <span className="text-gray-700">{phase}</span>
+                                    <div className="flex-1">
+                                      <div className="text-gray-900 font-medium">{phase}</div>
+                                      {description && <div className="text-gray-500 text-xs mt-0.5">{description}</div>}
+                                    </div>
                                   </div>
                                 );
                               }
@@ -411,14 +415,18 @@ window.SmartAITrainer = function SmartAITrainer({ onViewChange }) {
                       } else if (typeof activity === 'object') {
                         const startTime = activity.start_time || activity.startTime || '';
                         const endTime = activity.end_time || activity.endTime || '';
-                        const phase = activity.phase || activity.description || '';
+                        const phase = activity.phase || '';
+                        const description = activity.description || '';
 
                         return (
                           <div key={i} className="flex gap-3 text-sm py-1.5">
                             {(startTime && endTime) && (
                               <span className="text-gray-500 font-mono text-xs w-24 flex-shrink-0">{startTime} - {endTime}</span>
                             )}
-                            <span className="text-gray-700">{phase}</span>
+                            <div className="flex-1">
+                              <div className="text-gray-900 font-medium">{phase}</div>
+                              {description && <div className="text-gray-500 text-xs mt-0.5">{description}</div>}
+                            </div>
                           </div>
                         );
                       }
