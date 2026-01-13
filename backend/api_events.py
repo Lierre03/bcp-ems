@@ -414,11 +414,18 @@ def get_events():
         user_id = session.get('user_id')
         
         if user_role == 'Admin' and user_department:
-            # STRICT DEPARTMENT FILTERING with cross-department sharing support
-            # Admin sees: (1) Their department's events OR (2) Events shared with their department
-            query += " AND (e.organizing_department = %s OR %s = ANY(e.shared_with_departments))"
+            # Admin sees: 
+            # (1) Their department's events (any status)
+            # (2) Events shared with their department (any status)
+            # (3) Approved/Ongoing/Completed events from OTHER departments (for calendar visibility)
+            # (4) BUT NOT Pending/Under Review events from other departments
+            query += """ AND (
+                e.organizing_department = %s 
+                OR %s = ANY(e.shared_with_departments)
+                OR e.status IN ('Approved', 'Ongoing', 'Completed')
+            )"""
             params.extend([user_department, user_department])
-            logger.info(f"Filtering events for Admin department: {user_department} (strict + shared)")
+            logger.info(f"Filtering events for Admin department: {user_department} (strict + shared + approved)")
         elif user_role == 'Requestor':
             # Requestors see only their own events
             query += " AND e.requestor_id = %s"
