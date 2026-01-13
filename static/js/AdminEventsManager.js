@@ -577,7 +577,8 @@ window.AdminEventsManager = function AdminEventsManager({ eventIdToOpen }) {
           additionalResources: additionalResources, // Fix: Use filtered resources
           description: aiData.description,
           suggestedAttendees: aiData.suggestedAttendees,
-          eventType: aiData.eventType
+          eventType: aiData.eventType,
+          suggestedVenue: aiData.suggestedVenue // Pass the venue suggestion
         });
 
         // FIX: Automatically update the accepted event type if it differs and confidence is adequate
