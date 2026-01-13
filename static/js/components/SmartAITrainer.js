@@ -3,7 +3,8 @@ const { useState, useEffect, useRef } = React;
 
 window.SmartAITrainer = function SmartAITrainer({ onViewChange }) {
   const [view, setView] = useState('dashboard'); // dashboard | form | history
-  const [activeTab, setActiveTab] = useState('basic'); // basic | equipment | timeline | budget | resources
+  const [activeTab, setActiveTab] = useState('basic');
+  const [deleteId, setDeleteId] = useState(null); // basic | equipment | timeline | budget | resources
   const [eqTab, setEqTab] = useState('Audio & Visual');
   const [eqCats, setEqCats] = useState({ 'Audio & Visual': ['Projector', 'Speaker', 'Microphone', 'Screen'], 'Furniture': ['Tables', 'Chairs', 'Stage', 'Podium'], 'Sports': ['Scoreboard', 'Lighting', 'Camera', 'First Aid Kit'] });
   const [form, setForm] = useState({ name: '', type: 'Academic', venue: 'Auditorium', equipment: [], attendees: '', budget: '', organizer: '', description: '', timelines: [], budgetCats: [], resources: [], timelineMode: 'single', currentDay: 1, multiDayTimelines: {} });
@@ -595,9 +596,7 @@ window.SmartAITrainer = function SmartAITrainer({ onViewChange }) {
                 <button
                   onClick={(e) => {
                     e.stopPropagation();
-                    if (confirm('Are you sure you want to delete this training data? This cannot be undone.')) {
-                      deleteTrainingData(h.id);
-                    }
+                    setDeleteId(h.id);
                   }}
                   className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
                 >
@@ -608,6 +607,38 @@ window.SmartAITrainer = function SmartAITrainer({ onViewChange }) {
           </div>
         </div>
         {renderModal()}
+
+        {/* Delete Confirmation Modal */}
+        {deleteId && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={() => setDeleteId(null)}>
+            <div className="bg-white rounded-xl shadow-xl max-w-sm w-full p-6 animate-scale-in" onClick={e => e.stopPropagation()}>
+              <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                <I d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" c="w-6 h-6 text-red-600" />
+              </div>
+              <h3 className="text-lg font-bold text-center text-gray-900 mb-2">Delete Training Data?</h3>
+              <p className="text-sm text-gray-500 text-center mb-6">
+                Are you sure you want to delete this record? This action cannot be undone.
+              </p>
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setDeleteId(null)}
+                  className="flex-1 py-2.5 bg-gray-100 text-gray-700 rounded-lg font-semibold hover:bg-gray-200 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={() => {
+                    deleteTrainingData(deleteId);
+                    setDeleteId(null);
+                  }}
+                  className="flex-1 py-2.5 bg-red-600 text-white rounded-lg font-semibold hover:bg-red-700 transition-colors shadow-sm"
+                >
+                  Delete
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </>
     );
   }
