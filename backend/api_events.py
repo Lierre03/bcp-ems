@@ -887,9 +887,17 @@ def delete_event(event_id):
             if event['requestor_id'] != session['user_id']:
                 return jsonify({'error': 'You can only delete your own events'}), 403
         
-        # Soft delete
+        # HARD DELETE: Remove related records first to avoid FK constraints
+        # 1. Delete notifications
+        db.execute_update("DELETE FROM notifications WHERE event_id = %s", (event_id,))
+        # 2. Delete history
+        db.execute_update("DELETE FROM event_status_history WHERE event_id = %s", (event_id,))
+        # 3. Delete budget
+        db.execute_update("DELETE FROM budgets WHERE event_id = %s", (event_id,))
+        
+        # 4. Delete the event itself
         db.execute_update(
-            "UPDATE events SET deleted_at = NOW() WHERE id = %s",
+            "DELETE FROM events WHERE id = %s",
             (event_id,)
         )
         
