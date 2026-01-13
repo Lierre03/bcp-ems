@@ -214,10 +214,8 @@ window.SmartAITrainer = function SmartAITrainer({ onViewChange }) {
       const d = await res.json();
       if (!d.success) throw new Error(d.error);
 
-      // Auto-train after save/update
-      const t = await fetch('/api/ml/train-models', { method: 'POST', credentials: 'include' }).then(r => r.json());
 
-      alert(t.success ? '✅ Training complete!' : (editingId ? '✅ Data updated!' : '✅ Data saved!'));
+      alert(editingId ? '✅ Data updated!' : '✅ Data saved!');
 
       load();
       resetForm();
