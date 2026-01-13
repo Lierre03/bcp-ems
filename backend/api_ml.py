@@ -200,6 +200,55 @@ def add_training_data():
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)})
 
+@ml_bp.route('/training-data/<int:id>', methods=['PUT'])
+def update_training_data(id):
+    """Update existing training example in PostgreSQL"""
+    try:
+        data = request.json
+        db = get_db()
+        
+        # Prepare JSON fields
+        activities = data.get('activities', [])
+        activities_json = json.dumps(activities)
+        budget_breakdown_json = json.dumps(data.get('budgetBreakdown', []))
+        equipment_json = json.dumps(data.get('equipment', []))
+        resources_json = json.dumps(data.get('additionalResources', []))
+
+        # Update the record
+        db.execute_query("""
+            UPDATE ai_training_data
+            SET event_name = %s,
+                event_type = %s,
+                description = %s,
+                venue = %s,
+                organizer = %s,
+                attendees = %s,
+                total_budget = %s,
+                budget_breakdown = %s,
+                equipment = %s,
+                activities = %s,
+                additional_resources = %s
+            WHERE id = %s
+        """, (
+            data.get('eventName', ''),
+            data.get('eventType', 'Academic'),
+            data.get('description', ''),
+            data.get('venue', ''),
+            data.get('organizer', ''),
+            data.get('attendees', 0),
+            data.get('budget', 0),
+            budget_breakdown_json,
+            equipment_json,
+            activities_json,
+            resources_json,
+            id
+        ))
+        
+        return jsonify({'success': True, 'message': 'Training data updated successfully'})
+
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)})
+
 @ml_bp.route('/training-data/<int:id>', methods=['DELETE'])
 def delete_training_data(id):
     """Delete training example from PostgreSQL"""

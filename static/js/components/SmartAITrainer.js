@@ -4,7 +4,8 @@ const { useState, useEffect, useRef } = React;
 window.SmartAITrainer = function SmartAITrainer({ onViewChange }) {
   const [view, setView] = useState('dashboard'); // dashboard | form | history
   const [activeTab, setActiveTab] = useState('basic');
-  const [deleteId, setDeleteId] = useState(null); // basic | equipment | timeline | budget | resources
+  const [deleteId, setDeleteId] = useState(null);
+  const [editingId, setEditingId] = useState(null); // basic | equipment | timeline | budget | resources
   const [eqTab, setEqTab] = useState('Audio & Visual');
   const [eqCats, setEqCats] = useState({ 'Audio & Visual': ['Projector', 'Speaker', 'Microphone', 'Screen'], 'Furniture': ['Tables', 'Chairs', 'Stage', 'Podium'], 'Sports': ['Scoreboard', 'Lighting', 'Camera', 'First Aid Kit'] });
   const [form, setForm] = useState({ name: '', type: 'Academic', venue: 'Auditorium', equipment: [], attendees: '', budget: '', organizer: '', description: '', timelines: [], budgetCats: [], resources: [], timelineMode: 'single', currentDay: 1, multiDayTimelines: {} });
@@ -191,30 +192,72 @@ window.SmartAITrainer = function SmartAITrainer({ onViewChange }) {
     if (!form.name || !form.budget) return alert("Please fill Event Name and Budget.");
     setLoading(true);
     try {
-      // Prepare activities based on timeline mode
-      let activities;
-      if (form.timelineMode === 'multi') {
-        // Multi-day: save as object with day keys
-        activities = form.multiDayTimelines;
+      const activities = form.timelineMode === 'single' ? form.timelines : form.multiDayTimelines;
+
+      const payload = { eventName: form.name, eventType: form.type, description: form.description, venue: form.venue, organizer: form.organizer, attendees: +form.attendees || 0, budget: +form.budget, budgetBreakdown: form.budgetCats, equipment: form.equipment, activities: activities, additionalResources: form.resources };
+
+      let res;
+      if (editingId) {
+        // Update existing
+        res = await fetch(`/api/ml/training-data/${editingId}`, {
+          method: 'PUT', headers: { 'Content-Type': 'application/json' }, credentials: 'include',
+          body: JSON.stringify(payload)
+        });
       } else {
-        // Single day: save as array
-        activities = form.timelines;
+        // Create new
+        res = await fetch('/api/ml/add-training-data', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'include',
+          body: JSON.stringify(payload)
+        });
       }
 
-      const res = await fetch('/api/ml/add-training-data', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'include',
-        body: JSON.stringify({ eventName: form.name, eventType: form.type, description: form.description, venue: form.venue, organizer: form.organizer, attendees: +form.attendees || 0, budget: +form.budget, budgetBreakdown: form.budgetCats, equipment: form.equipment, activities: activities, additionalResources: form.resources })
-      });
       const d = await res.json();
       if (!d.success) throw new Error(d.error);
+
+      // Auto-train after save/update
       const t = await fetch('/api/ml/train-models', { method: 'POST', credentials: 'include' }).then(r => r.json());
-      alert(t.success ? '✅ Training complete!' : '✅ Data saved!');
+
+      alert(t.success ? '✅ Training complete!' : (editingId ? '✅ Data updated!' : '✅ Data saved!'));
+
       load();
-      setForm({ name: '', type: 'Academic', venue: 'Auditorium', equipment: [], attendees: '', budget: '', organizer: '', description: '', timelines: [], budgetCats: [], resources: [], timelineMode: 'single', currentDay: 1, multiDayTimelines: {} });
+      resetForm();
       setView('dashboard');
       setActiveTab('basic');
     } catch (e) { alert('Error: ' + e.message); }
     finally { setLoading(false); }
+  };
+
+  const resetForm = () => {
+    setForm({ name: '', type: 'Academic', venue: 'Auditorium', equipment: [], attendees: '', budget: '', organizer: '', description: '', timelines: [], budgetCats: [], resources: [], timelineMode: 'single', currentDay: 1, multiDayTimelines: {} });
+    setEditingId(null);
+  };
+
+  const startEdit = (data) => {
+    const isMultiDay = data.activities && typeof data.activities === 'object' && !Array.isArray(data.activities);
+
+    setForm({
+      name: data.eventName || '',
+      type: data.eventType || 'Academic',
+      venue: data.venue || 'Auditorium',
+      organizer: data.organizer || '',
+      description: data.description || '',
+      attendees: data.attendees || '',
+      budget: data.budget || '',
+      budgetCats: data.budget_breakdown || [],
+      equipment: data.equipment || [],
+      resources: data.additionalResources || [],
+
+      // Timeline handling
+      timelineMode: isMultiDay ? 'multi' : 'single',
+      timelines: !isMultiDay ? (data.activities || []) : [],
+      multiDayTimelines: isMultiDay ? (data.activities || {}) : {},
+      currentDay: 1
+    });
+
+    setEditingId(data.id);
+    setModal(null);
+    setView('form');
+    setActiveTab('basic');
   };
 
   const deleteTrainingData = async (id) => {
@@ -251,7 +294,6 @@ window.SmartAITrainer = function SmartAITrainer({ onViewChange }) {
     return (
       <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={() => setModal(null)}>
         <div className="bg-white rounded-xl max-w-3xl w-full max-h-[90vh] overflow-hidden shadow-xl" onClick={e => e.stopPropagation()}>
-          {/* Header */}
           <div className="bg-gray-900 px-6 py-4 text-white border-b border-gray-800">
             <div className="flex justify-between items-start">
               <div>
@@ -260,6 +302,13 @@ window.SmartAITrainer = function SmartAITrainer({ onViewChange }) {
                   <span>{modal.eventType}</span>
                   <span>•</span>
                   <span>{modal.venue}</span>
+                  <button
+                    onClick={() => startEdit(modal)}
+                    className="ml-3 px-2 py-0.5 bg-indigo-600 hover:bg-indigo-500 rounded text-xs font-semibold transition-colors flex items-center gap-1"
+                  >
+                    <I d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" c="w-3 h-3" />
+                    Edit
+                  </button>
                 </div>
               </div>
               <button onClick={() => setModal(null)} className="w-8 h-8 hover:bg-gray-800 rounded-lg flex items-center justify-center transition-colors">
@@ -494,7 +543,7 @@ window.SmartAITrainer = function SmartAITrainer({ onViewChange }) {
               <p className="text-gray-600 text-sm mb-6 flex-1">
                 Add detailed event information including equipment, timeline, budget breakdown, and resources to improve AI predictions.
               </p>
-              <button onClick={() => setView('form')} className="w-full py-3 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-xl font-semibold hover:shadow-lg transition-all flex items-center justify-center gap-2">
+              <button onClick={() => { resetForm(); setView('form'); }} className="w-full py-3 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-xl font-semibold hover:shadow-lg transition-all flex items-center justify-center gap-2">
                 <I d="M12 4v16m8-8H4" c="w-5 h-5" /> Create New Entry
               </button>
             </div>
@@ -593,15 +642,27 @@ window.SmartAITrainer = function SmartAITrainer({ onViewChange }) {
                     <span>{h.attendees} attendees</span>
                   </div>
                 </div>
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setDeleteId(h.id);
-                  }}
-                  className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
-                >
-                  <I d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" c="w-5 h-5" />
-                </button>
+                <div className="flex items-center gap-1">
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      startEdit(h);
+                    }}
+                    className="p-2 text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"
+                    title="Edit"
+                  >
+                    <I d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" c="w-5 h-5" />
+                  </button>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setDeleteId(h.id);
+                    }}
+                    className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+                  >
+                    <I d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" c="w-5 h-5" />
+                  </button>
+                </div>
               </div>
             ))}
           </div>
@@ -660,26 +721,50 @@ window.SmartAITrainer = function SmartAITrainer({ onViewChange }) {
           {/* Top Bar */}
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
-              <button onClick={() => setView('dashboard')} className="p-2.5 bg-gradient-to-br from-gray-50 to-gray-100 hover:from-indigo-50 hover:to-purple-50 rounded-xl transition-all shadow-sm hover:shadow group border border-gray-200">
+              <button
+                onClick={() => {
+                  if (editingId) {
+                    if (confirm('Stop editing? Unsaved changes will be lost.')) {
+                      resetForm();
+                      setView('dashboard');
+                    }
+                  } else {
+                    setView('dashboard');
+                  }
+                }}
+                className="p-2.5 bg-gradient-to-br from-gray-50 to-gray-100 hover:from-indigo-50 hover:to-purple-50 rounded-xl transition-all shadow-sm hover:shadow group border border-gray-200"
+              >
                 <I d="M15 19l-7-7 7-7" c="w-5 h-5 text-gray-500 group-hover:text-indigo-600" />
               </button>
               <div>
-                <div className="flex items-center gap-2">
-                  <div className="w-1.5 h-1.5 bg-indigo-600 rounded-full animate-pulse"></div>
-                  <h1 className="text-2xl font-bold text-gray-900">Add Training Data</h1>
+                <h2 className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-gray-800 to-indigo-900">
+                  {editingId ? 'Edit Training Data' : 'Add New Training Data'}
+                </h2>
+                <div className="flex items-center gap-2 text-sm text-gray-500">
+                  <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
+                  AI Training Mode
                 </div>
-                <p className="text-sm text-gray-600 mt-1 flex items-center gap-1.5">
-                  <svg className="w-4 h-4 text-indigo-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
-                  Configure event details to improve AI predictions
-                </p>
               </div>
             </div>
-            <button onClick={save} disabled={loading} className="group relative px-7 py-3 bg-gradient-to-r from-indigo-600 via-indigo-700 to-purple-600 text-white rounded-xl font-bold shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed transition-all flex items-center gap-2.5 hover:scale-105 overflow-hidden">
-              <div className="absolute inset-0 bg-gradient-to-r from-purple-600 to-indigo-600 opacity-0 group-hover:opacity-100 transition-opacity"></div>
-              <span className="relative flex items-center gap-2.5">
-                {loading ? <><svg className="animate-spin w-5 h-5" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg> Saving...</> : <><I d="M5 13l4 4L19 7" c="w-5 h-5" /> Save & Train</>}
-              </span>
-            </button>
+            <div className="flex gap-2">
+              <button
+                onClick={save}
+                disabled={loading}
+                className="px-6 py-2.5 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-xl font-semibold shadow-lg shadow-indigo-200 hover:shadow-xl hover:shadow-indigo-300 hover:-translate-y-0.5 transition-all flex items-center gap-2 disabled:opacity-50 disabled:translate-y-0"
+              >
+                {loading ? (
+                  <>
+                    <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                    {editingId ? 'Updating...' : 'Investing...'}
+                  </>
+                ) : (
+                  <>
+                    <I d={editingId ? "M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" : "M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4"} c="w-5 h-5" />
+                    {editingId ? 'Update Data' : 'Save Training Data'}
+                  </>
+                )}
+              </button>
+            </div>
           </div>
         </div>
       </div>
