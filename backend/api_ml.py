@@ -1054,6 +1054,19 @@ def predict_resources():
                 import traceback
                 traceback.print_exc()
 
+        # Fallback venue if none generated
+        if not predictions.get('suggestedVenue'):
+             fallback_venues = {
+                'Academic': 'Auditorium',
+                'Sports': 'Gymnasium',
+                'Cultural': 'Auditorium',
+                'Workshop': 'Function Hall',
+                'Seminar': 'Conference Room',
+                'Other': 'Multi-purpose Hall'
+             }
+             predictions['suggestedVenue'] = fallback_venues.get(event_type, 'Auditorium')
+             print(f"[VENUE ML] Using fallback venue: {predictions['suggestedVenue']}")
+
         # Fallback timeline if none generated - EVENT TYPE SPECIFIC
         if not predictions.get('timeline'):
             print(f"[TIMELINE ML] Using event-type-specific fallback for {event_type}")
