@@ -215,7 +215,7 @@ def update_training_data(id):
         resources_json = json.dumps(data.get('additionalResources', []))
 
         # Update the record
-        db.execute_query("""
+        db.execute_update("""
             UPDATE ai_training_data
             SET event_name = %s,
                 event_type = %s,
@@ -994,7 +994,8 @@ def predict_resources():
                                 phase_occurrences[phase_name] = {
                                     'count': 0,
                                     'start_times': [],
-                                    'end_times': []
+                                    'end_times': [],
+                                    'descriptions': []
                                 }
                             
                             phase_occurrences[phase_name]['count'] += 1
@@ -1004,6 +1005,8 @@ def predict_resources():
                             phase_occurrences[phase_name]['end_times'].append(
                                 activity.get('endTime', activity.get('end_time', '10:00'))
                             )
+                            if activity.get('description'):
+                                phase_occurrences[phase_name]['descriptions'].append(activity.get('description'))
                 
                 # Use phases that appear in majority of similar events
                 min_occurrences = max(1, len(top_similar_events) // 2)  # At least half
@@ -1013,8 +1016,14 @@ def predict_resources():
                         start_time = max(set(data['start_times']), key=data['start_times'].count)
                         end_time = max(set(data['end_times']), key=data['end_times'].count)
                         
+                        # Select best description (longest one usually has most detail)
+                        description = ""
+                        if data['descriptions']:
+                            description = max(data['descriptions'], key=len)
+
                         combined_phases.append({
                             'phase': phase_name,
+                            'description': description,
                             'startTime': convert_to_24hour(start_time),
                             'endTime': convert_to_24hour(end_time)
                         })
@@ -1040,43 +1049,43 @@ def predict_resources():
             print(f"[TIMELINE ML] Using event-type-specific fallback for {event_type}")
             fallback_timelines = {
                 'Academic': [
-                    {'phase': 'Registration & Welcome', 'startTime': '08:00', 'endTime': '08:30'},
-                    {'phase': 'Opening Ceremony', 'startTime': '08:30', 'endTime': '09:00'},
-                    {'phase': 'Main Presentation', 'startTime': '09:00', 'endTime': '11:00'},
-                    {'phase': 'Q&A Session', 'startTime': '11:00', 'endTime': '11:30'},
-                    {'phase': 'Closing Remarks', 'startTime': '11:30', 'endTime': '12:00'}
+                    {'phase': 'Registration & Welcome', 'startTime': '08:00', 'endTime': '08:30', 'description': 'Checking attendance and distributing event kits.'},
+                    {'phase': 'Opening Ceremony', 'startTime': '08:30', 'endTime': '09:00', 'description': 'National Anthem, Invocation, and Opening Remarks.'},
+                    {'phase': 'Main Presentation', 'startTime': '09:00', 'endTime': '11:00', 'description': 'Keynote presentation and topic discussion.'},
+                    {'phase': 'Q&A Session', 'startTime': '11:00', 'endTime': '11:30', 'description': 'Open floor for questions from the audience.'},
+                    {'phase': 'Closing Remarks', 'startTime': '11:30', 'endTime': '12:00', 'description': 'Summary of the event and awarding of certificates.'}
                 ],
                 'Sports': [
-                    {'phase': 'Player Registration', 'startTime': '07:00', 'endTime': '07:30'},
-                    {'phase': 'Opening Ceremony', 'startTime': '07:30', 'endTime': '08:00'},
-                    {'phase': 'Competition Rounds', 'startTime': '08:00', 'endTime': '12:00'},
-                    {'phase': 'Lunch Break', 'startTime': '12:00', 'endTime': '13:00'},
-                    {'phase': 'Finals', 'startTime': '13:00', 'endTime': '15:00'},
-                    {'phase': 'Awarding Ceremony', 'startTime': '15:00', 'endTime': '16:00'}
+                    {'phase': 'Player Registration', 'startTime': '07:00', 'endTime': '07:30', 'description': 'Checking player eligibility and distributing jerseys.'},
+                    {'phase': 'Opening Ceremony', 'startTime': '07:30', 'endTime': '08:00', 'description': 'Oath of Sportsmanship and lighting of the torch.'},
+                    {'phase': 'Competition Rounds', 'startTime': '08:00', 'endTime': '12:00', 'description': 'Elimination rounds for various sports categories.'},
+                    {'phase': 'Lunch Break', 'startTime': '12:00', 'endTime': '13:00', 'description': 'Rest period for players and officials.'},
+                    {'phase': 'Finals', 'startTime': '13:00', 'endTime': '15:00', 'description': 'Championship matches.'},
+                    {'phase': 'Awarding Ceremony', 'startTime': '15:00', 'endTime': '16:00', 'description': 'Distribution of medals and trophies.'}
                 ],
                 'Cultural': [
-                    {'phase': 'Setup & Sound Check', 'startTime': '08:00', 'endTime': '09:00'},
-                    {'phase': 'Opening Performance', 'startTime': '09:00', 'endTime': '09:30'},
-                    {'phase': 'Main Performances', 'startTime': '09:30', 'endTime': '12:00'},
-                    {'phase': 'Intermission', 'startTime': '12:00', 'endTime': '13:00'},
-                    {'phase': 'Afternoon Performances', 'startTime': '13:00', 'endTime': '16:00'},
-                    {'phase': 'Closing Performance', 'startTime': '16:00', 'endTime': '17:00'}
+                    {'phase': 'Setup & Sound Check', 'startTime': '08:00', 'endTime': '09:00', 'description': 'Stage preparation and audio-visual testing.'},
+                    {'phase': 'Opening Performance', 'startTime': '09:00', 'endTime': '09:30', 'description': 'Welcome number by the cultural troupe.'},
+                    {'phase': 'Main Performances', 'startTime': '09:30', 'endTime': '12:00', 'description': 'showcase of talents including singing, dancing, and drama.'},
+                    {'phase': 'Intermission', 'startTime': '12:00', 'endTime': '13:00', 'description': 'Lunch and networking break.'},
+                    {'phase': 'Afternoon Performances', 'startTime': '13:00', 'endTime': '16:00', 'description': 'continuation of cultural presentations.'},
+                    {'phase': 'Closing Performance', 'startTime': '16:00', 'endTime': '17:00', 'description': 'Finale number and closing remarks.'}
                 ],
                 'Workshop': [
-                    {'phase': 'Registration', 'startTime': '08:00', 'endTime': '08:30'},
-                    {'phase': 'Introduction & Icebreaker', 'startTime': '08:30', 'endTime': '09:00'},
-                    {'phase': 'Workshop Session 1', 'startTime': '09:00', 'endTime': '10:30'},
-                    {'phase': 'Break', 'startTime': '10:30', 'endTime': '10:45'},
-                    {'phase': 'Workshop Session 2', 'startTime': '10:45', 'endTime': '12:00'},
-                    {'phase': 'Wrap-up & Certificates', 'startTime': '12:00', 'endTime': '12:30'}
+                    {'phase': 'Registration', 'startTime': '08:00', 'endTime': '08:30', 'description': 'Attendance signing and kit distribution.'},
+                    {'phase': 'Introduction & Icebreaker', 'startTime': '08:30', 'endTime': '09:00', 'description': 'Getting to know participants and setting expectations.'},
+                    {'phase': 'Workshop Session 1', 'startTime': '09:00', 'endTime': '10:30', 'description': 'First hands-on activity and lecture.'},
+                    {'phase': 'Break', 'startTime': '10:30', 'endTime': '10:45', 'description': 'Short health break.'},
+                    {'phase': 'Workshop Session 2', 'startTime': '10:45', 'endTime': '12:00', 'description': 'Second hands-on activity and output presentation.'},
+                    {'phase': 'Wrap-up & Certificates', 'startTime': '12:00', 'endTime': '12:30', 'description': 'Evaluation and distribution of certificates.'}
                 ],
                 'Seminar': [
-                    {'phase': 'Registration', 'startTime': '08:00', 'endTime': '08:30'},
-                    {'phase': 'Opening Remarks', 'startTime': '08:30', 'endTime': '09:00'},
-                    {'phase': 'Keynote Speaker', 'startTime': '09:00', 'endTime': '10:30'},
-                    {'phase': 'Break', 'startTime': '10:30', 'endTime': '10:45'},
-                    {'phase': 'Panel Discussion', 'startTime': '10:45', 'endTime': '12:00'},
-                    {'phase': 'Closing Remarks', 'startTime': '12:00', 'endTime': '12:30'}
+                    {'phase': 'Registration', 'startTime': '08:00', 'endTime': '08:30', 'description': 'Registration of participants.'},
+                    {'phase': 'Opening Remarks', 'startTime': '08:30', 'endTime': '09:00', 'description': 'Welcome address by the organizers.'},
+                    {'phase': 'Keynote Speaker', 'startTime': '09:00', 'endTime': '10:30', 'description': 'Main talk on the seminar topic.'},
+                    {'phase': 'Break', 'startTime': '10:30', 'endTime': '10:45', 'description': 'Coffee break.'},
+                    {'phase': 'Panel Discussion', 'startTime': '10:45', 'endTime': '12:00', 'description': 'Experts discussing specific aspects of the topic.'},
+                    {'phase': 'Closing Remarks', 'startTime': '12:00', 'endTime': '12:30', 'description': 'Closing summary and acknowledgments.'}
                 ]
             }
             predictions['timeline'] = fallback_timelines.get(event_type, fallback_timelines['Academic'])

@@ -1300,6 +1300,9 @@ window.EventFormModal = function EventFormModal({
                             <div className="flex-1">
                               <p className="text-sm font-semibold text-gray-800">{phase.phase}</p>
                               <p className="text-xs text-gray-600 mt-1">{phase.startTime} - {phase.endTime}</p>
+                              {phase.description && (
+                                <p className="text-xs text-gray-500 mt-1 italic line-clamp-2">{phase.description}</p>
+                              )}
                             </div>
                             {isAlreadyAdded ? (
                               <svg className="w-5 h-5 text-emerald-600" fill="currentColor" viewBox="0 0 20 20">
