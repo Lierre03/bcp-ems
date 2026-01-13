@@ -413,24 +413,31 @@ def get_events():
         user_role = session.get('role_name')
         user_id = session.get('user_id')
         
-        if user_role == 'Admin' and user_department:
+        if user_role == 'Admin':
+            # STRICT DEPARTMENT FILTERING
             # Admin sees: 
             # (1) Their department's events (any status)
-            # (2) Events shared with their department (any status)
-            # (3) Approved/Ongoing/Completed events from OTHER departments (for calendar visibility)
-            # (4) BUT NOT Pending/Under Review events from other departments
+            # (2) Approved/Ongoing/Completed events from OTHER departments (calendar visibility)
+            # (3) Events shared with their department
+            
+            # If no department assigned, treat as 'Unassigned' to strictly filter (show nothing/little)
+            # rather than falling through to 'view all'
+            dept_filter = user_department if user_department else 'Unassigned'
+            
             query += """ AND (
                 e.organizing_department = %s 
                 OR %s = ANY(e.shared_with_departments)
                 OR e.status IN ('Approved', 'Ongoing', 'Completed')
             )"""
-            params.extend([user_department, user_department])
-            logger.info(f"Filtering events for Admin department: {user_department} (strict + shared + approved)")
+            params.extend([dept_filter, dept_filter])
+            logger.info(f"Filtering events for Admin department: {dept_filter} (strict mode)")
+
         elif user_role == 'Requestor':
             # Requestors see only their own events
             query += " AND e.requestor_id = %s"
             params.append(user_id)
             logger.info(f"Filtering events for requestor: {user_id}")
+            
         elif user_role == 'Participant':
             # STRICT DEPARTMENT FILTERING with cross-department sharing support
             # Students/Participants see: (1) Their department's events OR (2) Events shared with their department
