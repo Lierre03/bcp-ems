@@ -255,7 +255,7 @@ def delete_training_data(id):
     try:
         db = get_db()
         # Delete the record
-        db.execute_query("DELETE FROM ai_training_data WHERE id = %s", (id,))
+        db.execute_update("DELETE FROM ai_training_data WHERE id = %s", (id,))
         return jsonify({'success': True, 'message': 'Training data deleted successfully'})
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)})
