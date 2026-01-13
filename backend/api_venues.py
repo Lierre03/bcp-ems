@@ -563,6 +563,39 @@ def get_venue_calendar():
         """
         params = []
         
+        # Apply Role-Based Filtering (Matched to api_events.py logic)
+        user_role = session.get('role_name')
+        user_department = session.get('department')
+        user_id = session.get('user_id')
+        
+        if user_role == 'Admin':
+            # STRICT FILTERING for Admins
+            # See: Own Dept Events OR Shared OR Approved/Ongoing/Completed from others
+            dept_filter = user_department if user_department else 'Unassigned'
+            query += """ AND (
+                e.organizing_department = %s 
+                OR %s = ANY(e.shared_with_departments)
+                OR e.status IN ('Approved', 'Ongoing', 'Completed')
+            )"""
+            params.extend([dept_filter, dept_filter])
+            
+        elif user_role == 'Requestor':
+            # Requestor sees only own events
+            query += " AND e.requestor_id = %s"
+            params.append(user_id)
+            
+        elif user_role == 'Participant':
+            # Participant sees Dept + Shared
+            student = db.execute_one(
+                "SELECT course FROM students WHERE user_id = %s", (user_id,)
+            )
+            if student and student.get('course'):
+                student_dept = student['course']
+                query += " AND (e.organizing_department = %s OR %s = ANY(e.shared_with_departments))"
+                params.extend([student_dept, student_dept])
+            else:
+                 query += " AND e.status = 'Approved'"
+
         # Filter by month if provided
         if month_str:
             query += " AND TO_CHAR(e.start_datetime, 'YYYY-MM') = %s"
