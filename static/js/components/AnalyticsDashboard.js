@@ -20,7 +20,11 @@ window.AnalyticsDashboard = function AnalyticsDashboard() {
   const typeChartInstance = useRef(null);
   const feedbackChartInstance = useRef(null);
   const trendsChartInstance = useRef(null);
+  const attendeeChartInstance = useRef(null);
   const dashboardRef = useRef(null);
+
+  // New Ref
+  const attendeeChartRef = useRef(null);
 
   useEffect(() => {
     fetchAnalytics();
@@ -275,6 +279,22 @@ window.AnalyticsDashboard = function AnalyticsDashboard() {
         const imgHeight = (canvas.height * imgWidth) / canvas.width;
         pdf.addImage(imgData, 'PNG', margin, yPosition, imgWidth, Math.min(imgHeight, 70));
         yPosition += Math.min(imgHeight, 70) + 10;
+      }
+
+      // Add Attendee Comparison chart
+      if (attendeeChartRef.current) {
+        checkPageBreak(80);
+        addSectionHeader('ATTENDANCE ANALYSIS', [236, 72, 153]); // Pinkish header
+
+        const canvas = await html2canvas(attendeeChartRef.current.parentElement, {
+          scale: 2,
+          backgroundColor: '#ffffff'
+        });
+        const imgData = canvas.toDataURL('image/png');
+        const imgWidth = contentWidth;
+        const imgHeight = (canvas.height * imgWidth) / canvas.width;
+        pdf.addImage(imgData, 'PNG', margin, yPosition, imgWidth, Math.min(imgHeight, 80));
+        yPosition += Math.min(imgHeight, 80) + 10;
       }
 
       // ===== DEPARTMENT BUDGET ANALYSIS =====
@@ -617,10 +637,44 @@ window.AnalyticsDashboard = function AnalyticsDashboard() {
       });
     }
 
-    // 5. Expected Attendees by Type (Bar Chart)
-    if (analytics.expected_attendees && analytics.expected_attendees.by_type && analytics.expected_attendees.by_type.length > 0) {
-      // Create canvas element dynamically if not exists (or use a ref if we added one)
-      // For now, simpler to repurpose or add a new container in the render function
+    // 5. Expected vs Actual Attendees by Type (Bar Chart)
+    if (attendeeChartRef.current && analytics.expected_attendees && analytics.expected_attendees.by_type) {
+      if (attendeeChartInstance.current) attendeeChartInstance.current.destroy();
+
+      const attData = analytics.expected_attendees.by_type;
+
+      attendeeChartInstance.current = new Chart(attendeeChartRef.current, {
+        type: 'bar',
+        data: {
+          labels: attData.map(d => d.event_type),
+          datasets: [
+            {
+              label: 'Avg Initial Expected',
+              data: attData.map(d => d.avg_expected),
+              backgroundColor: '#ec4899', // Pink-500
+              borderRadius: 4
+            },
+            {
+              label: 'Avg Actual Present',
+              data: attData.map(d => d.avg_actual || 0),
+              backgroundColor: '#10b981', // Emerald-500
+              borderRadius: 4
+            }
+          ]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: { position: 'top' },
+            tooltip: { mode: 'index', intersect: false }
+          },
+          scales: {
+            y: { beginAtZero: true, grid: { borderDash: [2, 2] } },
+            x: { grid: { display: false } }
+          }
+        }
+      });
     }
   };
 
@@ -844,8 +898,8 @@ window.AnalyticsDashboard = function AnalyticsDashboard() {
         )
       ),
 
-      // Monthly Trends
-      React.createElement('div', { className: 'bg-white rounded-lg border border-slate-200 p-6 shadow-sm' },
+      // Monthly Trends (Full Width on mobile, half on large if needed, but let's make it full width here for symmetry if odd number)
+      React.createElement('div', { className: 'bg-white rounded-lg border border-slate-200 p-6 shadow-sm md:col-span-2' },
         React.createElement('div', { className: 'flex items-center gap-3 mb-4' },
           React.createElement('div', { className: 'w-10 h-10 bg-indigo-100 rounded-lg flex items-center justify-center' },
             React.createElement('svg', { className: 'w-6 h-6 text-indigo-600', fill: 'none', stroke: 'currentColor', viewBox: '0 0 24 24' },
@@ -862,42 +916,27 @@ window.AnalyticsDashboard = function AnalyticsDashboard() {
         )
       ),
 
-      // NEW: Expected Attendees by Type
+      // NEW: Expected vs Actual Attendees Comparison (Full Width)
       analytics.expected_attendees && React.createElement('div', { className: 'bg-white rounded-lg border border-slate-200 p-6 shadow-sm md:col-span-2' },
-        React.createElement('div', { className: 'flex items-center gap-3 mb-4' },
-          React.createElement('div', { className: 'w-10 h-10 bg-pink-100 rounded-lg flex items-center justify-center' },
-            React.createElement('svg', { className: 'w-6 h-6 text-pink-600', fill: 'none', stroke: 'currentColor', viewBox: '0 0 24 24' },
-              React.createElement('path', { strokeLinecap: 'round', strokeLinejoin: 'round', strokeWidth: '2', d: 'M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z' })
+        React.createElement('div', { className: 'flex items-center justify-between mb-4' },
+          React.createElement('div', { className: 'flex items-center gap-3' },
+            React.createElement('div', { className: 'w-10 h-10 bg-pink-100 rounded-lg flex items-center justify-center' },
+              React.createElement('svg', { className: 'w-6 h-6 text-pink-600', fill: 'none', stroke: 'currentColor', viewBox: '0 0 24 24' },
+                React.createElement('path', { strokeLinecap: 'round', strokeLinejoin: 'round', strokeWidth: '2', d: 'M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z' })
+              )
+            ),
+            React.createElement('div', null,
+              React.createElement('h3', { className: 'text-lg font-bold text-gray-900' }, 'Attendance Comparison'),
+              React.createElement('p', { className: 'text-xs text-gray-500' }, 'Expected vs Actual Attendees by Event Type')
             )
           ),
-          React.createElement('div', null,
-            React.createElement('div', { className: 'flex items-center justify-between w-full' },
-              React.createElement('div', null,
-                React.createElement('h3', { className: 'text-lg font-bold text-gray-900' }, 'Expected Attendees'),
-                React.createElement('p', { className: 'text-xs text-gray-500' }, 'Average planned attendance by event type')
-              ),
-              React.createElement('div', { className: 'text-right ml-4' },
-                React.createElement('span', { className: 'text-xs font-semibold text-gray-500 uppercase' }, 'Total Expected'),
-                React.createElement('p', { className: 'text-2xl font-bold text-pink-600' }, analytics.expected_attendees.total.toLocaleString())
-              )
-            )
+          React.createElement('div', { className: 'text-right' },
+            React.createElement('span', { className: 'text-xs font-semibold text-gray-500 uppercase' }, 'Total Expected'),
+            React.createElement('p', { className: 'text-2xl font-bold text-pink-600' }, analytics.expected_attendees.total.toLocaleString())
           )
         ),
-        React.createElement('div', { className: 'grid grid-cols-1 md:grid-cols-2 gap-4' },
-          analytics.expected_attendees.by_type.map(stat =>
-            React.createElement('div', { key: stat.event_type, className: 'flex flex-col' },
-              React.createElement('div', { className: 'flex justify-between text-sm mb-1' },
-                React.createElement('span', { className: 'font-medium text-gray-700' }, stat.event_type),
-                React.createElement('span', { className: 'text-gray-900 font-bold' }, stat.avg_expected.toLocaleString())
-              ),
-              React.createElement('div', { className: 'w-full bg-gray-100 rounded-full h-2.5' },
-                React.createElement('div', {
-                  className: 'bg-pink-500 h-2.5 rounded-full',
-                  style: { width: `${Math.min(100, (stat.avg_expected / 500) * 100)}%` } // Scale based on ~500 max
-                })
-              )
-            )
-          )
+        React.createElement('div', { className: 'h-64' },
+          React.createElement('canvas', { ref: attendeeChartRef })
         )
       ),
 

@@ -156,14 +156,26 @@ def get_dashboard_analytics():
         """.format(dept_condition)
         expected_stats = get_db().execute_one(expected_query, tuple(params) if params else ())
 
-        # Avg Expected by Type
+        # Avg Expected vs Actual by Type
+        # We need to aggregate actual attendance per event first, then average by type
         avg_expected_query = """
+            WITH EventStats AS (
+                SELECT 
+                    e.id, 
+                    e.event_type, 
+                    e.expected_attendees,
+                    COUNT(ea.id) as actual_attendees
+                FROM events e
+                LEFT JOIN event_attendance ea ON e.id = ea.event_id AND ea.attendance_status = 'Present'
+                WHERE e.deleted_at IS NULL
+                {}
+                GROUP BY e.id, e.event_type, e.expected_attendees
+            )
             SELECT 
-                event_type,
-                ROUND(AVG(expected_attendees)) as avg_expected
-            FROM events e
-            WHERE e.deleted_at IS NULL
-            {}
+                event_type, 
+                ROUND(AVG(expected_attendees)) as avg_expected,
+                ROUND(AVG(actual_attendees)) as avg_actual
+            FROM EventStats
             GROUP BY event_type
             ORDER BY avg_expected DESC
         """.format(dept_condition)
