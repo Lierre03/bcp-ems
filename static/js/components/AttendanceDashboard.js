@@ -131,9 +131,9 @@ window.AttendanceDashboard = function AttendanceDashboard() {
     const filteredList = React.useMemo(() => {
         return attendees.filter(p => {
             const matchesSearch =
-                p.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                p.section.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                p.username.toLowerCase().includes(searchTerm.toLowerCase());
+                (p.name || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+                (p.section || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+                (p.username || '').toLowerCase().includes(searchTerm.toLowerCase());
 
             const matchesStatus =
                 filterStatus === 'All' ? true :

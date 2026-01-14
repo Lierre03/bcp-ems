@@ -7,14 +7,14 @@ const AccountApprovalPanel = window.AccountApprovalPanel;
 const DepartmentFeedback = window.DepartmentFeedback;
 const ResourceManagement = window.ResourceManagement;
 const RescheduleEvent = window.RescheduleEvent;
-const AdminEventsManager = window.AdminEventsManager;
-const AnalyticsDashboard = window.AnalyticsDashboard;
-const AITrainingDashboard = window.AITrainingDashboard;
-const UserManagement = window.UserManagement;
-const AttendanceDashboard = window.AttendanceDashboard;
-const StaffScannerView = window.StaffScannerView;
-const EquipmentApprovals = window.EquipmentApprovals;
-const RejectionResolutionPage = window.RejectionResolutionPage;
+const AdminEventsManager = window.AdminEventsManager || (() => <div className="p-4 text-red-500">Error: Events Manager module could not be loaded.</div>);
+const AnalyticsDashboard = window.AnalyticsDashboard || (() => <div className="p-4 text-red-500">Error: Analytics module could not be loaded.</div>);
+const AITrainingDashboard = window.AITrainingDashboard || (() => <div className="p-4 text-red-500">Error: AI Training module could not be loaded.</div>);
+const UserManagement = window.UserManagement || (() => <div className="p-4 text-red-500">Error: User Management module could not be loaded.</div>);
+const AttendanceDashboard = window.AttendanceDashboard || (() => <div className="p-4 text-red-500">Error: Attendance module could not be loaded.</div>);
+const StaffScannerView = window.StaffScannerView || (() => <div className="p-4 text-red-500">Error: Staff Scanner module could not be loaded.</div>);
+const EquipmentApprovals = window.EquipmentApprovals || (() => <div className="p-4 text-red-500">Error: Equipment Approvals module could not be loaded.</div>);
+const RejectionResolutionPage = window.RejectionResolutionPage || (() => <div className="p-4 text-red-500">Error: Resolution Page module could not be loaded.</div>);
 
 window.AdminDashboard = function AdminDashboard() {
   const [user, setUser] = useState(null);
