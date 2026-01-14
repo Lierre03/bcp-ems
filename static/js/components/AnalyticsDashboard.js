@@ -295,6 +295,50 @@ window.AnalyticsDashboard = function AnalyticsDashboard() {
         const imgHeight = (canvas.height * imgWidth) / canvas.width;
         pdf.addImage(imgData, 'PNG', margin, yPosition, imgWidth, Math.min(imgHeight, 80));
         yPosition += Math.min(imgHeight, 80) + 10;
+
+        // Intelligent Explanation
+        const attData = analytics.expected_attendees.by_type;
+        if (attData && attData.length > 0) {
+          let maxGap = 0;
+          let maxGapType = '';
+          let totalExp = 0;
+          let totalAct = 0;
+
+          attData.forEach(d => {
+            totalExp += d.avg_expected;
+            totalAct += (d.avg_actual || 0);
+            const gap = Math.abs(d.avg_expected - (d.avg_actual || 0));
+            if (gap > maxGap) {
+              maxGap = gap;
+              maxGapType = d.event_type;
+            }
+          });
+
+          const ratio = totalExp > 0 ? totalAct / totalExp : 0;
+          let insight = '';
+
+          if (ratio < 0.5) {
+            insight = `There is a significant gap between expected and actual attendance, with actual numbers averaging only ${(ratio * 100).toFixed(0)}% of targets. `;
+          } else if (ratio < 0.85) {
+            insight = `Actual attendance is slightly below expectations, sitting at ${(ratio * 100).toFixed(0)}% of the target. `;
+          } else {
+            insight = `Attendance is strong, meeting or exceeding ${(ratio * 100).toFixed(0)}% of expected projections. `;
+          }
+
+          if (maxGapType) {
+            insight += `${maxGapType} events show the largest forecasting discrepancy, suggesting a need for either refined estimation models or more targeted promotional strategies for this specific category.`;
+          }
+
+          // Render text
+          pdf.setFont('helvetica', 'normal');
+          pdf.setFontSize(10);
+          pdf.setTextColor(60, 60, 60);
+
+          const insightLines = pdf.splitTextToSize(insight, contentWidth);
+          checkPageBreak((insightLines.length * 5) + 5); // Ensure text fits
+          pdf.text(insightLines, margin, yPosition);
+          yPosition += (insightLines.length * 5) + 10;
+        }
       }
 
       // ===== DEPARTMENT BUDGET ANALYSIS =====
