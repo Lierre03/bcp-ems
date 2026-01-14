@@ -352,7 +352,7 @@ def training_stats():
         db = get_db()
         
         # Count dedicated training data
-        training_result = db.execute_one("SELECT COUNT(*) as total FROM ai_training_data WHERE is_validated = 1")
+        training_result = db.execute_one("SELECT COUNT(*) as total FROM ai_training_data WHERE is_validated = TRUE")
         training_count = training_result['total']
         
         # Count completed events that can be used for training
