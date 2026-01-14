@@ -15,6 +15,7 @@ window.EventFormModal = function EventFormModal({
   const [manualResources, setManualResources] = React.useState([]);
   const [activeTab, setActiveTab] = React.useState(parentActiveTab || 'details');
   const [sharedDepartments, setSharedDepartments] = React.useState([]);
+  const [isAutoPopulateTriggered, setIsAutoPopulateTriggered] = React.useState(false); // Track user intent for auto-org
 
   // Sync activeTab with parent when parentActiveTab changes
   React.useEffect(() => {
@@ -161,6 +162,178 @@ window.EventFormModal = function EventFormModal({
       setFormData(prev => ({ ...prev, additionalResources: manualResources || [] }));
     }
   }, [manualResources, setFormData]);
+
+  // --- AUTO-ORGANIZE LOGIC ---
+
+  // Helper to apply/unapply Budget
+  const handleToggleAllBudget = (shouldApply) => {
+    if (!aiSuggestions || !aiSuggestions.budgetBreakdown) return;
+
+    if (shouldApply) {
+      const allCats = Object.keys(aiSuggestions.budgetBreakdown);
+      if (allCats.length === 0) return;
+
+      const totalBudget = aiSuggestions.estimatedBudget || userBudgetData.totalBudget || 50000;
+      const breakdown = {};
+      const newPercentages = [];
+
+      allCats.forEach(cat => {
+        const rawVal = aiSuggestions.budgetBreakdown[cat];
+        const amount = typeof rawVal === 'object' ? (rawVal.amount || 0) : (rawVal || 0);
+        const percentage = typeof rawVal === 'object'
+          ? (rawVal.percentage || 0)
+          : (totalBudget > 0 ? Math.round((amount / totalBudget) * 100) : 0);
+
+        breakdown[cat] = { amount, percentage };
+        newPercentages.push(percentage);
+      });
+
+      const updatedData = {
+        totalBudget: totalBudget,
+        categories: allCats,
+        percentages: newPercentages,
+        breakdown: breakdown
+      };
+      setUserBudgetData(updatedData);
+      if (handleBudgetUpdate) handleBudgetUpdate(updatedData);
+      setTimeout(() => handleTabChange('budget'), 10);
+    } else {
+      // Unapply - Clear budget (reset to empty)
+      const emptyData = {
+        totalBudget: 0,
+        categories: [''],
+        breakdown: { '': { amount: 0, percentage: 0 } },
+        percentages: [0]
+      };
+      setUserBudgetData(emptyData);
+      if (handleBudgetUpdate) handleBudgetUpdate(emptyData);
+    }
+  };
+
+  // Helper to apply/unapply Equipment
+  const handleToggleAllEquipment = (shouldApply) => {
+    if (!aiSuggestions || !aiSuggestions.equipmentSuggestions) return;
+
+    if (shouldApply) {
+      const existingNames = new Set(userEquipmentData.equipment.map(e => e.name));
+      const suggestions = aiSuggestions.equipmentSuggestions || [];
+      const newItems = suggestions
+        .map(item => {
+          const name = typeof item === 'string' ? item : (item.name || item);
+          let quantity = 1;
+          if (typeof item === 'object') {
+            quantity = parseInt(item.quantity);
+            if (isNaN(quantity) || quantity < 1) quantity = 1;
+          }
+          return { name, quantity };
+        })
+        .filter(obj => !existingNames.has(obj.name));
+
+      if (newItems.length > 0) {
+        setUserEquipmentData(prev => ({
+          equipment: [...prev.equipment, ...newItems]
+        }));
+        if (handleTabChange) handleTabChange('equipment');
+      }
+    } else {
+      // Unapply - Remove ALL suggested items
+      const suggestedNames = new Set(
+        (aiSuggestions.equipmentSuggestions || []).map(item => typeof item === 'string' ? item : (item.name || item))
+      );
+      setUserEquipmentData(prev => ({
+        equipment: prev.equipment.filter(e => !suggestedNames.has(e.name))
+      }));
+    }
+  };
+
+  // Helper to apply/unapply Timeline
+  const handleToggleAllTimeline = (shouldApply) => {
+    if (!aiSuggestions || !aiSuggestions.timeline) return;
+
+    if (shouldApply) {
+      const existingPhases = new Set(userTimelineData.timeline.map(p => p.phase));
+      const uniqueNewPhases = aiSuggestions.timeline.filter(p => !existingPhases.has(p.phase));
+
+      const newTimeline = [...userTimelineData.timeline, ...uniqueNewPhases].sort((a, b) => {
+        const timeA = a.startTime || '00:00';
+        const timeB = b.startTime || '00:00';
+        return timeA.localeCompare(timeB);
+      });
+
+      const addedDuration = uniqueNewPhases.reduce((acc, curr) => acc + (curr.duration || 0), 0);
+      const newTotalDuration = (userTimelineData.totalDuration || 0) + addedDuration;
+
+      setUserTimelineData({
+        timeline: newTimeline,
+        totalDuration: newTotalDuration
+      });
+      setTimeout(() => handleTabChange('timeline'), 10);
+    } else {
+      // Unapply - Remove ALL suggested phases
+      const suggestedPhases = new Set(aiSuggestions.timeline.map(p => p.phase));
+      const newTimeline = userTimelineData.timeline.filter(p => !suggestedPhases.has(p.phase));
+
+      // Recalculate duration is tricky without individual tracking, but simplistic approach:
+      // Just sum remaining.
+      // (Simplified duration calc for unapply)
+      setUserTimelineData({
+        timeline: newTimeline,
+        totalDuration: 0 // Ideally recalc
+      });
+    }
+  };
+
+  // Helper for Resources
+  const handleToggleAllResources = (shouldApply) => {
+    if (!aiSuggestions || !aiSuggestions.additionalResources) return;
+
+    if (shouldApply) {
+      const resourcesToAdd = aiSuggestions.additionalResources
+        .map(r => {
+          const name = typeof r === 'string' ? r : (r && r.name ? r.name : '');
+          return { name, description: '' };
+        })
+        .filter(r => !manualResources.some(existing =>
+          (typeof existing === 'string' ? existing : existing.name) === r.name
+        ));
+
+      if (resourcesToAdd.length > 0) {
+        setManualResources([...manualResources, ...resourcesToAdd]);
+        if (handleTabChange) handleTabChange('resources');
+      }
+    } else {
+      // Unapply
+      const suggestedNames = new Set(
+        aiSuggestions.additionalResources.map(r => typeof r === 'string' ? r : (r && r.name ? r.name : ''))
+      );
+      setManualResources(manualResources.filter(res =>
+        !suggestedNames.has(typeof res === 'string' ? res : res.name)
+      ));
+    }
+  }
+
+
+  // Effect: Auto-Populate when AI Suggestions arrive AND trigger was fired
+  React.useEffect(() => {
+    if (isAutoPopulateTriggered && aiSuggestions && aiSuggestions.confidence > 10) {
+      // Apply everything
+      handleToggleAllBudget(true);
+      handleToggleAllEquipment(true);
+      handleToggleAllTimeline(true);
+      handleToggleAllResources(true);
+
+      // Also apply fields like Venue/Description
+      if (aiSuggestions.description) {
+        setFormData(prev => ({ ...prev, description: aiSuggestions.description }));
+      }
+      if (aiSuggestions.suggestedVenue) {
+        setFormData(prev => ({ ...prev, venue: aiSuggestions.suggestedVenue }));
+      }
+
+      // Reset trigger so it doesn't keep overwriting user changes
+      setIsAutoPopulateTriggered(false);
+    }
+  }, [aiSuggestions, isAutoPopulateTriggered]);
 
   // We use ReactDOM.createPortal to render the modal at the document body level.
   const portalTarget = document.body;
@@ -814,7 +987,10 @@ window.EventFormModal = function EventFormModal({
           {/* Action Buttons Footer */}
           <div className="flex gap-4 px-6 py-4 border-t border-gray-200 bg-white flex-shrink-0 items-center">
             <button
-              onClick={handleAutoFill}
+              onClick={() => {
+                setIsAutoPopulateTriggered(true); // Set trigger!
+                handleAutoFill();
+              }}
               disabled={aiLoading}
               className="flex-1 px-4 py-2.5 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-lg text-sm font-semibold hover:from-blue-700 hover:to-indigo-700 transition flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed shadow-md relative overflow-hidden group"
             >
@@ -970,40 +1146,25 @@ window.EventFormModal = function EventFormModal({
                       <span className="w-2 h-2 bg-blue-500 rounded-full"></span>
                       Suggested Equipment
                     </h4>
-                    <button
-                      onClick={() => {
-                        // Merge AI equipment with existing equipment
-                        const existingNames = new Set(userEquipmentData.equipment.map(e => e.name));
-                        // Access equipmentSuggestions from correct property
-                        const suggestions = aiSuggestions.equipmentSuggestions || [];
+                    {(() => {
+                      const existingNames = new Set(userEquipmentData.equipment.map(e => e.name));
+                      const suggestions = aiSuggestions.equipmentSuggestions || [];
+                      const allApplied = suggestions.every(item =>
+                        existingNames.has(typeof item === 'string' ? item : (item.name || item))
+                      );
 
-                        const newItems = suggestions
-                          .map(item => {
-                            const name = typeof item === 'string' ? item : (item.name || item);
-                            // Defensive parsing for quantity
-                            let quantity = 1;
-                            if (typeof item === 'object') {
-                              quantity = parseInt(item.quantity);
-                              if (isNaN(quantity) || quantity < 1) quantity = 1;
-                            }
-                            return { name, quantity };
-                          })
-                          .filter(obj => !existingNames.has(obj.name));
-
-                        if (newItems.length > 0) {
-                          setUserEquipmentData(prev => ({
-                            equipment: [...prev.equipment, ...newItems]
-                          }));
-                          // Switch tab to show additions
-                          if (handleTabChange) {
-                            handleTabChange('equipment');
-                          }
-                        }
-                      }}
-                      className="text-xs font-bold text-blue-600 hover:text-blue-800 hover:bg-blue-50 px-2 py-1 rounded transition"
-                    >
-                      Apply All
-                    </button>
+                      return (
+                        <button
+                          onClick={() => handleToggleAllEquipment(!allApplied)}
+                          className={`text-xs font-bold px-2 py-1 rounded transition ${allApplied
+                              ? 'text-red-600 hover:text-red-800 hover:bg-red-50'
+                              : 'text-blue-600 hover:text-blue-800 hover:bg-blue-50'
+                            }`}
+                        >
+                          {allApplied ? 'Unapply All' : 'Apply All'}
+                        </button>
+                      );
+                    })()}
                   </div>
                   <div className="grid grid-cols-1 gap-2 max-h-64 overflow-y-auto custom-scrollbar">
                     {aiSuggestions.equipmentSuggestions.map((rec, idx) => {
@@ -1102,47 +1263,24 @@ window.EventFormModal = function EventFormModal({
                       </svg>
                       AI Suggestions
                     </h4>
-                    <button
-                      onClick={() => {
-                        // Apply all suggestions - remove empty categories first
-                        const allCats = Object.keys(aiSuggestions.budgetBreakdown);
-                        if (allCats.length > 0) {
-                          // Create fresh budget data without empty categories
-                          // Handle data whether it is simple number or object
-                          const totalBudget = aiSuggestions.estimatedBudget || userBudgetData.totalBudget || 50000;
+                    {(() => {
+                      const allCats = Object.keys(aiSuggestions.budgetBreakdown);
+                      const allApplied = allCats.every(cat =>
+                        userBudgetData && userBudgetData.categories && userBudgetData.categories.includes(cat)
+                      );
 
-                          const breakdown = {};
-                          const newPercentages = [];
-
-                          allCats.forEach(cat => {
-                            const rawVal = aiSuggestions.budgetBreakdown[cat];
-                            const amount = typeof rawVal === 'object' ? (rawVal.amount || 0) : (rawVal || 0);
-                            const percentage = typeof rawVal === 'object'
-                              ? (rawVal.percentage || 0)
-                              : (totalBudget > 0 ? Math.round((amount / totalBudget) * 100) : 0);
-
-                            breakdown[cat] = { amount, percentage };
-                            newPercentages.push(percentage);
-                          });
-
-                          const updatedData = {
-                            totalBudget: totalBudget,
-                            categories: allCats,
-                            percentages: newPercentages,
-                            breakdown: breakdown
-                          };
-                          setUserBudgetData(updatedData);
-                          // PROPAGATE TO PARENT!
-                          if (handleBudgetUpdate) {
-                            handleBudgetUpdate(updatedData);
-                          }
-                          setTimeout(() => handleTabChange('budget'), 10);
-                        }
-                      }}
-                      className="text-xs font-bold text-blue-600 hover:text-blue-800 hover:bg-blue-50 px-2 py-1 rounded transition"
-                    >
-                      Apply All
-                    </button>
+                      return (
+                        <button
+                          onClick={() => handleToggleAllBudget(!allApplied)}
+                          className={`text-xs font-bold px-2 py-1 rounded transition ${allApplied
+                            ? 'text-red-600 hover:text-red-800 hover:bg-red-50'
+                            : 'text-blue-600 hover:text-blue-800 hover:bg-blue-50'
+                            }`}
+                        >
+                          {allApplied ? 'Unapply All' : 'Apply All'}
+                        </button>
+                      );
+                    })()}
                   </div>
                   <p className="text-xs text-gray-600 mb-3">Click a category to add it to your budget</p>
 
@@ -1259,33 +1397,23 @@ window.EventFormModal = function EventFormModal({
                       </svg>
                       Timeline Suggestions
                     </h4>
-                    <button
-                      onClick={() => {
-                        // Create new timeline array, avoiding duplicates
-                        const existingPhases = new Set(userTimelineData.timeline.map(p => p.phase));
-                        const uniqueNewPhases = aiSuggestions.timeline.filter(p => !existingPhases.has(p.phase));
+                    {(() => {
+                      const allApplied = aiSuggestions.timeline.every(phase =>
+                        userTimelineData.timeline && userTimelineData.timeline.some(p => p.phase === phase.phase)
+                      );
 
-                        const newTimeline = [...userTimelineData.timeline, ...uniqueNewPhases].sort((a, b) => {
-                          const timeA = a.startTime || '00:00';
-                          const timeB = b.startTime || '00:00';
-                          return timeA.localeCompare(timeB);
-                        });
-
-                        // Calculate duration approximately
-                        const addedDuration = uniqueNewPhases.reduce((acc, curr) => acc + (curr.duration || 0), 0);
-                        const newTotalDuration = (userTimelineData.totalDuration || 0) + addedDuration;
-
-                        setUserTimelineData({
-                          timeline: newTimeline,
-                          totalDuration: newTotalDuration
-                        });
-                        // Switch to timeline tab after state updates
-                        setTimeout(() => handleTabChange('timeline'), 10);
-                      }}
-                      className="text-xs font-bold text-purple-600 hover:text-purple-800 hover:bg-purple-50 px-2 py-1 rounded transition"
-                    >
-                      Apply All
-                    </button>
+                      return (
+                        <button
+                          onClick={() => handleToggleAllTimeline(!allApplied)}
+                          className={`text-xs font-bold px-2 py-1 rounded transition ${allApplied
+                            ? 'text-red-600 hover:text-red-800 hover:bg-red-50'
+                            : 'text-purple-600 hover:text-purple-800 hover:bg-purple-50'
+                            }`}
+                        >
+                          {allApplied ? 'Unapply All' : 'Apply All'}
+                        </button>
+                      );
+                    })()}
                   </div>
                   <p className="text-xs text-gray-600 mb-3">Click a phase to add it to your timeline</p>
 
@@ -1361,35 +1489,22 @@ window.EventFormModal = function EventFormModal({
                       Suggested Resources
                     </h4>
 
-                    {/* Check if all suggested resources are already added */}
                     {(() => {
                       const allSuggestedAdded = aiSuggestions.additionalResources.every(r => {
                         const rName = typeof r === 'string' ? r : (r && r.name ? r.name : '');
                         return manualResources.some(res => (typeof res === 'string' ? res : res.name) === rName);
                       });
 
-                      return !allSuggestedAdded && (
+                      return (
                         <button
-                          onClick={() => {
-                            // Add all suggested resources that aren't already added
-                            const resourcesToAdd = aiSuggestions.additionalResources
-                              .map(r => {
-                                const name = typeof r === 'string' ? r : (r && r.name ? r.name : '');
-                                return { name, description: '' };
-                              })
-                              .filter(r => !manualResources.some(existing =>
-                                (typeof existing === 'string' ? existing : existing.name) === r.name
-                              ));
-
-                            if (resourcesToAdd.length > 0) {
-                              setManualResources([...manualResources, ...resourcesToAdd]);
-                              if (handleTabChange) handleTabChange('resources');
-                            }
-                          }}
-                          className="text-xs font-bold text-teal-600 hover:text-teal-800 hover:bg-teal-50 px-2 py-1 rounded transition flex items-center gap-1"
+                          onClick={() => handleToggleAllResources(!allSuggestedAdded)}
+                          className={`text-xs font-bold px-2 py-1 rounded transition flex items-center gap-1 ${allSuggestedAdded
+                            ? 'text-red-600 hover:text-red-800 hover:bg-red-50'
+                            : 'text-teal-600 hover:text-teal-800 hover:bg-teal-50'
+                            }`}
                         >
-                          <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4" /></svg>
-                          Apply All
+                          {!allSuggestedAdded && <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4" /></svg>}
+                          {allSuggestedAdded ? 'Unapply All' : 'Apply All'}
                         </button>
                       );
                     })()}
@@ -1418,8 +1533,8 @@ window.EventFormModal = function EventFormModal({
                             }
                           }}
                           className={`w-full flex items-center justify-between p-3 rounded-lg border transition-all duration-200 group text-left ${isChecked
-                              ? 'bg-teal-50 border-teal-200 shadow-sm'
-                              : 'bg-white border-gray-100 hover:border-teal-200 hover:bg-teal-50/30 hover:shadow-sm'
+                            ? 'bg-teal-50 border-teal-200 shadow-sm'
+                            : 'bg-white border-gray-100 hover:border-teal-200 hover:bg-teal-50/30 hover:shadow-sm'
                             }`}
                         >
                           <div className="flex items-center gap-3">
