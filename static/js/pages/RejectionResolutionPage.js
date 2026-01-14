@@ -123,36 +123,12 @@ window.RejectionResolutionPage = function RejectionResolutionPage({ eventId, onB
 
                 <div className="p-6 space-y-8">
 
-                    {/* Approved Items Section (Read Only) */}
-                    {approvedItems.length > 0 && (
-                        <div>
-                            <h3 className="text-lg font-bold text-gray-800 mb-3 flex items-center">
-                                <span className="w-2 h-6 bg-green-500 rounded-full mr-2"></span>
-                                Approved Items
-                            </h3>
-                            <div className="space-y-3">
-                                {approvedItems.map((item, idx) => (
-                                    <div key={idx} className="bg-blue-50 border border-blue-100 rounded-lg p-4 flex justify-between items-center">
-                                        <div className="flex items-center gap-2">
-                                            <span className="font-medium text-blue-900">{item.name}</span>
-                                            <span className="text-xs bg-blue-200 text-blue-800 px-2 py-0.5 rounded-full font-bold">Approved</span>
-                                        </div>
-                                        <div className="text-sm font-medium text-blue-800">
-                                            Quantity: {item.approved}
-                                        </div>
-                                    </div>
-                                ))}
-                            </div>
-                        </div>
-                    )}
+                    {/* Approved Items Section (Read Only) - REMOVED per user request */}
 
                     {/* Action Required Section */}
                     {(partialItems.length > 0 || rejectedItems.length > 0) && (
                         <div>
-                            <h3 className="text-lg font-bold text-gray-800 mb-3 flex items-center">
-                                <span className="w-2 h-6 bg-red-500 rounded-full mr-2"></span>
-                                Action Required
-                            </h3>
+                            {/* Header for Action Required removed since it's the main focus now */}
                             <div className="space-y-4">
 
                                 {/* Partially Approved Items */}
