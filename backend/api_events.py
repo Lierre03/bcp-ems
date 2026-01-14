@@ -542,15 +542,16 @@ def get_events():
                 e['additional_resources'] = []
                 
             try:
+                # PostgreSQL array type - already returned as list
                 shared_val = e.get('shared_with_departments')
-                if shared_val is not None and shared_val != '':
-                    try:
-                        e['shared_with_departments'] = json.loads(shared_val) if isinstance(shared_val, str) else shared_val
-                    except (json.JSONDecodeError, TypeError):
-                        # Handle case where it might be stored as list already or invalid
-                        e['shared_with_departments'] = []
-                else:
+                if shared_val is None:
                     e['shared_with_departments'] = []
+                elif not isinstance(shared_val, list):
+                    # Fallback: if somehow it's a string, try to parse
+                    try:
+                        e['shared_with_departments'] = json.loads(shared_val) if shared_val else []
+                    except:
+                        e['shared_with_departments'] = []
             except Exception as ex:
                 logger.error(f"Error parsing shared_with_departments for event {e.get('id')}: {ex}")
                 e['shared_with_departments'] = []
@@ -617,13 +618,16 @@ def get_event(event_id):
             event['budget_breakdown'] = json.loads(event['budget_breakdown'])
         if event.get('additional_resources') and isinstance(event['additional_resources'], str):
             event['additional_resources'] = json.loads(event['additional_resources'])
-        if event.get('shared_with_departments') and isinstance(event['shared_with_departments'], str):
+        
+        # PostgreSQL array type - already returned as list
+        if event.get('shared_with_departments') is None:
+            event['shared_with_departments'] = []
+        elif not isinstance(event['shared_with_departments'], list):
+            # Fallback: if somehow it's a string, try to parse
             try:
                 event['shared_with_departments'] = json.loads(event['shared_with_departments'])
             except:
                 event['shared_with_departments'] = []
-        elif event.get('shared_with_departments') is None:
-            event['shared_with_departments'] = []
         
         # Check for conflicts
         if event.get('venue') and event.get('start_datetime') and event.get('end_datetime'):
@@ -734,11 +738,8 @@ def create_event():
         else:
             initial_status = 'Pending'
         
-        # Convert requests to JSON if needed for postgres
-        # Note: equipment, timeline etc are already handled. shared_with_departments needs handling
+        # shared_with_departments: PostgreSQL array type - pass as Python list
         shared_departments = data.get('shared_with_departments', [])
-        import json
-        shared_departments_json = json.dumps(shared_departments) if shared_departments else '[]'
         
         logger.info(f"Creating event with JSON data:")
         logger.info(f"  Equipment: {equipment_json}")
@@ -771,7 +772,7 @@ def create_event():
             budget_breakdown_json,
             additional_resources_json,
             organizing_dept,
-            shared_departments_json,  # Serialized JSON
+            shared_departments,  # PostgreSQL array type
             initial_status,
             session['user_id']
         ))
@@ -873,9 +874,10 @@ def update_event(event_id):
             
         if 'shared_with_departments' in data:
             update_fields.append("shared_with_departments = %s")
-            shared_json = json.dumps(data['shared_with_departments']) if data['shared_with_departments'] else '[]'
-            params.append(shared_json)
-            logger.info(f"Saving shared_with_departments: {shared_json}")
+            # PostgreSQL array type - pass as Python list
+            shared_list = data['shared_with_departments'] if data['shared_with_departments'] else []
+            params.append(shared_list)
+            logger.info(f"Saving shared_with_departments: {shared_list}")
         
         if not update_fields:
             return jsonify({'error': 'No fields to update'}), 400
