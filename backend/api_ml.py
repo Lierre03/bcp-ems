@@ -84,7 +84,7 @@ def load_training_data():
                    equipment, activities, additional_resources,
                    budget_breakdown, venue, organizer, description
             FROM ai_training_data
-            WHERE is_validated = 1 AND total_budget > 0
+            WHERE is_validated = TRUE AND total_budget > 0
             ORDER BY created_at DESC
         """)
 
@@ -304,7 +304,7 @@ def get_training_history():
                 additional_resources as "additionalResources",
                 created_at
             FROM ai_training_data
-            WHERE is_validated = 1
+            WHERE is_validated = TRUE
             ORDER BY created_at DESC
         """)
 
