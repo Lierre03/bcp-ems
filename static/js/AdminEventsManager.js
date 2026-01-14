@@ -229,7 +229,8 @@ window.AdminEventsManager = function AdminEventsManager({ eventIdToOpen }) {
     setFormData({
       name: '', type: 'Academic', date: '', endDate: '', startTime: '09:00', endTime: '17:00',
       venue: 'Auditorium', equipment: [], attendees: '', budget: '', organizer: '',
-      status: 'Pending', description: '', activities: [], additionalResources: []
+      status: 'Pending', description: '', activities: [], additionalResources: [],
+      shared_with_departments: []
     });
     setCheckedResources([]);
     setCheckedActivities([]);
@@ -259,8 +260,8 @@ window.AdminEventsManager = function AdminEventsManager({ eventIdToOpen }) {
       status: event.status || 'Planning',
       description: event.description || '',
       activities: event.activities || [],
-
-      additionalResources: event.additional_resources || []
+      additionalResources: event.additional_resources || [],
+      shared_with_departments: event.shared_with_departments || []
     });
 
     // Load budget breakdown if exists
@@ -454,8 +455,8 @@ window.AdminEventsManager = function AdminEventsManager({ eventIdToOpen }) {
         equipment: formData.equipment || [],
         activities: formData.activities || [],
         budget_breakdown: filteredBudgetBreakdown,
-
-        additional_resources: formData.additionalResources || []
+        additional_resources: formData.additionalResources || [],
+        shared_with_departments: formData.shared_with_departments || []
       };
 
       console.log('=== Saving Event Data ===');
