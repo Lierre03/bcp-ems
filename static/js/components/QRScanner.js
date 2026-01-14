@@ -6,9 +6,42 @@ window.QRScanner = function QRScanner({ eventId, onCheckIn }) {
   const [recentCheckins, setRecentCheckins] = React.useState([]);
   const [manualInput, setManualInput] = React.useState('');
   const [loading, setLoading] = React.useState(false);
+  const [notification, setNotification] = React.useState(null); // { type: 'success' | 'error', message: '', title: '' }
   const videoRef = React.useRef(null);
   const streamRef = React.useRef(null);
   const scanningRef = React.useRef(false);
+
+  // Auto-dismiss notification after 3 seconds
+  React.useEffect(() => {
+    if (notification) {
+      const timer = setTimeout(() => {
+        setNotification(null);
+      }, 4000);
+      return () => clearTimeout(timer);
+    }
+  }, [notification]);
+
+  const NotificationToast = ({ notif }) => {
+    if (!notif) return null;
+    const isSuccess = notif.type === 'success';
+    return (
+      <div className={`fixed top-4 left-1/2 transform -translate-x-1/2 z-50 rounded-lg shadow-lg p-4 min-w-[300px] max-w-md animate-fade-in-down flex items-start gap-3 ${isSuccess ? 'bg-green-50 border border-green-200 text-green-800' : 'bg-red-50 border border-red-200 text-red-800'}`}>
+        <div className={`flex-shrink-0 w-6 h-6 rounded-full flex items-center justify-center ${isSuccess ? 'bg-green-100' : 'bg-red-100'}`}>
+          {isSuccess ? '✓' : '✕'}
+        </div>
+        <div>
+          {notif.title && <h4 className="font-bold text-sm mb-1">{notif.title}</h4>}
+          <div className="text-sm whitespace-pre-line">{notif.message}</div>
+        </div>
+        <button
+          onClick={() => setNotification(null)}
+          className="ml-auto text-gray-400 hover:text-gray-600"
+        >
+          ✕
+        </button>
+      </div>
+    );
+  };
 
   // Load event data and recent check-ins
   React.useEffect(() => {
@@ -118,22 +151,22 @@ window.QRScanner = function QRScanner({ eventId, onCheckIn }) {
 
   const scanQRCode = () => {
     if (!videoRef.current) return;
-    
+
     const canvas = document.createElement('canvas');
     const ctx = canvas.getContext('2d');
-    
+
     const tick = () => {
       if (!scanningRef.current || !videoRef.current || videoRef.current.readyState !== videoRef.current.HAVE_ENOUGH_DATA) {
         if (scanningRef.current) requestAnimationFrame(tick);
         return;
       }
-      
+
       canvas.width = videoRef.current.videoWidth;
       canvas.height = videoRef.current.videoHeight;
       ctx.drawImage(videoRef.current, 0, 0, canvas.width, canvas.height);
-      
+
       const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-      
+
       if (window.jsQR) {
         const code = window.jsQR(imageData.data, imageData.width, imageData.height, { inversionAttempts: "dontInvert" });
         if (code && code.data) {
@@ -143,10 +176,10 @@ window.QRScanner = function QRScanner({ eventId, onCheckIn }) {
           return;
         }
       }
-      
+
       requestAnimationFrame(tick);
     };
-    
+
     requestAnimationFrame(tick);
   };
 
@@ -167,7 +200,11 @@ window.QRScanner = function QRScanner({ eventId, onCheckIn }) {
 
       if (data.success) {
         // Success notification
-        alert(`✅ Check-in successful!\n${data.participant.name}\nChecked in at ${data.participant.check_in_time}`);
+        setNotification({
+          type: 'success',
+          title: 'Check-in successful!',
+          message: `${data.participant.name}\nChecked in at ${data.participant.check_in_time}`
+        });
 
         // Update recent check-ins
         loadEventData();
@@ -178,11 +215,19 @@ window.QRScanner = function QRScanner({ eventId, onCheckIn }) {
         }
       } else {
         // Error notification
-        alert(`❌ Check-in failed: ${data.error}`);
+        setNotification({
+          type: 'error',
+          title: 'Check-in failed',
+          message: data.error
+        });
       }
     } catch (error) {
       console.error('Check-in error:', error);
-      alert('Network error. Please try again.');
+      setNotification({
+        type: 'error',
+        title: 'System Error',
+        message: 'Network error. Please try again.'
+      });
     } finally {
       setLoading(false);
     }
@@ -190,7 +235,10 @@ window.QRScanner = function QRScanner({ eventId, onCheckIn }) {
 
   const handleManualCheckIn = async () => {
     if (!manualInput.trim()) {
-      alert('Please enter a participant ID or username');
+      setNotification({
+        type: 'error',
+        message: 'Please enter a participant ID, username, or email'
+      });
       return;
     }
 
@@ -211,7 +259,11 @@ window.QRScanner = function QRScanner({ eventId, onCheckIn }) {
       const data = await response.json();
 
       if (data.success) {
-        alert(`✅ Manual check-in successful!\n${data.participant.name}\nChecked in at ${data.participant.check_in_time}`);
+        setNotification({
+          type: 'success',
+          title: 'Manual check-in successful!',
+          message: `${data.participant.name}\nChecked in at ${data.participant.check_in_time}`
+        });
 
         // Update recent check-ins
         loadEventData();
@@ -221,18 +273,28 @@ window.QRScanner = function QRScanner({ eventId, onCheckIn }) {
           onCheckIn(data.participant);
         }
       } else {
-        alert(`❌ Manual check-in failed: ${data.error}`);
+        setNotification({
+          type: 'error',
+          title: 'Manual check-in failed',
+          message: data.error
+        });
       }
     } catch (error) {
       console.error('Manual check-in error:', error);
-      alert('Network error. Please try again.');
+      setNotification({
+        type: 'error',
+        title: 'System Error',
+        message: 'Network error. Please try again.'
+      });
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="bg-white rounded-lg shadow p-6">
+    <div className="bg-white rounded-lg shadow p-6 relative">
+      <NotificationToast notif={notification} />
+
       <div className="mb-6">
         <h2 className="text-xl font-semibold text-gray-900 mb-2">QR Attendance Scanner</h2>
         {eventData && (
@@ -285,13 +347,13 @@ window.QRScanner = function QRScanner({ eventId, onCheckIn }) {
                 style={{ maxHeight: '300px' }}
               />
               <div className="absolute inset-0 border-2 border-blue-500 rounded-lg pointer-events-none"
-                   style={{
-                     top: '20%',
-                     left: '20%',
-                     right: '20%',
-                     bottom: '20%',
-                     borderStyle: 'dashed'
-                   }}>
+                style={{
+                  top: '20%',
+                  left: '20%',
+                  right: '20%',
+                  bottom: '20%',
+                  borderStyle: 'dashed'
+                }}>
               </div>
               <div className="absolute top-2 right-2">
                 <button
@@ -330,7 +392,7 @@ window.QRScanner = function QRScanner({ eventId, onCheckIn }) {
             type="text"
             value={manualInput}
             onChange={(e) => setManualInput(e.target.value)}
-            placeholder="Enter participant ID or username"
+            placeholder="Enter Particpant ID, Username, or Email"
             className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
           />
           <button
@@ -341,7 +403,7 @@ window.QRScanner = function QRScanner({ eventId, onCheckIn }) {
             Check In
           </button>
         </div>
-        <p className="text-xs text-gray-500 mt-1">Enter participant ID number or username</p>
+        <p className="text-xs text-gray-500 mt-1">Enter participant ID number, username, or email address</p>
       </div>
 
       {/* Recent Check-ins */}
@@ -378,7 +440,7 @@ window.QRScanner = function QRScanner({ eventId, onCheckIn }) {
           📊 View Full Report
         </button>
         <button
-          onClick={() => alert('CSV export functionality would be implemented here')}
+          onClick={() => console.log('CSV export functionality would be implemented here')}
           className="text-green-600 hover:text-green-800 text-sm font-medium"
         >
           📥 Export CSV

@@ -60,6 +60,10 @@ def submit_feedback(event_id):
              except (ValueError, TypeError):
                 return jsonify({'error': 'NPS must be an integer'}), 400
 
+        # Cast boolean fields to integer for smallint columns
+        if 'future_interest' in data and data['future_interest'] is not None:
+             data['future_interest'] = 1 if data['future_interest'] else 0
+
         # Check if user attended this event
         db = get_db()
         attendance = db.execute_one(

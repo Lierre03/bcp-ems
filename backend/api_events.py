@@ -1178,10 +1178,18 @@ def get_approved_events():
         else:
             end_date = f"{year:04d}-{month+1:02d}-01"
 
+        # Get Current User's Department (if Student)
+        student_dept = None
+        if session.get('role') == 'Student':
+             user_dept_row = db.execute_one("SELECT course FROM students WHERE user_id = %s", (session.get('user_id'),))
+             if user_dept_row:
+                 student_dept = user_dept_row.get('course')
+
         query = """
             SELECT e.id, e.name, e.event_type, e.description, e.status,
                    e.start_datetime, e.end_datetime,
                    e.venue, e.expected_attendees, e.max_attendees,
+                   e.organizing_department, e.shared_with_departments,
                    COALESCE(b.total_budget, 0) as budget,
                    COALESCE(e.organizer, u.first_name || ' ' || u.last_name) as organizer
             FROM events e
@@ -1196,6 +1204,17 @@ def get_approved_events():
 
         events = db.execute_query(query, (start_date, end_date))
 
+        # Get User's Registrations for these events
+        user_registrations = {}
+        if session.get('user_id'):
+             regs = db.execute_query("""
+                SELECT event_id, registration_status 
+                FROM event_registrations 
+                WHERE user_id = %s AND registration_status IN ('Registered', 'Waitlisted', 'Cancelled')
+             """, (session.get('user_id'),))
+             for r in regs:
+                 user_registrations[r['event_id']] = r['registration_status']
+
         # Convert Decimal types to float for JSON serialization
         for event in events:
             # Format dates to ISO strings (without timezone) to ensure frontend treats as local time
@@ -1206,6 +1225,37 @@ def get_approved_events():
 
             if event.get('budget') is not None:
                 event['budget'] = float(event['budget'])
+            
+            # --- Eligibility Check ---
+            event['is_eligible'] = True
+            event['ineligibility_reason'] = None
+            
+            if student_dept:
+                evt_dept = event.get('organizing_department')
+                shared = event.get('shared_with_departments') or [] # Postgres array or JSON? Usually list if handled by adapter, but safely handle None
+                
+                # Check JSON parsing if it's a string (common issue)
+                if isinstance(shared, str):
+                    try:
+                        import json
+                        shared = json.loads(shared)
+                    except:
+                        shared = []
+
+                if not evt_dept: evt_dept = 'General/Cross-Department' # Fallback
+                
+                is_general = evt_dept == 'General/Cross-Department'
+                is_own = evt_dept == student_dept
+                is_shared = student_dept in shared
+                
+                if not (is_general or is_own or is_shared):
+                    event['is_eligible'] = False
+                    event['ineligibility_reason'] = f"Restricted to {evt_dept}"
+            
+            # --- Registration Status ---
+            reg_status = user_registrations.get(event['id'])
+            event['is_registered'] = reg_status in ['Registered', 'Waitlisted']
+            event['registration_status'] = reg_status
 
         return jsonify({
             'success': True,
@@ -1829,6 +1879,50 @@ def resolve_rejection(event_id):
                 "UPDATE events SET equipment = %s WHERE id = %s",
                 (json.dumps(updated_list), event_id)
             )
+
+            # --- NOTIFICATION LOGIC FOR STAFF ---
+            try:
+                # Get recipients (Super Admin, Admin, Staff)
+                recipients = db.execute_query("""
+                    SELECT u.id FROM users u
+                    JOIN roles r ON u.role_id = r.id
+                    WHERE r.name IN ('Super Admin', 'Admin', 'Staff')
+                """)
+
+                if recipients:
+                    event_name = event.get('name', 'Event')
+                    requestor_name = f"{session.get('first_name', 'User')} {session.get('last_name', '')}"
+                    title = "Equipment Resolution Update"
+                    message = ""
+                    type_ = "status_update"
+
+                    if action == 'self_provide':
+                         message = f"{requestor_name} has opted to self-provide '{item_name}' for '{event_name}'."
+                    elif action == 'accept_partial':
+                         # Find the item to get details
+                         for itm in updated_list:
+                             if itm.get('name') == item_name:
+                                qty = itm.get('quantity', 0)
+                                message = f"{requestor_name} has accepted the partial quantity ({qty}) for '{item_name}' in '{event_name}'."
+                                break
+                    
+                    if message:
+                        notif_values = []
+                        for r in recipients:
+                            notif_values.extend([r['id'], title, message, type_, event_id, datetime.now()])
+                        
+                        # Batch insert
+                        placeholders = ', '.join(['(%s, %s, %s, %s, %s, 0, %s)'] * len(recipients))
+                        db.execute_update(f"""
+                            INSERT INTO notifications (user_id, title, message, type, event_id, is_read, created_at)
+                            VALUES {placeholders}
+                        """, tuple(notif_values))
+                        
+                        logger.info(f"Notified {len(recipients)} staff about resolution action '{action}'")
+
+            except Exception as e:
+                logger.error(f"Failed to send resolution notification: {e}")
+            # ------------------------------------
 
             # Re-evaluate overall status (Check for Rejections AND Unresolved Partials)
             remaining_issues = False

@@ -30,7 +30,11 @@ window.StudentEventCalendar = function StudentEventCalendar() {
               ? 'bg-green-100 text-green-800 border-green-500 ring-1 ring-green-400'
               : getEventTypeColor(event.event_type),
           expected_attendees: event.expected_attendees,
-          max_attendees: event.max_attendees
+          max_attendees: event.max_attendees,
+          is_eligible: event.is_eligible,
+          ineligibility_reason: event.ineligibility_reason,
+          is_registered: event.is_registered,
+          registration_status: event.registration_status
         }));
         setEvents(calendarEvents);
       }
@@ -320,6 +324,18 @@ window.StudentEventCalendar = function StudentEventCalendar() {
                   const phTime = new Date(now.toLocaleString("en-US", { timeZone: "Asia/Manila" }));
                   const eventTimePh = new Date(eventDate.toLocaleString("en-US", { timeZone: "Asia/Manila" }));
 
+                  // Check Registration Status
+                  if (event.is_registered) {
+                    return (
+                      <button
+                        disabled
+                        className="w-full bg-green-100 text-green-700 px-3 py-2 rounded-lg text-xs font-bold border border-green-300 cursor-default"
+                      >
+                        {event.registration_status === 'Waitlisted' ? 'Waitlisted' : 'Registered'}
+                      </button>
+                    );
+                  }
+
                   if (eventDate < new Date()) { // Simple check first
                     return (
                       <button
@@ -327,6 +343,18 @@ window.StudentEventCalendar = function StudentEventCalendar() {
                         className="w-full bg-slate-100 text-slate-400 px-3 py-2 rounded-lg text-xs cursor-not-allowed font-medium border border-slate-200"
                       >
                         Event Ended
+                      </button>
+                    );
+                  }
+
+                  // Check Eligibility (Department Restriction)
+                  if (event.is_eligible === false) {
+                    return (
+                      <button
+                        disabled
+                        className="w-full bg-slate-100 text-slate-500 px-3 py-2 rounded-lg text-xs cursor-not-allowed font-medium border border-slate-200"
+                      >
+                        {event.ineligibility_reason || 'Not Open to your Dept'}
                       </button>
                     );
                   }
@@ -407,6 +435,18 @@ window.StudentEventCalendar = function StudentEventCalendar() {
                     // Mobile view explicit check
                     const eventDate = new Date(event.start);
                     const now = new Date();
+
+                    if (event.is_registered) {
+                      return (
+                        <button
+                          disabled
+                          className="mt-3 w-full bg-green-100 text-green-700 px-4 py-2 rounded-lg text-sm font-bold border border-green-300 cursor-default"
+                        >
+                          {event.registration_status === 'Waitlisted' ? 'Waitlisted' : 'Registered'}
+                        </button>
+                      );
+                    }
+
                     if (eventDate < now) {
                       return (
                         <button
@@ -417,6 +457,18 @@ window.StudentEventCalendar = function StudentEventCalendar() {
                         </button>
                       );
                     }
+
+                    if (event.is_eligible === false) {
+                      return (
+                        <button
+                          disabled
+                          className="mt-3 w-full bg-slate-100 text-slate-500 px-4 py-2 rounded-lg text-sm cursor-not-allowed font-medium border border-slate-200"
+                        >
+                          {event.ineligibility_reason || 'Not Open to your Dept'}
+                        </button>
+                      );
+                    }
+
                     return (
                       <button
                         onClick={() => handleEventRegistration(event.id)}

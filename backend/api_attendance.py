@@ -221,6 +221,9 @@ def manual_check_in():
         if participant_id.isdigit():
             user_condition = "u.id = %s"
             user_param = int(participant_id)
+        elif '@' in participant_id:
+            user_condition = "u.email = %s"
+            user_param = participant_id
         else:
             user_condition = "u.username = %s"
             user_param = participant_id
