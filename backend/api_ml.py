@@ -646,7 +646,7 @@ def predict_resources():
         try:
             # Strategy: 
             # 1. Try to find the most similar event by name (same event type)
-            # 2. If found, use that event's budget-per-attendee ratio
+            # 2. If found, use that event's budget-per-attendee ratio AND its attendee count (for Auto-Organize context)
             # 3. Otherwise, use average of all events of the same type
             
             # Filter training data by event type
@@ -666,6 +666,7 @@ def predict_resources():
                     # STEP 1: Try to find similar event by name
                     best_match = None
                     best_match_ratio = None
+                    best_match_attendees = None
                     
                     if event_name:
                         from difflib import SequenceMatcher
@@ -683,6 +684,7 @@ def predict_resources():
                                 if best_match is None or similarity > best_match:
                                     best_match = similarity
                                     best_match_ratio = row['budget_per_attendee']
+                                    best_match_attendees = row['attendees']
                                     print(f"[BUDGET SCALING] Found similar event: '{row['event_name']}' (similarity: {similarity:.1%})")
                                     print(f"[BUDGET SCALING]   Training: {int(row['attendees'])} attendees, ₱{int(row['total_budget']):,} budget")
                                     print(f"[BUDGET SCALING]   Ratio: ₱{row['budget_per_attendee']:.2f} per attendee")
@@ -691,17 +693,25 @@ def predict_resources():
                     if best_match_ratio is not None:
                         avg_budget_per_attendee = best_match_ratio
                         print(f"[BUDGET SCALING] ✓ Using similar event's ratio: ₱{avg_budget_per_attendee:.2f} per attendee")
+                        
+                        # CRITICAL FIX: If we found a specific event, use its attendee count for the suggestion
+                        # This ensures "Auto-Organize" restores the full scope (e.g., 300 attendees -> 1500 budget)
+                        if best_match_attendees:
+                            # Use historical attendees for calculation
+                            attendees = int(best_match_attendees) 
+                            predictions['suggestedAttendees'] = attendees
+                            print(f"[BUDGET SCALING] Auto-adjusting attendees to historical: {attendees}")
                     else:
                         avg_budget_per_attendee = type_df['budget_per_attendee'].mean()
                         print(f"[BUDGET SCALING] No similar event found, using type average: ₱{avg_budget_per_attendee:.2f} per attendee")
                     
-                    # Scale to user's attendee count
+                    # Scale to user's attendee count (which might have been updated above)
                     predicted_budget = int(avg_budget_per_attendee * attendees)
                     predictions['estimatedBudget'] = max(500, predicted_budget)  # Minimum ₱500
                     
                     print(f"[BUDGET SCALING] Event Type: {event_type}")
                     print(f"[BUDGET SCALING] Training samples: {len(type_df)}")
-                    print(f"[BUDGET SCALING] User attendees: {attendees}")
+                    print(f"[BUDGET SCALING] Calculation Attendees: {attendees}")
                     print(f"[BUDGET SCALING] Scaled budget: ₱{predictions['estimatedBudget']:,}")
                 else:
                     raise ValueError("No valid training samples after outlier removal")
