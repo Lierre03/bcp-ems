@@ -709,13 +709,21 @@ window.EventFormModal = function EventFormModal({
                               const attendeeCount = parseInt(newAttendees) || 0;
 
                               // Budget scaling logic
+                              // Budget scaling logic
                               let newBudget = formData.budget;
-                              if (budgetData && budgetData.totalBudget && aiSuggestions) {
+                              // Use AI suggestions as the fixed baseline to prevent compounding errors
+                              if (aiSuggestions && aiSuggestions.estimatedBudget && aiSuggestions.suggestedAttendees) {
+                                const rate = aiSuggestions.estimatedBudget / aiSuggestions.suggestedAttendees;
+                                newBudget = Math.round(attendeeCount * rate);
+                              }
+                              // Fallback for manual mode (optional: could maintain current ratio)
+                              else if (budgetData && budgetData.totalBudget) {
                                 const baseBudget = budgetData.totalBudget;
-                                const baseAttendees = aiSuggestions.suggestedAttendees || parseInt(formData.attendees) || 100;
+                                const baseAttendees = parseInt(formData.attendees) || 100; // Use previous value
                                 if (baseAttendees > 0 && attendeeCount > 0) {
-                                  const ratio = attendeeCount / baseAttendees;
-                                  newBudget = Math.round(baseBudget * ratio);
+                                  // Only scale if we have a valid baseline ratio
+                                  const ratio = baseBudget / baseAttendees;
+                                  newBudget = Math.round(attendeeCount * ratio);
                                 }
                               }
 
