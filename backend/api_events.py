@@ -607,6 +607,12 @@ def get_event(event_id):
         if event.get('spent') is not None:
             event['spent'] = float(event['spent'])
         
+        # Ensure dates are ISO strings for consistent frontend parsing
+        if event.get('start_datetime'):
+            event['start_datetime'] = event['start_datetime'].isoformat()
+        if event.get('end_datetime'):
+            event['end_datetime'] = event['end_datetime'].isoformat()
+        
         # Parse JSON columns from events table
         import json
         if event.get('equipment') and isinstance(event['equipment'], str):
@@ -1249,8 +1255,20 @@ def get_approved_events():
                 is_shared = student_dept in shared
                 
                 if not (is_general or is_own or is_shared):
-                    event['is_eligible'] = False
-                    event['ineligibility_reason'] = f"Restricted to {evt_dept}"
+                     event['is_eligible'] = False
+                     event['ineligibility_reason'] = f"Restricted to {evt_dept}"
+        
+        # --- STRICT FILTERING FOR STUDENTS ---
+        # User requested to hide events completely if not eligible
+        filtered_events = []
+        for event in events:
+            # If user is student/participant AND event is not eligible, skip it
+            # Assuming 'is_eligible' defaults to True above, and is set to False if restricted
+            if session.get('role') in ['Student', 'Participant'] and event.get('is_eligible') is False:
+                continue # Skip this event (don't show it at all)
+            filtered_events.append(event)
+        
+        events = filtered_events
             
             # --- Registration Status ---
             reg_status = user_registrations.get(event['id'])

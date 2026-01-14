@@ -323,6 +323,29 @@ window.ApprovalActions = function ApprovalActions({ event, onSuccess }) {
     const status = event.status;
 
     // Super Admin: Review & Approve at Pending/Under Review, Reject any status
+    // Super Admin: Review & Approve at Pending/Under Review, Reject any status
+    const isPastEvent = () => {
+      const eventDate = new Date(event.start_datetime || event.date);
+      const now = new Date();
+      // Reset hours to compare just dates if you want strict day comparison, 
+      // or compare full timestamps. User said "dates were past", so let's check full timestamp.
+      return eventDate < now;
+    };
+
+    if (isPastEvent() && status !== 'Completed' && status !== 'Archived') {
+      // If event is in the past, no approval actions allowed.
+      // Unless it's already approved/ongoing/completed, in which case we might show Archive?
+      // For Pending/Under Review past events, they should probably be Rejected or just not actionable.
+      // User said: "approval button must now be there anymore"
+      if (status === 'Pending' || status === 'Under Review') {
+        if (isSuperAdmin) {
+          // Optional: Allow Super Admin to reject past pending events
+          actions.push({ label: 'Reject (Past Event)', endpoint: 'reject', variant: 'danger' });
+        }
+        return actions;
+      }
+    }
+
     if (isSuperAdmin) {
       if (status === 'Pending' || status === 'Under Review') {
         actions.push({ label: 'Review & Approve', endpoint: 'superadmin-approve', variant: 'success' });
