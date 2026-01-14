@@ -1792,7 +1792,7 @@ def resolve_rejection(event_id):
             
             return jsonify({'success': True, 'message': 'Event cancelled'})
 
-        elif action in ['self_provide', 'remove_item']:
+        elif action in ['self_provide', 'remove_item', 'accept_partial']:
             # Load equipment list
             equipment_list = []
             if event.get('equipment') and isinstance(event['equipment'], str):
