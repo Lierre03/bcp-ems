@@ -134,6 +134,7 @@ window.EventFormModal = function EventFormModal({
   }, [userEquipmentData]); // Only depend on userEquipmentData, not the callback
 
   // Sync userTimelineData to parent formData.activities
+  // Sync userTimelineData to parent formData.activities AND Start/End Time
   React.useEffect(() => {
     if (setFormData && userTimelineData.timeline) {
       // Convert timeline phases to activity format for the backend
@@ -147,7 +148,28 @@ window.EventFormModal = function EventFormModal({
           endTime: phase.endTime || '',
           duration: phase.duration || 0
         }));
-      setFormData(prev => ({ ...prev, activities }));
+
+      // Calculate earliest start and latest end
+      let earliest = null;
+      let latest = null;
+
+      if (activities.length > 0) {
+        userTimelineData.timeline.forEach(phase => {
+          if (phase.startTime) {
+            if (!earliest || phase.startTime < earliest) earliest = phase.startTime;
+          }
+          if (phase.endTime) {
+            if (!latest || phase.endTime > latest) latest = phase.endTime;
+          }
+        });
+      }
+
+      setFormData(prev => ({
+        ...prev,
+        activities,
+        startTime: earliest || prev.startTime,
+        endTime: latest || prev.endTime
+      }));
     }
   }, [userTimelineData, setFormData]);
 
@@ -166,7 +188,7 @@ window.EventFormModal = function EventFormModal({
   // --- AUTO-ORGANIZE LOGIC ---
 
   // Helper to apply/unapply Budget
-  const handleToggleAllBudget = (shouldApply) => {
+  const handleToggleAllBudget = (shouldApply, silent = false) => {
     if (!aiSuggestions || !aiSuggestions.budgetBreakdown) return;
 
     if (shouldApply) {
@@ -196,7 +218,7 @@ window.EventFormModal = function EventFormModal({
       };
       setUserBudgetData(updatedData);
       if (handleBudgetUpdate) handleBudgetUpdate(updatedData);
-      setTimeout(() => handleTabChange('budget'), 10);
+      if (!silent) setTimeout(() => handleTabChange('budget'), 10);
     } else {
       // Unapply - Clear budget (reset to empty)
       const emptyData = {
@@ -211,7 +233,7 @@ window.EventFormModal = function EventFormModal({
   };
 
   // Helper to apply/unapply Equipment
-  const handleToggleAllEquipment = (shouldApply) => {
+  const handleToggleAllEquipment = (shouldApply, silent = false) => {
     if (!aiSuggestions || !aiSuggestions.equipmentSuggestions) return;
 
     if (shouldApply) {
@@ -233,7 +255,7 @@ window.EventFormModal = function EventFormModal({
         setUserEquipmentData(prev => ({
           equipment: [...prev.equipment, ...newItems]
         }));
-        if (handleTabChange) handleTabChange('equipment');
+        if (!silent && handleTabChange) handleTabChange('equipment');
       }
     } else {
       // Unapply - Remove ALL suggested items
@@ -247,7 +269,7 @@ window.EventFormModal = function EventFormModal({
   };
 
   // Helper to apply/unapply Timeline
-  const handleToggleAllTimeline = (shouldApply) => {
+  const handleToggleAllTimeline = (shouldApply, silent = false) => {
     if (!aiSuggestions || !aiSuggestions.timeline) return;
 
     if (shouldApply) {
@@ -267,7 +289,7 @@ window.EventFormModal = function EventFormModal({
         timeline: newTimeline,
         totalDuration: newTotalDuration
       });
-      setTimeout(() => handleTabChange('timeline'), 10);
+      if (!silent) setTimeout(() => handleTabChange('timeline'), 10);
     } else {
       // Unapply - Remove ALL suggested phases
       const suggestedPhases = new Set(aiSuggestions.timeline.map(p => p.phase));
@@ -284,7 +306,7 @@ window.EventFormModal = function EventFormModal({
   };
 
   // Helper for Resources
-  const handleToggleAllResources = (shouldApply) => {
+  const handleToggleAllResources = (shouldApply, silent = false) => {
     if (!aiSuggestions || !aiSuggestions.additionalResources) return;
 
     if (shouldApply) {
@@ -299,7 +321,7 @@ window.EventFormModal = function EventFormModal({
 
       if (resourcesToAdd.length > 0) {
         setManualResources([...manualResources, ...resourcesToAdd]);
-        if (handleTabChange) handleTabChange('resources');
+        if (!silent && handleTabChange) handleTabChange('resources');
       }
     } else {
       // Unapply
@@ -316,11 +338,11 @@ window.EventFormModal = function EventFormModal({
   // Effect: Auto-Populate when AI Suggestions arrive AND trigger was fired
   React.useEffect(() => {
     if (isAutoPopulateTriggered && aiSuggestions && aiSuggestions.confidence > 10) {
-      // Apply everything
-      handleToggleAllBudget(true);
-      handleToggleAllEquipment(true);
-      handleToggleAllTimeline(true);
-      handleToggleAllResources(true);
+      // Apply everything - SILENTLY (don't switch tabs)
+      handleToggleAllBudget(true, true);
+      handleToggleAllEquipment(true, true);
+      handleToggleAllTimeline(true, true);
+      handleToggleAllResources(true, true);
 
       // Also apply fields like Venue/Description
       if (aiSuggestions.description) {
