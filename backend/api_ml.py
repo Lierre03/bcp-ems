@@ -202,7 +202,7 @@ def add_training_data():
             (event_name, event_type, description, venue, organizer,
              attendees, total_budget, budget_breakdown,
              equipment, activities, additional_resources, is_validated)
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, 1)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, TRUE)
             RETURNING id
         """, (
             data.get('eventName', ''),

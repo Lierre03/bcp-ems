@@ -838,7 +838,7 @@ def update_event(event_id):
         allowed_fields = [
             'name', 'event_type', 'description', 'start_datetime', 'end_datetime',
             'venue', 'organizer', 'expected_attendees', 'budget', 'status', 'organizing_department',
-            'venue_approval_status', 'equipment_approval_status', 'shared_with_departments'
+            'venue_approval_status', 'equipment_approval_status'
         ]
         
         for field in allowed_fields:
