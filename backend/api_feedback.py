@@ -581,7 +581,14 @@ def get_pending_feedback():
     try:
         db = get_db()
 
+        # Calculate current PH time (UTC+8) for comparison
+        current_ph_time = datetime.utcnow() + timedelta(hours=8)
+        
         # Get events that need feedback
+        # Include events that are:
+        # 1. 'Completed'
+        # 2. 'Ongoing' (users can give feedback during event)
+        # 3. 'Approved' BUT end_datetime has passed (auto-detect finished events)
         query = """
             SELECT DISTINCT e.id, e.name, e.event_type, e.start_datetime, e.end_datetime,
                    e.venue, e.description, ea.check_in_datetime
@@ -589,13 +596,16 @@ def get_pending_feedback():
             JOIN event_attendance ea ON e.id = ea.event_id
             LEFT JOIN event_feedback f ON e.id = f.event_id AND ea.user_id = f.user_id
             WHERE ea.user_id = %s
-              AND e.status IN ('Completed', 'Ongoing')
+              AND (
+                  e.status IN ('Completed', 'Ongoing') 
+                  OR (e.status = 'Approved' AND e.end_datetime < %s)
+              )
               AND e.deleted_at IS NULL
               AND (f.id IS NULL)
             ORDER BY e.end_datetime DESC
         """
 
-        pending_events = db.execute_query(query, (session['user_id'],))
+        pending_events = db.execute_query(query, (session['user_id'], current_ph_time))
 
         # Format the results
         for event in pending_events:

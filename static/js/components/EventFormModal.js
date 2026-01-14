@@ -141,44 +141,47 @@ window.EventFormModal = function EventFormModal({
   }, [userEquipmentData]); // Only depend on userEquipmentData, not the callback
 
   // Sync userTimelineData to parent formData.activities
-  // Sync userTimelineData to parent formData.activities AND Start/End Time
-  React.useEffect(() => {
-    if (setFormData && userTimelineData.timeline) {
-      // Convert timeline phases to activity format for the backend
-      const activities = userTimelineData.timeline
-        .filter(phase => phase.phase && phase.phase.trim()) // Only include phases with names
-        .map(phase => ({
-          activity_name: `${phase.startTime || ''} - ${phase.endTime || ''}: ${phase.phase}`,
-          phase: phase.phase, // KEEPTHE PHASE!
-          description: phase.description || '',
-          startTime: phase.startTime || '',
-          endTime: phase.endTime || '',
-          duration: phase.duration || 0
-        }));
+  // Helper: Update local timeline state AND sync changes to parent formData
+  const setTimelineAndSync = (newTimelineData) => {
+    setUserTimelineData(newTimelineData);
 
-      // Calculate earliest start and latest end
-      let earliest = null;
-      let latest = null;
+    const phases = newTimelineData.timeline || [];
 
-      if (activities.length > 0) {
-        userTimelineData.timeline.forEach(phase => {
-          if (phase.startTime) {
-            if (!earliest || phase.startTime < earliest) earliest = phase.startTime;
-          }
-          if (phase.endTime) {
-            if (!latest || phase.endTime > latest) latest = phase.endTime;
-          }
-        });
-      }
-
-      setFormData(prev => ({
-        ...prev,
-        activities,
-        startTime: earliest || prev.startTime,
-        endTime: latest || prev.endTime
+    // 1. Convert to activities format
+    const activities = phases
+      .filter(phase => phase.phase && phase.phase.trim())
+      .map(phase => ({
+        activity_name: `${phase.startTime || ''} - ${phase.endTime || ''}: ${phase.phase}`,
+        phase: phase.phase,
+        description: phase.description || '',
+        startTime: phase.startTime || '',
+        endTime: phase.endTime || '',
+        duration: phase.duration || 0
       }));
+
+    // 2. Calculate Earliest/Latest
+    let earliest = null;
+    let latest = null;
+
+    if (phases.length > 0) {
+      phases.forEach(phase => {
+        if (phase.startTime) {
+          if (!earliest || phase.startTime < earliest) earliest = phase.startTime;
+        }
+        if (phase.endTime) {
+          if (!latest || phase.endTime > latest) latest = phase.endTime;
+        }
+      });
     }
-  }, [userTimelineData, setFormData]);
+
+    setFormData(prev => ({
+      ...prev,
+      activities,
+      // Only update times if we found valid ones in the timeline
+      startTime: earliest || prev.startTime,
+      endTime: latest || prev.endTime
+    }));
+  };
 
   // Sync sharedDepartments to formData
   React.useEffect(() => {
@@ -294,7 +297,7 @@ window.EventFormModal = function EventFormModal({
       const addedDuration = uniqueNewPhases.reduce((acc, curr) => acc + (curr.duration || 0), 0);
       const newTotalDuration = (userTimelineData.totalDuration || 0) + addedDuration;
 
-      setUserTimelineData({
+      setTimelineAndSync({
         timeline: newTimeline,
         totalDuration: newTotalDuration
       });
@@ -307,7 +310,7 @@ window.EventFormModal = function EventFormModal({
       // Recalculate duration is tricky without individual tracking, but simplistic approach:
       // Just sum remaining.
       // (Simplified duration calc for unapply)
-      setUserTimelineData({
+      setTimelineAndSync({
         timeline: newTimeline,
         totalDuration: 0 // Ideally recalc
       });
@@ -830,11 +833,7 @@ window.EventFormModal = function EventFormModal({
                       timelineData={userTimelineData}
                       initialEditMode={true}
                       onTimelineUpdate={(updatedTimeline) => {
-                        setUserTimelineData(updatedTimeline);
-                        const activities = updatedTimeline.timeline.map(phase =>
-                          `${phase.startTime} - ${phase.endTime}: ${phase.phase}`
-                        );
-                        setFormData(prev => ({ ...prev, activities }));
+                        setTimelineAndSync(updatedTimeline);
                       }}
                     />
                   </div>
@@ -1497,7 +1496,7 @@ window.EventFormModal = function EventFormModal({
                                 const timeB = b.startTime || '00:00';
                                 return timeA.localeCompare(timeB);
                               });
-                              setUserTimelineData({
+                              setTimelineAndSync({
                                 timeline: newTimeline,
                                 totalDuration: (userTimelineData.totalDuration || 0) + (phase.duration || 0)
                               });
@@ -1507,7 +1506,7 @@ window.EventFormModal = function EventFormModal({
                               // REMOVE: Filter out this phase
                               const newTimeline = userTimelineData.timeline.filter(p => p.phase !== phase.phase);
 
-                              setUserTimelineData({
+                              setTimelineAndSync({
                                 timeline: newTimeline,
                                 totalDuration: Math.max(0, (userTimelineData.totalDuration || 0) - (phase.duration || 0))
                               });
