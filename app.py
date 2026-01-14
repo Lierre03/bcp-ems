@@ -161,6 +161,11 @@ def create_app(config_name='development'):
     def health_check():
         """Health check endpoint"""
         return {'status': 'healthy', 'message': 'Server is running'}, 200
+
+    @app.route('/user-guide')
+    def user_guide():
+        """Serve user guide page"""
+        return render_template('user_guide.html')
     
     # ========================================================================
     # ERROR HANDLERS

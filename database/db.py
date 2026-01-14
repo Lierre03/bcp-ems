@@ -3,12 +3,19 @@
 # Connection pooling and query helpers
 # ============================================================================
 
-import psycopg
-from psycopg.rows import dict_row
+try:
+    import psycopg
+    from psycopg.rows import dict_row
+    HAS_PSYCOPG = True
+except ImportError:
+    import sqlite3
+    HAS_PSYCOPG = False
+    
 from contextlib import contextmanager
 import logging
 import threading
 from queue import Queue, Empty, Full
+import os
 
 logger = logging.getLogger(__name__)
 
@@ -26,18 +33,32 @@ class Database:
     def _create_connection(self):
         """Create a new database connection"""
         try:
-            conn = psycopg.connect(
-                host=self.config['host'],
-                user=self.config['user'],
-                password=self.config['password'],
-                dbname=self.config['database'],
-                port=self.config['port'],
-                row_factory=dict_row,
-                autocommit=self.config.get('autocommit', True),
-                sslmode=self.config.get('sslmode', 'require')
-            )
-            logger.info("Database connection established")
-            return conn
+            if HAS_PSYCOPG:
+                # PostgreSQL Connection
+                conn = psycopg.connect(
+                    host=self.config['host'],
+                    user=self.config['user'],
+                    password=self.config['password'],
+                    dbname=self.config['database'],
+                    port=self.config['port'],
+                    row_factory=dict_row,
+                    autocommit=self.config.get('autocommit', True),
+                    sslmode=self.config.get('sslmode', 'require')
+                )
+                logger.info("PG Database connection established")
+                return conn
+            else:
+                # SQLite Connection Fallback
+                db_path = 'school_event_management.db'
+                # Prefer config database if it looks like a file path
+                if self.config.get('database') and (self.config['database'].endswith('.db') or self.config['database'].endswith('.sqlite')):
+                    db_path = self.config['database']
+                
+                conn = sqlite3.connect(db_path, check_same_thread=False)
+                conn.row_factory = sqlite3.Row  # Enable dict-like access
+                logger.info(f"SQLite Database connection established ({db_path})")
+                return conn
+
         except Exception as e:
             # Log connection params for debugging (safe subset)
             debug_config = {k: v for k, v in self.config.items() if k != 'password'}
@@ -51,7 +72,19 @@ class Database:
             # Try to get an existing connection from pool
             conn = self._pool.get_nowait()
             # Verify connection is still alive
-            if not conn.closed:
+            is_valid = False
+            if HAS_PSYCOPG:
+                if not conn.closed:
+                    is_valid = True
+            else:
+                # SQLite doesn't have .closed attribute
+                try:
+                    conn.execute("SELECT 1")
+                    is_valid = True
+                except:
+                    pass
+            
+            if is_valid:
                 return conn
             else:
                 conn.close()
@@ -63,7 +96,18 @@ class Database:
     
     def return_connection(self, conn):
         """Return connection to pool"""
-        if conn and not conn.closed:
+        is_open = False
+        if conn:
+            if HAS_PSYCOPG:
+                if not conn.closed: is_open = True
+            else:
+                try:
+                    conn.execute("SELECT 1")
+                    is_open = True
+                except:
+                    pass
+
+        if is_open:
             try:
                 # Only return to pool if there's space
                 self._pool.put_nowait(conn)
@@ -71,7 +115,10 @@ class Database:
                 # Pool is full, close this connection
                 conn.close()
         elif conn:
-            conn.close()
+            try:
+                conn.close()
+            except:
+                pass
     
     def close(self):
         """Close all pooled connections"""

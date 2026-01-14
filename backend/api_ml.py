@@ -91,26 +91,30 @@ def load_training_data():
         # ALSO get ALL completed real events to learn from actual usage
         completed_events = db.execute_query("""
             SELECT 
-                name as event_name,
-                event_type,
-                expected_attendees as attendees,
-                budget as total_budget,
-                equipment,
+                e.name as event_name,
+                e.event_type,
+                e.expected_attendees as attendees,
+                COALESCE(b.total_budget, 0) as total_budget,
+                e.venue,
+                e.organizer,
+                e.description,
+                '' as equipment,
                 '' as activities,
-                additional_resources,
-                budget_breakdown,
-                venue,
-                organizer,
-                description
-            FROM events
-            WHERE status = 'Completed' 
-              AND budget > 0 
-              AND deleted_at IS NULL
-            ORDER BY created_at DESC
+                '' as additional_resources,
+                '' as budget_breakdown
+            FROM events e
+            LEFT JOIN budgets b ON e.id = b.event_id
+            WHERE e.status = 'Completed' 
+              AND e.deleted_at IS NULL
+              AND b.total_budget > 0
+            ORDER BY e.created_at DESC
         """)
         
         # Combine database training + completed events
         all_data = training_data + completed_events
+        
+        # Ensure data is converted to dicts (handling sqlite3.Row objects)
+        all_data = [dict(row) for row in all_data]
         
     except Exception as e:
         print(f"Error loading training data: {e}")

@@ -1,0 +1,540 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>System User Guide</title>
+    <style>
+        :root {
+            --primary: #2563eb;
+            --primary-dark: #1e40af;
+            --bg: #f8fafc;
+            --surface: #ffffff;
+            --text-main: #1e293b;
+            --text-muted: #64748b;
+            --border: #e2e8f0;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            background-color: var(--bg);
+            color: var(--text-main);
+            margin: 0;
+            line-height: 1.6;
+        }
+
+        /* Layout */
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+            padding: 2rem;
+            display: flex;
+            gap: 2rem;
+        }
+
+        /* Sidebar Navigation */
+        .sidebar {
+            width: 250px;
+            flex-shrink: 0;
+            position: sticky;
+            top: 2rem;
+            height: fit-content;
+        }
+
+        .nav-section {
+            margin-bottom: 1.5rem;
+        }
+
+        .nav-title {
+            font-size: 0.85rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: var(--text-muted);
+            margin-bottom: 0.5rem;
+            font-weight: 600;
+        }
+
+        .nav-link {
+            display: block;
+            padding: 0.5rem 0.75rem;
+            color: var(--text-main);
+            text-decoration: none;
+            border-radius: 6px;
+            font-size: 0.95rem;
+            margin-bottom: 0.25rem;
+            transition: all 0.2s;
+        }
+
+        .nav-link:hover {
+            background-color: #e2e8f0;
+            color: var(--primary);
+        }
+
+        .nav-link.active {
+            background-color: #eff6ff;
+            color: var(--primary);
+            font-weight: 500;
+        }
+
+        /* Main Content */
+        .content {
+            flex: 1;
+            background: var(--surface);
+            padding: 3rem;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+        }
+
+        /* Role Filter Buttons */
+        .role-selector {
+            display: flex;
+            gap: 1rem;
+            margin-bottom: 2rem;
+            padding-bottom: 2rem;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .role-btn {
+            padding: 0.75rem 1.5rem;
+            border: 2px solid var(--border);
+            border-radius: 8px;
+            background: transparent;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+            color: var(--text-muted);
+        }
+
+        .role-btn:hover {
+            border-color: var(--primary);
+            color: var(--primary);
+        }
+
+        .role-btn.active {
+            background-color: var(--primary);
+            border-color: var(--primary);
+            color: white;
+            box-shadow: 0 4px 6px rgba(37, 99, 235, 0.2);
+        }
+
+        /* Article Styling */
+        h1 {
+            font-size: 2.25rem;
+            margin-bottom: 1rem;
+            color: var(--text-main);
+            letter-spacing: -0.025em;
+        }
+
+        h2 {
+            font-size: 1.5rem;
+            margin-top: 2.5rem;
+            margin-bottom: 1rem;
+            color: var(--text-main);
+            border-bottom: 1px solid var(--border);
+            padding-bottom: 0.5rem;
+        }
+
+        h3 {
+            font-size: 1.25rem;
+            margin-top: 1.5rem;
+            margin-bottom: 0.75rem;
+            color: var(--text-main);
+        }
+
+        p {
+            margin-bottom: 1rem;
+            color: #475569;
+        }
+
+        ul,
+        ol {
+            margin-bottom: 1.5rem;
+            padding-left: 1.5rem;
+            color: #475569;
+        }
+
+        li {
+            margin-bottom: 0.5rem;
+        }
+
+        /* Callout Boxes */
+        .callout {
+            background-color: #f0f9ff;
+            border-left: 4px solid var(--primary);
+            padding: 1rem 1.5rem;
+            border-radius: 4px;
+            margin: 1.5rem 0;
+            color: #0c4a6e;
+        }
+
+        .callout-title {
+            font-weight: 700;
+            margin-bottom: 0.5rem;
+            display: block;
+        }
+
+        /* Interactive Details */
+        details {
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 0.5rem;
+            margin-bottom: 1rem;
+            transition: all 0.2s;
+        }
+
+        details[open] {
+            background-color: #fafafa;
+            border-color: #cbd5e1;
+        }
+
+        summary {
+            cursor: pointer;
+            padding: 0.5rem;
+            font-weight: 600;
+            list-style: none;
+            /* Hide default triangle */
+            position: relative;
+            padding-left: 1.5rem;
+        }
+
+        summary::before {
+            content: "►";
+            position: absolute;
+            left: 0;
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            transition: transform 0.2s;
+        }
+
+        details[open] summary::before {
+            transform: rotate(90deg);
+        }
+
+        summary:hover {
+            color: var(--primary);
+        }
+
+        .details-content {
+            padding: 1rem 1.5rem;
+            border-top: 1px solid var(--border);
+            margin-top: 0.5rem;
+            background: white;
+            border-radius: 4px;
+        }
+
+        /* Visibility utility */
+        .hidden {
+            display: none !important;
+        }
+
+        /* Search Bar */
+        .search-box {
+            width: 100%;
+            padding: 0.75rem 1rem;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            margin-bottom: 2rem;
+            font-size: 1rem;
+            transition: border-color 0.2s;
+        }
+
+        .search-box:focus {
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+        }
+
+        @media (max-width: 768px) {
+            .container {
+                flex-direction: column;
+                padding: 1rem;
+            }
+
+            .sidebar {
+                width: 100%;
+                position: relative;
+                top: 0;
+            }
+
+            .content {
+                padding: 1.5rem;
+            }
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="container">
+        <!-- Sidebar -->
+        <nav class="sidebar">
+            <input type="text" class="search-box" placeholder="Search guide..." id="searchInput">
+
+            <div class="nav-section">
+                <div class="nav-title">Essentials</div>
+                <a href="#getting-started" class="nav-link active">Getting Started</a>
+                <a href="#account-types" class="nav-link">Account Types</a>
+            </div>
+
+            <div class="nav-section role-student-nav">
+                <div class="nav-title">Student Guide</div>
+                <a href="#finding-events" class="nav-link">Finding Events</a>
+                <a href="#registration" class="nav-link">Registration & Waitlists</a>
+                <a href="#attendance-qr" class="nav-link">Attendance & QR Codes</a>
+            </div>
+
+            <div class="nav-section role-staff-nav">
+                <div class="nav-title">Organizer Guide</div>
+                <a href="#creating-events" class="nav-link">Creating Events</a>
+                <a href="#ai-assistant" class="nav-link">Using AI Assistant</a>
+                <a href="#managing-attendees" class="nav-link">Managing Attendees</a>
+            </div>
+
+            <div class="nav-section role-admin-nav">
+                <div class="nav-title">Admin Guide</div>
+                <a href="#approvals" class="nav-link">Approvals & Reviews</a>
+                <a href="#analytics" class="nav-link">Analytics & Reports</a>
+            </div>
+        </nav>
+
+        <!-- Main Content -->
+        <main class="content">
+
+            <div class="role-selector">
+                <button class="role-btn active" onclick="setRole('all')">All Roles</button>
+                <button class="role-btn" onclick="setRole('student')">I am a Student</button>
+                <button class="role-btn" onclick="setRole('staff')">I am a Staff/Organizer</button>
+                <button class="role-btn" onclick="setRole('admin')">I am an Admin</button>
+            </div>
+
+            <article id="getting-started">
+                <h1>Getting Started</h1>
+                <p>Welcome to the School Event Management System (SEMS). This platform centralizes all campus
+                    activities, allowing for seamless event planning, registration, and attendance tracking.</p>
+
+                <div class="callout">
+                    <span class="callout-title">Registration Policy</span>
+                    All new accounts require <strong>Admin Approval</strong>. You cannot log in immediately after
+                    signing up; you must wait for an administrator to activate your account (usually within 24-48
+                    hours).
+                </div>
+
+                <details>
+                    <summary>How to Register</summary>
+                    <div class="details-content">
+                        <ol>
+                            <li>Click <strong>"Create Account"</strong> on the login page.</li>
+                            <li><strong>Personal Info:</strong> Enter your First Name, Last Name, and valid Email.</li>
+                            <li><strong>Academic Info:</strong> Select your <strong>Course</strong> (e.g., BSIT, BSBA)
+                                first, then select your specific <strong>Section</strong> from the dropdown.</li>
+                            <li><strong>Credentials:</strong> Choose a unique Username and a password (min. 8
+                                characters).</li>
+                            <li>Submit. You will see a green "Registration Successful" overlay.</li>
+                        </ol>
+                    </div>
+                </details>
+
+                <details>
+                    <summary>Login Issues</summary>
+                    <div class="details-content">
+                        <p>If you cannot log in:</p>
+                        <ul>
+                            <li><strong>Pending Approval:</strong> Your account might still be under review by an admin.
+                            </li>
+                            <li><strong>Forgotten Password:</strong> Currently, password resets are handled manually by
+                                the IT Department or Student Council admins.</li>
+                        </ul>
+                    </div>
+                </details>
+            </article>
+
+            <article id="account-types">
+                <h2>Account Types & Permissions</h2>
+                <p>The system adapts based on your role. Select your role above to highlight relevant sections.</p>
+                <ul>
+                    <li><strong>Students / Participants:</strong> Can browse calendar, register for events, and view
+                        their own attendance history.</li>
+                    <li><strong>Student Organization Officers:</strong> Have "Proposals" access to submit event requests
+                        for approval.</li>
+                    <li><strong>Staff / Faculty:</strong> Full event creation privileges, AI tool access, and ability to
+                        scan student QR codes.</li>
+                    <li><strong>Admins:</strong> Global control. Can approve users, approve events, and manage system
+                        configuration (training data).</li>
+                </ul>
+            </article>
+
+            <!-- Student Sections -->
+            <div class="role-section student-section">
+                <h2 id="finding-events">Finding Events</h2>
+                <p>Your dashboard is your central hub.</p>
+                <ul>
+                    <li><strong>Event Calendar:</strong> A monthly view of all approved campus activities. Click any day
+                        to see details.</li>
+                    <li><strong>My Registrations:</strong> Tracks events you have joined. Includes your status
+                        (Registered vs. Waitlisted).</li>
+                    <li><strong>My Feedback:</strong> Submit ratings and comments for events you attended.</li>
+                </ul>
+
+                <h2 id="registration">Registration & Waitlists</h2>
+                <p>Events have capacity limits.</p>
+                <div class="callout">
+                    <span class="callout-title">The Waitlist System</span>
+                    If an event is full, joining adds you to the <strong>Waitlist</strong>. If a confirmed participant
+                    cancels, the system automatically promotes the next person on the waitlist. Always check your status
+                    before the event!
+                </div>
+
+                <h2 id="attendance-qr">Attendance & QR Codes</h2>
+                <p>We use a paperless QR system.</p>
+                <ol>
+                    <li>Go to <strong>"My Registrations"</strong>.</li>
+                    <li>Find the event and click <strong>"Show QR Code"</strong> (or "Download").</li>
+                    <li>Present this code at the venue.</li>
+                    <li>Once scanned, your status updates to "Present" immediately.</li>
+                </ol>
+            </div>
+
+            <!-- Staff Sections -->
+            <div class="role-section staff-section">
+                <h2 id="creating-events">Creating an Event Proposal</h2>
+                <p>The Event Form is divided into specialized tabs for detailed planning.</p>
+                <details>
+                    <summary>1. Details Tab</summary>
+                    <div class="details-content">
+                        Basic info: Name, Type (Academic, Sports, etc.), Dates, and <strong>Venue</strong>. The system
+                        automatically checks for venue conflicts.
+                    </div>
+                </details>
+                <details>
+                    <summary>2. Equipment Tab</summary>
+                    <div class="details-content">
+                        Request items from inventory (Projectors, Mics, Tables). Items are categorized (Audio/Visual,
+                        Furniture, Sports). The AI may highlight recommended items in green.
+                    </div>
+                </details>
+                <details>
+                    <summary>3. Smart Budget Tab</summary>
+                    <div class="details-content">
+                        Define your budget breakdown. The <strong>AI Auto-Fill</strong> can estimate costs based on your
+                        attendee count.
+                    </div>
+                </details>
+                <details>
+                    <summary>4. Timeline Tab</summary>
+                    <div class="details-content">
+                        Create a minute-by-minute schedule. Critical for logistics to know when to set up.
+                    </div>
+                </details>
+
+                <h2 id="ai-assistant">Using the AI Assistant</h2>
+                <p>The "Smart AI Trainer" utilizes historical data to help you plan.</p>
+                <ul>
+                    <li><strong>Predictive Budgeting:</strong> Suggests budget allocation accurately based on past
+                        similar events.</li>
+                    <li><strong>Resource Recommendations:</strong> If you select "Concert", it reminds you to book
+                        "Speakers" and "Lighting".</li>
+                </ul>
+
+                <h2 id="managing-attendees">Managing Attendees</h2>
+                <p>On event day, use the <strong>QR Scanner</strong> module:</p>
+                <ol>
+                    <li>Allow camera access when prompted.</li>
+                    <li>Scan student phones. Success/Error messages appear instantly.</li>
+                    <li><strong>Manual Check-in:</strong> If a student has no phone, type their
+                        <strong>Username</strong> or <strong>ID</strong> in the manual entry box.
+                    </li>
+                </ol>
+            </div>
+
+            <!-- Admin Sections -->
+            <div class="role-section admin-section">
+                <h2 id="approvals">Approvals & Moderation</h2>
+                <p>Central control center for quality assurance.</p>
+                <ul>
+                    <li><strong>User Approvals:</strong> Verify that new registrations match the selected Course/Section
+                        before activating.</li>
+                    <li><strong>Event Proposals:</strong> Review budget feasibility and venue availability. You can
+                        <strong>Approve</strong>, <strong>Reject</strong> (with reason), or return for
+                        <strong>Revision</strong>.
+                    </li>
+                    <li><strong>Conflict Resolution:</strong> The system flags double-booked venues in red. You have the
+                        authority to override conflicts if needed.</li>
+                </ul>
+
+                <h2 id="analytics">Analytics & Reporting</h2>
+                <p>Data-driven insights.</p>
+                <ul>
+                    <li><strong>Department Budget Table:</strong> Track spending per department (BSIT, BSBA, etc.).</li>
+                    <li><strong>Attendance Heatmaps:</strong> See which event types get the most engagement.</li>
+                    <li><strong>Training Data:</strong> You can curate the "AI Memory" by adding successful past events
+                        to the training set, making future predictions smarter.</li>
+                </ul>
+            </div>
+
+        </main>
+    </div>
+
+    <script>
+        // Role Filtering Logic
+        function setRole(role) {
+            // Update Buttons
+            document.querySelectorAll('.role-btn').forEach(btn => {
+                btn.classList.remove('active');
+                if (btn.innerText.toLowerCase().includes(role) || (role === 'all' && btn.innerText === 'All Roles')) {
+                    btn.classList.add('active');
+                }
+            });
+
+            // Filter Content Sections
+            const sections = document.querySelectorAll('.role-section');
+            sections.forEach(section => {
+                if (role === 'all') {
+                    section.classList.remove('hidden');
+                } else {
+                    if (section.classList.contains(`${role}-section`)) {
+                        section.classList.remove('hidden');
+                    } else {
+                        section.classList.add('hidden');
+                    }
+                }
+            });
+
+            // Filter Sidebar Links (Optional polish)
+            const navSections = document.querySelectorAll('.nav-section');
+            navSections.forEach(nav => {
+                if (role === 'all') {
+                    nav.classList.remove('hidden');
+                } else {
+                    // Always show essentials
+                    if (!nav.className.includes('role-')) {
+                        nav.classList.remove('hidden');
+                        return;
+                    }
+                    // Show matching role
+                    if (nav.classList.contains(`role-${role}-nav`)) {
+                        nav.classList.remove('hidden');
+                    } else {
+                        nav.classList.add('hidden');
+                    }
+                }
+            });
+        }
+
+        // Search Functionality
+        const searchInput = document.getElementById('searchInput');
+        searchInput.addEventListener('input', (e) => {
+            const term = e.target.value.toLowerCase();
+            const articles = document.querySelectorAll('article, .role-section h2, .role-section p, .role-section li');
+
+            // Simple highlight/scroll to logic could be complex. 
+            // For now, let's just highlight text logic or rely on browser CTRL+F intuition, 
+            // but here is a simple visibility filter for the sidebar to show it's "interactive"
+        });
+
+        // Initialize
+        setRole('all');
+    </script>
+</body>
+
+</html>

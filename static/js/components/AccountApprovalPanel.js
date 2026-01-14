@@ -1,4 +1,4 @@
-// AccountApprovalPanel - Manage pending student registrations
+                                                                                                                                                                                                                                    // AccountApprovalPanel - Manage pending student registrations
 const { useState, useEffect } = React;
 
 window.AccountApprovalPanel = function AccountApprovalPanel() {
