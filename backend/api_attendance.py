@@ -575,9 +575,32 @@ def get_dashboard_stats():
     try:
         db = get_db()
         
+        # Get user role and department
+        user_role = session.get('role_name')
+        user_department = session.get('department')
+        
+        # Build department filter based on role
+        department_filter = ""
+        params = []
+        
+        if user_role != 'Super Admin':
+            # Admins and Department Heads can only see their department's events or shared events
+            if user_department:
+                # PostgreSQL array operator: department IN shared_with_departments OR organizing_department = user_department
+                department_filter = """
+                    AND (
+                        e.organizing_department = %s 
+                        OR %s = ANY(e.shared_with_departments)
+                    )
+                """
+                params = [user_department, user_department]
+            else:
+                # If no department assigned, show no events (safety measure)
+                department_filter = "AND 1=0"
+        
         # Use subqueries to avoid Cartesian product in count
         # Only show events that are Approved, Ongoing, or Completed (exclude Pending, Under Review, Rejected, etc.)
-        query = """
+        query = f"""
             SELECT 
                 e.id, 
                 e.name, 
@@ -590,10 +613,11 @@ def get_dashboard_stats():
             FROM events e
             WHERE e.deleted_at IS NULL
             AND e.status IN ('Approved', 'Ongoing', 'Completed')
+            {department_filter}
             ORDER BY e.start_datetime DESC
         """
         
-        stats = db.execute_query(query)
+        stats = db.execute_query(query, tuple(params)) if params else db.execute_query(query)
         
         formatted = []
         for s in stats:
