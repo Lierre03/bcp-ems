@@ -136,7 +136,12 @@ def load_training_data():
     def safe_parse_json_list(x):
         try:
             if not x: return []
-            items = json.loads(x)
+            # Check if likely already parsed (e.g. Postgres + psycopg3 automatic adaptation)
+            if isinstance(x, (list, dict)):
+                items = x
+            else:
+                items = json.loads(x)
+                
             if not isinstance(items, list): return []
             # Handle both string items and dict items (with 'name' key)
             return [item['name'] if isinstance(item, dict) and 'name' in item else item 
@@ -148,18 +153,32 @@ def load_training_data():
     df['equipment_list'] = df['equipment'].apply(safe_parse_json_list)
     
     # NEW: Keep full objects to track quantities
-    df['equipment_objects'] = df['equipment'].apply(lambda x: 
-        [item if isinstance(item, dict) and 'name' in item else {'name': item, 'quantity': 1}
-         for item in (json.loads(x) if x else [])]
-    )
+    # NEW: Keep full objects to track quantities
+    def parse_full_objects(x):
+        try:
+            if not x: return []
+            data = x if isinstance(x, (list, dict)) else json.loads(x)
+            return [item if isinstance(item, dict) and 'name' in item else {'name': item, 'quantity': 1}
+                    for item in (data if isinstance(data, list) else [])]
+        except:
+            return []
+
+    df['equipment_objects'] = df['equipment'].apply(parse_full_objects)
     
     if 'additional_resources' in df.columns:
         df['additional_resources_list'] = df['additional_resources'].apply(safe_parse_json_list)
     else:
         df['additional_resources_list'] = [[] for _ in range(len(df))]
     
-    df['activities_list'] = df['activities'].apply(lambda x: json.loads(x) if x else [])
-    df['budget_breakdown_list'] = df['budget_breakdown'].apply(lambda x: json.loads(x) if x else [])
+    def parse_generic_json(x):
+        try:
+            if not x: return []
+            return x if isinstance(x, (list, dict)) else json.loads(x)
+        except:
+            return []
+
+    df['activities_list'] = df['activities'].apply(parse_generic_json)
+    df['budget_breakdown_list'] = df['budget_breakdown'].apply(parse_generic_json)
 
     return df
 
