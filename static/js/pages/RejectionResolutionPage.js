@@ -11,13 +11,11 @@ window.RejectionResolutionPage = function RejectionResolutionPage({ eventId, onB
     const loadEventDetails = async () => {
         try {
             setLoading(true);
-            // Use singular endpoint to get specific event details
             const response = await fetch(`/api/events/${eventId}`);
             const data = await response.json();
 
             if (data.success && data.event) {
                 let evt = data.event;
-                // Ensure equipment is parsed if string (double check)
                 if (typeof evt.equipment === 'string') {
                     try { evt.equipment = JSON.parse(evt.equipment); } catch (e) { }
                 }
@@ -35,6 +33,7 @@ window.RejectionResolutionPage = function RejectionResolutionPage({ eventId, onB
     const handleAction = async (action, itemName = null) => {
         if (action === 'cancel_event' && !confirm('Are you sure you want to withdraw this entire event proposal? This cannot be undone.')) return;
         if (action === 'remove_item' && !confirm(`Remove ${itemName} from your request?`)) return;
+        // For partial acceptance, no extra confirm needed usually, but good to be safe? maybe not.
 
         setProcessing(itemName || 'cancel');
         try {
@@ -47,10 +46,8 @@ window.RejectionResolutionPage = function RejectionResolutionPage({ eventId, onB
 
             if (data.success) {
                 if (data.new_status === 'Approved' || action === 'cancel_event') {
-                    // Fully resolved
                     onResolveComplete();
                 } else {
-                    // Refresh local data
                     loadEventDetails();
                 }
             } else {
@@ -68,16 +65,40 @@ window.RejectionResolutionPage = function RejectionResolutionPage({ eventId, onB
     if (!event) return null;
 
     const equipment = event.equipment || [];
-    const rejectedItems = equipment.filter(e => e.status && e.status.trim().toLowerCase() === 'rejected');
 
-    if (rejectedItems.length === 0) {
+    // Categorize items
+    const approvedItems = [];
+    const partialItems = [];
+    const rejectedItems = [];
+
+    equipment.forEach(item => {
+        const status = (item.status || 'Pending').trim();
+        const requested = parseInt(item.requested || item.quantity || item.qty || 0);
+        const approved = parseInt(item.approved_quantity !== undefined ? item.approved_quantity : requested);
+
+        if (status === 'Rejected') {
+            rejectedItems.push({ ...item, requested, approved });
+        } else if (status === 'Approved') {
+            if (approved < requested) {
+                partialItems.push({ ...item, requested, approved });
+            } else {
+                approvedItems.push({ ...item, requested, approved });
+            }
+        }
+        // pending items ignored in this view? or shown as approved? 
+        // usually this view is for 'Action Required', implying review is done.
+    });
+
+    const hasIssues = rejectedItems.length > 0 || partialItems.length > 0;
+
+    if (!hasIssues) {
         return (
             <div className="max-w-3xl mx-auto mt-10 p-8 bg-white rounded-xl shadow-lg text-center">
                 <div className="w-16 h-16 bg-green-100 text-green-600 rounded-full flex items-center justify-center mx-auto mb-4">
                     <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" /></svg>
                 </div>
                 <h2 className="text-2xl font-bold text-gray-800 mb-2">All Issues Resolved!</h2>
-                <p className="text-gray-600 mb-6">There are no rejected items remaining for this event.</p>
+                <p className="text-gray-600 mb-6">There are no rejected or partially approved items requiring attention.</p>
                 <button onClick={onResolveComplete} className="bg-blue-600 text-white px-6 py-2 rounded-lg font-medium hover:bg-blue-700 transition">
                     Return to Dashboard
                 </button>
@@ -86,71 +107,136 @@ window.RejectionResolutionPage = function RejectionResolutionPage({ eventId, onB
     }
 
     return (
-        <div className="max-w-4xl mx-auto p-6 space-y-6">
-            {/* Header / Nav */}
+        <div className="max-w-5xl mx-auto p-6 space-y-6">
             <button onClick={onBack} className="flex items-center text-gray-500 hover:text-gray-800 transition mb-4">
                 <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" /></svg>
                 Back to Dashboard
             </button>
 
             <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-                <div className="bg-gradient-to-r from-red-600 to-red-700 px-6 py-6 text-white">
-                    <h1 className="text-2xl font-bold mb-1">Action Required</h1>
+                <div className="bg-gradient-to-r from-amber-600 to-red-600 px-6 py-6 text-white">
+                    <h1 className="text-2xl font-bold mb-1">Equipment Status Update</h1>
                     <p className="text-red-100 opacity-90">
-                        Equipment requests for <span className="font-bold underline">{event.name}</span> were rejected. Please resolve these issues to proceed.
+                        Some adjustments were made to your equipment requests for <span className="font-bold underline">{event.name}</span>. Please review below.
                     </p>
                 </div>
 
-                <div className="p-6">
-                    <div className="mb-6 bg-red-50 border border-red-100 rounded-lg p-4 text-sm text-red-800">
-                        <strong className="block mb-1">What happens now?</strong>
-                        Your event is currently <strong>{event.status}</strong>. You must address each rejected item below by either providing it yourself or removing it from the request.
-                        Once all items are resolved, your event will automatically be re-evaluated for approval.
-                    </div>
+                <div className="p-6 space-y-8">
 
-                    <div className="space-y-4">
-                        {rejectedItems.map((item, idx) => (
-                            <div key={idx} className="bg-white border border-gray-200 rounded-lg p-5 shadow-sm hover:shadow-md transition card-hover">
-                                <div className="flex justify-between items-start gap-4">
-                                    <div className="flex-1">
-                                        <div className="flex items-center gap-2 mb-1">
-                                            <h3 className="font-bold text-lg text-gray-900">{item.name}</h3>
-                                            <span className="bg-red-100 text-red-700 text-xs font-bold px-2 py-0.5 rounded">Rejected</span>
+                    {/* Approved Items Section (Read Only) */}
+                    {approvedItems.length > 0 && (
+                        <div>
+                            <h3 className="text-lg font-bold text-gray-800 mb-3 flex items-center">
+                                <span className="w-2 h-6 bg-green-500 rounded-full mr-2"></span>
+                                Approved Items
+                            </h3>
+                            <div className="space-y-3">
+                                {approvedItems.map((item, idx) => (
+                                    <div key={idx} className="bg-blue-50 border border-blue-100 rounded-lg p-4 flex justify-between items-center">
+                                        <div className="flex items-center gap-2">
+                                            <span className="font-medium text-blue-900">{item.name}</span>
+                                            <span className="text-xs bg-blue-200 text-blue-800 px-2 py-0.5 rounded-full font-bold">Approved</span>
                                         </div>
-                                        <div className="text-sm text-gray-600">
-                                            <span className="font-medium">Requested Quantity:</span> {item.quantity || item.qty || item.requested_qty || '1'}
-                                        </div>
-                                        <div className="mt-2 text-sm bg-gray-50 p-2 rounded border border-gray-100 text-gray-700">
-                                            <span className="font-bold text-red-600">Reason:</span> {item.rejection_reason || 'No reason provided'}
+                                        <div className="text-sm font-medium text-blue-800">
+                                            Quantity: {item.approved}
                                         </div>
                                     </div>
-
-                                    <div className="flex flex-col gap-2 w-48 flex-shrink-0">
-                                        <button
-                                            disabled={!!processing}
-                                            onClick={() => handleAction('self_provide', item.name)}
-                                            className="w-full py-2 px-3 bg-white border border-blue-600 text-blue-700 rounded-lg font-medium text-sm hover:bg-blue-50 transition flex items-center justify-center gap-2"
-                                        >
-                                            {processing === item.name ? 'Processing...' : (
-                                                <>
-                                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" /></svg>
-                                                    I'll Provide It
-                                                </>
-                                            )}
-                                        </button>
-                                        <button
-                                            disabled={!!processing}
-                                            onClick={() => handleAction('remove_item', item.name)}
-                                            className="w-full py-2 px-3 bg-white border border-gray-300 text-gray-600 rounded-lg font-medium text-sm hover:bg-gray-50 hover:text-red-600 hover:border-red-200 transition flex items-center justify-center gap-2"
-                                        >
-                                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
-                                            Remove Request
-                                        </button>
-                                    </div>
-                                </div>
+                                ))}
                             </div>
-                        ))}
-                    </div>
+                        </div>
+                    )}
+
+                    {/* Action Required Section */}
+                    {(partialItems.length > 0 || rejectedItems.length > 0) && (
+                        <div>
+                            <h3 className="text-lg font-bold text-gray-800 mb-3 flex items-center">
+                                <span className="w-2 h-6 bg-red-500 rounded-full mr-2"></span>
+                                Action Required
+                            </h3>
+                            <div className="space-y-4">
+
+                                {/* Partially Approved Items */}
+                                {partialItems.map((item, idx) => (
+                                    <div key={`partial-${idx}`} className="bg-white border border-amber-200 rounded-lg p-5 shadow-sm relative overflow-hidden">
+                                        <div className="absolute top-0 left-0 w-1 h-full bg-amber-400"></div>
+                                        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                                            <div>
+                                                <div className="flex items-center gap-2 mb-1">
+                                                    <h4 className="font-bold text-lg text-gray-900">{item.name}</h4>
+                                                    <span className="bg-amber-100 text-amber-800 text-xs font-bold px-2 py-0.5 rounded border border-amber-200">Partially Approved</span>
+                                                </div>
+                                                <div className="text-sm text-gray-600">
+                                                    You requested <strong className="text-gray-900">{item.requested}</strong>, but only <strong className="text-amber-700">{item.approved}</strong> are available.
+                                                </div>
+                                            </div>
+
+                                            <div className="flex flex-col sm:flex-row gap-2 w-full md:w-auto">
+                                                <button
+                                                    disabled={!!processing}
+                                                    onClick={() => handleAction('accept_partial', item.name)}
+                                                    className="px-4 py-2 bg-amber-100 text-amber-800 border border-amber-200 rounded-lg font-medium text-sm hover:bg-amber-200 transition"
+                                                >
+                                                    Accept {item.approved} Units
+                                                </button>
+                                                <button
+                                                    disabled={!!processing}
+                                                    onClick={() => handleAction('self_provide', item.name)}
+                                                    className="px-4 py-2 bg-white text-blue-600 border border-blue-200 rounded-lg font-medium text-sm hover:bg-blue-50 transition"
+                                                >
+                                                    I'll Provide All {item.requested}
+                                                </button>
+                                                <button
+                                                    disabled={!!processing}
+                                                    onClick={() => handleAction('remove_item', item.name)}
+                                                    className="px-4 py-2 bg-white text-gray-500 border border-gray-200 rounded-lg font-medium text-sm hover:text-red-600 hover:border-red-200 transition"
+                                                >
+                                                    Remove
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                ))}
+
+                                {/* Rejected Items */}
+                                {rejectedItems.map((item, idx) => (
+                                    <div key={`rejected-${idx}`} className="bg-white border border-red-200 rounded-lg p-5 shadow-sm relative overflow-hidden">
+                                        <div className="absolute top-0 left-0 w-1 h-full bg-red-500"></div>
+                                        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                                            <div>
+                                                <div className="flex items-center gap-2 mb-1">
+                                                    <h4 className="font-bold text-lg text-gray-900">{item.name}</h4>
+                                                    <span className="bg-red-100 text-red-800 text-xs font-bold px-2 py-0.5 rounded border border-red-200">Rejected</span>
+                                                </div>
+                                                <div className="text-sm text-gray-600 mb-1">
+                                                    Requested Quantity: {item.requested}
+                                                </div>
+                                                <div className="text-sm bg-red-50 text-red-800 px-3 py-1.5 rounded inline-block">
+                                                    <strong>Reason:</strong> {item.rejection_reason || 'Unavailable'}
+                                                </div>
+                                            </div>
+
+                                            <div className="flex flex-col sm:flex-row gap-2 w-full md:w-auto">
+                                                <button
+                                                    disabled={!!processing}
+                                                    onClick={() => handleAction('self_provide', item.name)}
+                                                    className="px-4 py-2 bg-white text-blue-600 border border-blue-200 rounded-lg font-medium text-sm hover:bg-blue-50 transition"
+                                                >
+                                                    I'll Provide It
+                                                </button>
+                                                <button
+                                                    disabled={!!processing}
+                                                    onClick={() => handleAction('remove_item', item.name)}
+                                                    className="px-4 py-2 bg-white text-gray-500 border border-gray-200 rounded-lg font-medium text-sm hover:text-red-600 hover:border-red-200 transition"
+                                                >
+                                                    Remove Request
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    )}
 
                     <div className="mt-8 pt-6 border-t border-gray-200 flex justify-between items-center">
                         <div className="text-sm text-gray-500 italic">
@@ -164,6 +250,7 @@ window.RejectionResolutionPage = function RejectionResolutionPage({ eventId, onB
                             Withdraw Event Proposal
                         </button>
                     </div>
+
                 </div>
             </div>
         </div>

@@ -1811,6 +1811,14 @@ def resolve_rejection(event_id):
                     elif action == 'self_provide':
                         item['status'] = 'Self-Provided'
                         item['rejection_reason'] = None # Clear reason
+                    elif action == 'accept_partial':
+                        # Accept the approved quantity as the new requested quantity
+                        app_qty = int(item.get('approved_quantity', item.get('quantity', 0)))
+                        item['quantity'] = app_qty
+                        item['requested'] = app_qty # Update requested to match approved
+                        item['status'] = 'Approved' # Ensure status is Approved
+                        # Clean up
+                        if 'rejection_reason' in item: del item['rejection_reason']
                 updated_list.append(item)
             
             if not item_found:
@@ -1822,25 +1830,33 @@ def resolve_rejection(event_id):
                 (json.dumps(updated_list), event_id)
             )
 
-            # Re-evaluate overall status (Wait until ALL rejections are resolved before approving)
-            # FIX: Use case-insensitive check for 'rejected' status to prevent premature approval
-            remaining_rejections = any(
-                str(i.get('status')).strip().lower() == 'rejected' 
-                for i in updated_list
-            )
-            
+            # Re-evaluate overall status (Check for Rejections AND Unresolved Partials)
+            remaining_issues = False
+            for i in updated_list:
+                status = str(i.get('status', '')).strip().lower()
+                if status == 'rejected':
+                    remaining_issues = True
+                    break
+                
+                # Check for unresolved partial approvals
+                if status == 'approved':
+                    req = int(i.get('requested', i.get('quantity', 0)))
+                    app = int(i.get('approved_quantity', req))
+                    if app < req:
+                        remaining_issues = True
+                        break
+
             new_status = event.get('equipment_approval_status', 'Pending') 
             
-            if not remaining_rejections:
-                 # Only approve if ALL items are resolved (no 'rejected' items left)
+            if not remaining_issues:
+                 # Only approve if ALL items are resolved
                  new_status = 'Approved'
                  db.execute_update(
                     "UPDATE events SET equipment_approval_status = 'Approved', updated_at = NOW() WHERE id = %s",
                     (event_id,)
                  )
             else:
-                 # If issues remain, ensure status is NOT Approved (revert to Under Review/Pending if needed)
-                 # Ideally keep it as is, or set to 'Under Review' to indicate ongoing resolution
+                 # If issues remain, revert/keep as Under Review
                  if new_status == 'Approved':
                       new_status = 'Under Review'
                       db.execute_update(
