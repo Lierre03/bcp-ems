@@ -198,159 +198,93 @@ const NotificationBell = () => {
         text = text.replace(/\\n/g, '\n').replace(/\\/g, '');
         const lines = text.split('\n');
         const elements = [];
-        let currentSection = null;
         let lineIndex = 0;
 
         for (let i = 0; i < lines.length; i++) {
-            let line = lines[i];
-
-            // Remove emoji prefixes
-            line = line.replace(/^[✅❌⚠️📋🎯]+\s*/g, '');
-
-            // Replace "Qty:" with "Quantity:"
-            line = line.replace(/\(Qty:\s*(\d+)\)/g, '(Quantity: $1)');
-
-            // Check if it's a section header (APPROVED:, REJECTED:, etc.)
-            const headerMatch = line.match(/^(APPROVED|REJECTED|PARTIALLY APPROVED):?$/i);
-            if (headerMatch) {
-                currentSection = headerMatch[1].toUpperCase();
+            let line = lines[i].trim();
+            if (!line) {
+                elements.push(<div key={lineIndex++} className="h-2"></div>);
                 continue;
             }
 
-            // Check for equipment list items: "- ItemName (Quantity: X)" OR "- ItemName (Approved: X/Y)"
-            const equipmentMatch = line.match(/^-\s*(.+?)\s*\(Quantity:\s*(\d+)\)/);
-            const partialMatch = line.match(/^-\s*(.+?)\s*\(Approved:\s*(\d+)\/(\d+)\)/);
+            // --- 1. Handling "Bullet Point" format from api_venues.py ---
+            // Format: "• ItemName: X/Y available" or "• ItemName: X/Y available (Rejected: ...)"
+            // Regex to capture: Bullet, Name, Approved, Requested, Optional Rejection
+            const bulletMatch = line.match(/^[•●-]\s*(.+?):\s*(\d+)\/(\d+)\s*available(?:\s*\((.*)\))?/i);
 
-            if ((equipmentMatch || partialMatch) && currentSection) {
-                const itemName = equipmentMatch ? equipmentMatch[1] : partialMatch[1];
-                const quantity = equipmentMatch ? equipmentMatch[2] : `${partialMatch[2]}/${partialMatch[3]}`; // details
-                const status = currentSection;
+            if (bulletMatch) {
+                const [, itemName, approvedStr, requestedStr, extraInfo] = bulletMatch;
+                const approved = parseInt(approvedStr);
+                const requested = parseInt(requestedStr);
 
-                let statusClass = 'bg-slate-100 text-slate-700 border-slate-200';
-                let bgClass = 'bg-slate-50 border-slate-200';
+                let status = 'APPROVED';
+                let reason = null;
+
+                // Determine status
+                if (extraInfo && extraInfo.toLowerCase().includes('rejected')) {
+                    status = 'REJECTED';
+                    // Extract reason if present "Rejected: Reason"
+                    const reasonMatch = extraInfo.match(/rejected:\s*(.+)/i);
+                    if (reasonMatch) reason = reasonMatch[1];
+                    else reason = extraInfo;
+                } else if (approved < requested && approved > 0) {
+                    status = 'PARTIAL';
+                } else if (approved === 0 && requested > 0) {
+                    // Should be rejected usually, but if backend says 0/X available without "Rejected" note, treat as effectively rejected/unavailable
+                    status = 'REJECTED';
+                    reason = 'Unavailable';
+                }
+
+                // Styling based on status
+                let statusClass = '';
+                let bgClass = '';
                 let icon = null;
+                let statusLabel = '';
 
                 if (status === 'APPROVED') {
                     statusClass = 'bg-blue-100 text-blue-800 border-blue-200';
-                    bgClass = 'bg-blue-50 border-blue-200';
+                    bgClass = 'bg-blue-50 border-blue-100';
+                    statusLabel = 'Approved';
                     icon = (
-                        <svg className="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
-                        </svg>
+                        <svg className="w-3.5 h-3.5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" /></svg>
                     );
                 } else if (status === 'REJECTED') {
                     statusClass = 'bg-red-100 text-red-800 border-red-200';
-                    bgClass = 'bg-red-50 border-red-200';
+                    bgClass = 'bg-white border-red-200 shadow-sm';
+                    statusLabel = 'Rejected';
                     icon = (
-                        <svg className="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
-                        </svg>
+                        <svg className="w-3.5 h-3.5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" /></svg>
                     );
-                } else if (status === 'PARTIALLY APPROVED') {
+                } else if (status === 'PARTIAL') {
                     statusClass = 'bg-amber-100 text-amber-800 border-amber-200';
-                    bgClass = 'bg-amber-50 border-amber-200';
+                    bgClass = 'bg-white border-amber-200 shadow-sm';
+                    statusLabel = 'Partial';
                     icon = (
-                        <svg className="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-                        </svg>
+                        <svg className="w-3.5 h-3.5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
                     );
                 }
 
                 elements.push(
-                    <div key={lineIndex++} className={`rounded-lg border p-3 mb-2 ${bgClass}`}>
-                        <div className="flex justify-between items-start">
-                            <div className="flex-1">
-                                <p className="font-semibold text-gray-900 text-sm">{itemName}</p>
-                                <p className="text-xs text-gray-600 mt-0.5">Quantity: {quantity}</p>
+                    <div key={lineIndex++} className={`rounded-lg border p-3 mb-2 flex flex-col md:flex-row gap-3 ${bgClass}`}>
+                        <div className="flex-1">
+                            <div className="flex items-center justify-between">
+                                <h4 className="font-bold text-gray-800 text-sm">{itemName}</h4>
+                                <span className={`flex items-center px-2 py-0.5 rounded text-[10px] uppercase tracking-wide font-bold border ${statusClass}`}>
+                                    {icon}
+                                    {statusLabel}
+                                </span>
                             </div>
-                            <span className={`flex items-center px-2.5 py-1 rounded-full text-xs font-bold border ${statusClass}`}>
-                                {icon}
-                                {status === 'APPROVED' ? 'Approved' :
-                                    status === 'REJECTED' ? 'Rejected' :
-                                        'Partial'}
-                            </span>
-                        </div>
-                    </div>
-                );
-                continue;
-            }
-
-            // Check for rejected items with reason: "- ItemName (Reason)" under REJECTED section
-            const rejectedReasonMatch = line.match(/^-\s*(.+?)\s*\(([^)]+)\)$/);
-            if (rejectedReasonMatch && currentSection === 'REJECTED') {
-                const [, itemName, reason] = rejectedReasonMatch;
-
-                elements.push(
-                    <div key={lineIndex++} className="rounded-lg border border-red-200 p-3 mb-2 bg-red-50">
-                        <div className="flex justify-between items-start">
-                            <div className="flex-1">
-                                <p className="font-semibold text-gray-900 text-sm">{itemName}</p>
+                            <div className="text-xs text-gray-600 mt-1">
+                                <span className={status === 'APPROVED' ? 'text-blue-700 font-medium' : status === 'PARTIAL' ? 'text-amber-700 font-bold' : 'text-gray-500'}>
+                                    {approved}
+                                </span>
+                                <span className="text-gray-400 mx-1">/</span>
+                                <span>{requested} available</span>
                             </div>
-                            <span className="flex items-center px-2.5 py-1 rounded-full text-xs font-bold border bg-red-100 text-red-800 border-red-200">
-                                <svg className="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
-                                </svg>
-                                Rejected
-                            </span>
                         </div>
-                        <div className="mt-2 text-xs text-red-700 bg-white/50 p-2 rounded border border-red-200/50">
-                            <span className="font-medium">Reason:</span> {reason}
-                        </div>
-                    </div>
-                );
-                continue;
-            }
-
-            // Check for old format: "- Item Name: Status (Reason)"
-            const itemMatch = line.match(/^- (.*?): (Approved|Rejected|Partially Approved)(?: \((.*)\))?/);
-            if (itemMatch) {
-                const [, itemName, status, reason] = itemMatch;
-                let statusClass = 'bg-slate-100 text-slate-700 border-slate-200';
-                let bgClass = 'bg-slate-50 border-slate-200';
-                let icon = null;
-
-                if (status === 'Approved') {
-                    statusClass = 'bg-blue-100 text-blue-800 border-blue-200';
-                    bgClass = 'bg-blue-50 border-blue-200';
-                    icon = (
-                        <svg className="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
-                        </svg>
-                    );
-                } else if (status === 'Rejected') {
-                    statusClass = 'bg-red-100 text-red-800 border-red-200';
-                    bgClass = 'bg-red-50 border-red-200';
-                    icon = (
-                        <svg className="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
-                        </svg>
-                    );
-                } else if (status === 'Partially Approved') {
-                    statusClass = 'bg-amber-100 text-amber-800 border-amber-200';
-                    bgClass = 'bg-amber-50 border-amber-200';
-                    icon = (
-                        <svg className="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-                        </svg>
-                    );
-                }
-
-                const cleanReason = reason ? reason.replace(/^Reason:\s*/i, '') : '';
-
-                elements.push(
-                    <div key={lineIndex++} className={`rounded-lg border p-3 mb-2 ${bgClass}`}>
-                        <div className="flex justify-between items-start">
-                            <div className="flex-1">
-                                <p className="font-semibold text-gray-900 text-sm">{itemName}</p>
-                            </div>
-                            <span className={`flex items-center px-2.5 py-1 rounded-full text-xs font-bold border ${statusClass}`}>
-                                {icon}
-                                {status}
-                            </span>
-                        </div>
-                        {cleanReason && (
-                            <div className="mt-2 text-xs text-gray-600 bg-white/50 p-2 rounded border border-gray-200/50">
-                                <span className="font-medium">Note:</span> {cleanReason}
+                        {reason && (
+                            <div className="md:w-1/3 text-xs bg-red-50 text-red-700 p-2 rounded border border-red-100 flex items-start">
+                                <span className="font-bold mr-1">Reason:</span> {reason}
                             </div>
                         )}
                     </div>
@@ -358,16 +292,26 @@ const NotificationBell = () => {
                 continue;
             }
 
-            // Regular text lines (summary, headings, etc.)
-            if (line.trim() === '') {
-                elements.push(<div key={lineIndex++} className="h-2"></div>);
-            } else {
+            // --- 2. Fallback for Header-style lines (Previous implementation support) ---
+            const headerMatch = line.match(/^(APPROVED|REJECTED|PARTIALLY APPROVED):?$/i);
+            if (headerMatch) {
+                // Convert headers to styled dividers
                 elements.push(
-                    <p key={lineIndex++} className="mb-2 text-slate-600 text-sm leading-relaxed">
-                        {line}
-                    </p>
+                    <div key={lineIndex++} className="flex items-center gap-2 my-2 text-xs font-bold text-gray-400 uppercase tracking-wider">
+                        <span className="h-px flex-1 bg-gray-200"></span>
+                        {headerMatch[1]}
+                        <span className="h-px flex-1 bg-gray-200"></span>
+                    </div>
                 );
+                continue;
             }
+
+            // --- 3. Default text handling ---
+            elements.push(
+                <p key={lineIndex++} className="mb-1 text-slate-600 text-sm leading-relaxed">
+                    {line}
+                </p>
+            );
         }
 
         return elements;
