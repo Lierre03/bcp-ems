@@ -1263,17 +1263,18 @@ def get_approved_events():
         filtered_events = []
         for event in events:
             # If user is student/participant AND event is not eligible, skip it
-            # Assuming 'is_eligible' defaults to True above, and is set to False if restricted
             if session.get('role') in ['Student', 'Participant'] and event.get('is_eligible') is False:
                 continue # Skip this event (don't show it at all)
-            filtered_events.append(event)
-        
-        events = filtered_events
             
             # --- Registration Status ---
+            # Calculate this for the event before appending
             reg_status = user_registrations.get(event['id'])
             event['is_registered'] = reg_status in ['Registered', 'Waitlisted']
             event['registration_status'] = reg_status
+            
+            filtered_events.append(event)
+        
+        events = filtered_events
 
         return jsonify({
             'success': True,
