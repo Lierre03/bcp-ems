@@ -1094,12 +1094,21 @@ window.EventFormModal = function EventFormModal({
                       <svg className="w-4 h-4 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 6h16M4 12h16M4 18h7" /></svg>
                       Suggested Description
                     </h4>
-                    <button
-                      onClick={() => setFormData(prev => ({ ...prev, description: aiSuggestions.description }))}
-                      className="text-xs font-bold text-indigo-600 hover:text-indigo-800 hover:bg-indigo-50 px-2 py-1 rounded transition"
-                    >
-                      Apply
-                    </button>
+                    {formData.description !== aiSuggestions.description ? (
+                      <button
+                        onClick={() => setFormData(prev => ({ ...prev, description: aiSuggestions.description }))}
+                        className="text-xs font-bold text-indigo-600 hover:text-indigo-800 hover:bg-indigo-50 px-2 py-1 rounded transition"
+                      >
+                        Apply
+                      </button>
+                    ) : (
+                      <button
+                        onClick={() => setFormData(prev => ({ ...prev, description: '' }))}
+                        className="text-xs font-bold text-red-600 hover:text-red-800 hover:bg-red-50 px-2 py-1 rounded transition"
+                      >
+                        Unapply
+                      </button>
+                    )}
                   </div>
                   <div className="relative group">
                     <p className="text-xs text-gray-600 italic line-clamp-4 group-hover:line-clamp-none transition-all duration-300">
@@ -1125,10 +1134,12 @@ window.EventFormModal = function EventFormModal({
                         Apply
                       </button>
                     ) : (
-                      <span className="text-xs font-bold text-emerald-600 flex items-center gap-1">
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" /></svg>
-                        Applied
-                      </span>
+                      <button
+                        onClick={() => setFormData({ ...formData, venue: '' })}
+                        className="text-xs font-bold text-red-600 hover:text-red-800 hover:bg-red-50 px-2 py-1 rounded transition"
+                      >
+                        Unapply
+                      </button>
                     )}
                   </div>
                   <div>
@@ -1157,8 +1168,8 @@ window.EventFormModal = function EventFormModal({
                         <button
                           onClick={() => handleToggleAllEquipment(!allApplied)}
                           className={`text-xs font-bold px-2 py-1 rounded transition ${allApplied
-                              ? 'text-red-600 hover:text-red-800 hover:bg-red-50'
-                              : 'text-blue-600 hover:text-blue-800 hover:bg-blue-50'
+                            ? 'text-red-600 hover:text-red-800 hover:bg-red-50'
+                            : 'text-blue-600 hover:text-blue-800 hover:bg-blue-50'
                             }`}
                         >
                           {allApplied ? 'Unapply All' : 'Apply All'}
