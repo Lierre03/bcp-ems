@@ -283,48 +283,62 @@ window.AttendanceDashboard = function AttendanceDashboard() {
                                 </tr>
                             </thead>
                             <tbody className="bg-white divide-y divide-gray-200">
-                                {filteredList.map((p) => (
-                                    <tr key={p.id} className="hover:bg-slate-50 transition">
-                                        <td className="px-6 py-4 whitespace-nowrap">
-                                            <div className="flex items-center">
-                                                <div className="h-8 w-8 rounded-full bg-slate-200 flex items-center justify-center text-slate-600 font-bold text-xs mr-3">
-                                                    {p.name.charAt(0)}
-                                                </div>
-                                                <div>
-                                                    <div className="text-sm font-medium text-gray-900">{p.name}</div>
-                                                    <div className="text-xs text-gray-500">@{p.username}</div>
-                                                </div>
-                                            </div>
-                                        </td>
-                                        <td className="px-6 py-4 whitespace-nowrap">
-                                            <div className="flex flex-col">
-                                                <span className="text-sm font-bold text-slate-700">{p.section}</span>
-                                                <span className="text-xs text-slate-500">{p.course}</span>
-                                            </div>
-                                        </td>
-                                        <td className="px-6 py-4 whitespace-nowrap">
-                                            {detailMode === 'registrants' ? (
-                                                <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-blue-100 text-blue-800">
-                                                    Registered
-                                                </span>
-                                            ) : p.status === 'Present' ? (
-                                                <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-emerald-100 text-emerald-800">
-                                                    Present
-                                                </span>
-                                            ) : (
-                                                <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-slate-100 text-slate-800">
-                                                    Absent
-                                                </span>
-                                            )}
-                                        </td>
-                                        {detailMode === 'attendance' && (
-                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                                {p.check_in_time ? (
-                                                    <span className="font-medium">{p.check_in_time}</span>
-                                                ) : '-'}
+                                {Object.entries(filteredList.reduce((acc, p) => {
+                                    const section = p.section || 'Unassigned';
+                                    if (!acc[section]) acc[section] = [];
+                                    acc[section].push(p);
+                                    return acc;
+                                }, {})).sort().map(([section, students]) => (
+                                    <React.Fragment key={section}>
+                                        <tr className="bg-slate-50 border-y border-slate-200">
+                                            <td colSpan={detailMode === 'attendance' ? 4 : 3} className="px-6 py-2 text-xs font-bold text-slate-700 uppercase tracking-wider">
+                                                Section: {section} <span className="font-normal text-slate-500 ml-2">({students.length} students)</span>
                                             </td>
-                                        )}
-                                    </tr>
+                                        </tr>
+                                        {students.map((p) => (
+                                            <tr key={p.id} className="hover:bg-slate-50 transition">
+                                                <td className="px-6 py-4 whitespace-nowrap">
+                                                    <div className="flex items-center">
+                                                        <div className="h-8 w-8 rounded-full bg-slate-200 flex items-center justify-center text-slate-600 font-bold text-xs mr-3">
+                                                            {p.name.charAt(0)}
+                                                        </div>
+                                                        <div>
+                                                            <div className="text-sm font-medium text-gray-900">{p.name}</div>
+                                                            <div className="text-xs text-gray-500">@{p.username}</div>
+                                                        </div>
+                                                    </div>
+                                                </td>
+                                                <td className="px-6 py-4 whitespace-nowrap">
+                                                    <div className="flex flex-col">
+                                                        <span className="text-sm font-bold text-slate-700">{p.section}</span>
+                                                        <span className="text-xs text-slate-500">{p.course}</span>
+                                                    </div>
+                                                </td>
+                                                <td className="px-6 py-4 whitespace-nowrap">
+                                                    {detailMode === 'registrants' ? (
+                                                        <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-blue-100 text-blue-800">
+                                                            Registered
+                                                        </span>
+                                                    ) : p.status === 'Present' ? (
+                                                        <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-emerald-100 text-emerald-800">
+                                                            Present
+                                                        </span>
+                                                    ) : (
+                                                        <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-slate-100 text-slate-800">
+                                                            Absent
+                                                        </span>
+                                                    )}
+                                                </td>
+                                                {detailMode === 'attendance' && (
+                                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                                        {p.check_in_time ? (
+                                                            <span className="font-medium">{p.check_in_time}</span>
+                                                        ) : '-'}
+                                                    </td>
+                                                )}
+                                            </tr>
+                                        ))}
+                                    </React.Fragment>
                                 ))}
                             </tbody>
                         </table>

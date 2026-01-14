@@ -961,6 +961,16 @@ def update_request_status(event_id):
                     all_rejected = all(item.get('status') == 'Rejected' for item in equipment_list_payload)
                     any_rejected = any(item.get('status') == 'Rejected' for item in equipment_list_payload)
                     
+                    # Check for partial approvals
+                    any_partial = False
+                    for item in equipment_list_payload:
+                        if item.get('status') == 'Approved':
+                            req = int(item.get('requested', item.get('quantity', 0)))
+                            app = int(item.get('approved_quantity', req))
+                            if app < req:
+                                any_partial = True
+                                break
+                    
                     new_status = 'Rejected' if all_rejected else 'Approved'
                     
                     # Construct Notification Summary
@@ -970,22 +980,18 @@ def update_request_status(event_id):
                     for i in equipment_list_payload:
                         name = i.get('name', 'Unknown Item')
                         if i.get('status') == 'Rejected':
-                            rejected_items.append(f"{name} ({i.get('rejection_reason', 'No reason provided')})")
+                            rejected_items.append(f"• {name}: 0/{i.get('requested', i.get('quantity', 0))} available (Rejected: {i.get('rejection_reason', 'No reason provided')})")
                         elif i.get('status') == 'Approved':
-                            qty_requested = i.get('requested', i.get('quantity', 0))
-                            qty_approved = i.get('approved_quantity', qty_requested)
+                            qty_requested = int(i.get('requested', i.get('quantity', 0)))
+                            qty_approved = int(i.get('approved_quantity', qty_requested))
                             
-                            # If approved quantity is different from requested, show both
-                            if str(qty_approved) != str(qty_requested):
-                                approved_items.append(f"{name} (Approved: {qty_approved}/{qty_requested})")
-                            else:
-                                approved_items.append(f"{name} (Qty: {qty_approved})")
+                            # Format strictly for frontend parser: • Name: Approved/Requested available
+                            approved_items.append(f"• {name}: {qty_approved}/{qty_requested} available")
 
-                    notification_msg = "Your equipment request has been reviewed.\n\n"
-                    if approved_items:
-                        notification_msg += f"✅ APPROVED:\n" + "\n".join(f"- {i}" for i in approved_items) + "\n\n"
-                    if rejected_items:
-                        notification_msg += f"❌ REJECTED:\n" + "\n".join(f"- {i}" for i in rejected_items)
+                    notification_msg = "Your equipment request has been reviewed. Some adjustments were made based on availability:\n\n"
+                    # Combine all items into one list for the parsing regex to work on all lines
+                    all_items_msg = "\n".join(approved_items + rejected_items)
+                    notification_msg += all_items_msg
                     
                     # Update status
                     db.execute_update(
@@ -1000,9 +1006,10 @@ def update_request_status(event_id):
                         notif_type = 'status_update'
                         notif_title = f"Equipment Review Complete: {event_full['name']}"
                         
-                        if rejected_items:
-                            notif_type = 'equipment_adjusted'  # Triggers resolution/withdraw flow
-                            notif_title = f"Action Required: Equipment Rejected for {event_full['name']}"
+                        # If there are ANY rejections OR partial approvals, trigger the Adjustment Review Flow
+                        if any_rejected or any_partial:
+                            notif_type = 'equipment_adjusted'  # Triggers resolution/withdraw flow in frontend
+                            notif_title = f"Action Required: Equipment Status Update for {event_full['name']}"
                         
                         db.execute_insert(
                             """INSERT INTO notifications (user_id, event_id, type, title, message, created_at)

@@ -47,6 +47,7 @@ const EquipmentApprovals = () => {
         if (decision) {
           return {
             ...item,
+            quantity: item.requested, // Ensure quantity is preserved for backend storage
             status: decision.status,
             rejection_reason: decision.reason || null,
             approved_quantity: decision.approved_quantity || item.requested // Default to requested if not specified
@@ -57,7 +58,11 @@ const EquipmentApprovals = () => {
         // Or requiring explicit decision for everything? 
         // Let's assume unchecked items are 'Approved' implicitly if the user clicks "Approve All Pending" or similar.
         // For now, let's say unchecked items retain their status OR default to Approved if 'Pending'.
-        return item.status === 'Pending' ? { ...item, status: 'Approved' } : item;
+        const effectiveItem = item.status === 'Pending' ? { ...item, status: 'Approved' } : item;
+        return {
+          ...effectiveItem,
+          quantity: item.requested // Ensure quantity is preserved
+        };
       });
 
       const payload = {
