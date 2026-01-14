@@ -1113,6 +1113,25 @@ def predict_resources():
             }
             predictions['timeline'] = fallback_timelines.get(event_type, fallback_timelines['Academic'])
 
+        # ========================================================================
+        # STEP 6: ATTENDEES - Ensure we have a suggestion
+        # ========================================================================
+        if not predictions.get('suggestedAttendees'):
+            # Calculate average from full dataset for this event type
+            try:
+                type_df = df[df['event_type'] == event_type]
+                if not type_df.empty:
+                    avg_attendees = int(type_df['attendees'].mean())
+                    predictions['suggestedAttendees'] = avg_attendees
+                    print(f"[ATTENDEES ML] Calculated average for {event_type}: {avg_attendees}")
+                else:
+                    defaults = {'Academic': 100, 'Sports': 300, 'Cultural': 500, 'Workshop': 50, 'Seminar': 150}
+                    predictions['suggestedAttendees'] = defaults.get(event_type, 100)
+                    print(f"[ATTENDEES ML] Using default for {event_type}: {predictions['suggestedAttendees']}")
+            except Exception as e:
+                print(f"[ATTENDEES ML] Error calculating: {e}")
+                predictions['suggestedAttendees'] = 100
+
         print(f"\n{'='*60}")
         print(f"[ML SUMMARY] Prediction complete!")
         print(f"  Budget: ₱{predictions['estimatedBudget']:,}")

@@ -593,7 +593,7 @@ window.AnalyticsDashboard = function AnalyticsDashboard() {
             return date.toLocaleDateString('en', { month: 'short', year: 'numeric' });
           }),
           datasets: [{
-            label: 'Events',
+            label: 'Actual Events',
             data: monthlyData.map(d => d.event_count),
             borderColor: '#6366f1',
             backgroundColor: 'rgba(99, 102, 241, 0.1)',
@@ -605,7 +605,7 @@ window.AnalyticsDashboard = function AnalyticsDashboard() {
           responsive: true,
           maintainAspectRatio: false,
           plugins: {
-            legend: { display: false }
+            legend: { display: true }
           },
           scales: {
             y: {
@@ -615,6 +615,12 @@ window.AnalyticsDashboard = function AnalyticsDashboard() {
           }
         }
       });
+    }
+
+    // 5. Expected Attendees by Type (Bar Chart)
+    if (analytics.expected_attendees && analytics.expected_attendees.by_type && analytics.expected_attendees.by_type.length > 0) {
+      // Create canvas element dynamically if not exists (or use a ref if we added one)
+      // For now, simpler to repurpose or add a new container in the render function
     }
   };
 
@@ -799,6 +805,99 @@ window.AnalyticsDashboard = function AnalyticsDashboard() {
         ),
         React.createElement('div', { className: 'h-64' },
           React.createElement('canvas', { ref: statusChartRef })
+        )
+      ),
+
+      // Event Type Distribution
+      React.createElement('div', { className: 'bg-white rounded-lg border border-slate-200 p-6 shadow-sm' },
+        React.createElement('div', { className: 'flex items-center gap-3 mb-4' },
+          React.createElement('div', { className: 'w-10 h-10 bg-slate-100 rounded-lg flex items-center justify-center' },
+            React.createElement('svg', { className: 'w-6 h-6 text-slate-600', fill: 'none', stroke: 'currentColor', viewBox: '0 0 24 24' },
+              React.createElement('path', { strokeLinecap: 'round', strokeLinejoin: 'round', strokeWidth: '2', d: 'M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10' })
+            )
+          ),
+          React.createElement('div', null,
+            React.createElement('h3', { className: 'text-lg font-bold text-gray-900' }, 'Events by Type'),
+            React.createElement('p', { className: 'text-xs text-gray-500' }, 'Category breakdown')
+          )
+        ),
+        React.createElement('div', { className: 'h-64' },
+          React.createElement('canvas', { ref: typeChartRef })
+        )
+      ),
+
+      // Feedback Radar
+      React.createElement('div', { className: 'bg-white rounded-lg border border-slate-200 p-6 shadow-sm' },
+        React.createElement('div', { className: 'flex items-center gap-3 mb-4' },
+          React.createElement('div', { className: 'w-10 h-10 bg-amber-100 rounded-lg flex items-center justify-center' },
+            React.createElement('svg', { className: 'w-6 h-6 text-amber-600', fill: 'none', stroke: 'currentColor', viewBox: '0 0 24 24' },
+              React.createElement('path', { strokeLinecap: 'round', strokeLinejoin: 'round', strokeWidth: '2', d: 'M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z' })
+            )
+          ),
+          React.createElement('div', null,
+            React.createElement('h3', { className: 'text-lg font-bold text-gray-900' }, 'Feedback Analysis'),
+            React.createElement('p', { className: 'text-xs text-gray-500' }, 'Average ratings by category')
+          )
+        ),
+        React.createElement('div', { className: 'h-64' },
+          React.createElement('canvas', { ref: feedbackChartRef })
+        )
+      ),
+
+      // Monthly Trends
+      React.createElement('div', { className: 'bg-white rounded-lg border border-slate-200 p-6 shadow-sm' },
+        React.createElement('div', { className: 'flex items-center gap-3 mb-4' },
+          React.createElement('div', { className: 'w-10 h-10 bg-indigo-100 rounded-lg flex items-center justify-center' },
+            React.createElement('svg', { className: 'w-6 h-6 text-indigo-600', fill: 'none', stroke: 'currentColor', viewBox: '0 0 24 24' },
+              React.createElement('path', { strokeLinecap: 'round', strokeLinejoin: 'round', strokeWidth: '2', d: 'M7 12l3-3 3 3 4-4M8 21l4-4 4 4M3 4h18M4 4h16v12a1 1 0 01-1 1H5a1 1 0 01-1-1V4z' })
+            )
+          ),
+          React.createElement('div', null,
+            React.createElement('h3', { className: 'text-lg font-bold text-gray-900' }, 'Activity Trends'),
+            React.createElement('p', { className: 'text-xs text-gray-500' }, 'Events over last 6 months')
+          )
+        ),
+        React.createElement('div', { className: 'h-64' },
+          React.createElement('canvas', { ref: trendsChartRef })
+        )
+      ),
+
+      // NEW: Expected Attendees by Type
+      analytics.expected_attendees && React.createElement('div', { className: 'bg-white rounded-lg border border-slate-200 p-6 shadow-sm md:col-span-2' },
+        React.createElement('div', { className: 'flex items-center gap-3 mb-4' },
+          React.createElement('div', { className: 'w-10 h-10 bg-pink-100 rounded-lg flex items-center justify-center' },
+            React.createElement('svg', { className: 'w-6 h-6 text-pink-600', fill: 'none', stroke: 'currentColor', viewBox: '0 0 24 24' },
+              React.createElement('path', { strokeLinecap: 'round', strokeLinejoin: 'round', strokeWidth: '2', d: 'M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z' })
+            )
+          ),
+          React.createElement('div', null,
+            React.createElement('div', { className: 'flex items-center justify-between w-full' },
+              React.createElement('div', null,
+                React.createElement('h3', { className: 'text-lg font-bold text-gray-900' }, 'Expected Attendees'),
+                React.createElement('p', { className: 'text-xs text-gray-500' }, 'Average planned attendance by event type')
+              ),
+              React.createElement('div', { className: 'text-right ml-4' },
+                React.createElement('span', { className: 'text-xs font-semibold text-gray-500 uppercase' }, 'Total Expected'),
+                React.createElement('p', { className: 'text-2xl font-bold text-pink-600' }, analytics.expected_attendees.total.toLocaleString())
+              )
+            )
+          )
+        ),
+        React.createElement('div', { className: 'grid grid-cols-1 md:grid-cols-2 gap-4' },
+          analytics.expected_attendees.by_type.map(stat =>
+            React.createElement('div', { key: stat.event_type, className: 'flex flex-col' },
+              React.createElement('div', { className: 'flex justify-between text-sm mb-1' },
+                React.createElement('span', { className: 'font-medium text-gray-700' }, stat.event_type),
+                React.createElement('span', { className: 'text-gray-900 font-bold' }, stat.avg_expected.toLocaleString())
+              ),
+              React.createElement('div', { className: 'w-full bg-gray-100 rounded-full h-2.5' },
+                React.createElement('div', {
+                  className: 'bg-pink-500 h-2.5 rounded-full',
+                  style: { width: `${Math.min(100, (stat.avg_expected / 500) * 100)}%` } // Scale based on ~500 max
+                })
+              )
+            )
+          )
         )
       ),
 

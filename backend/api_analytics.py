@@ -145,6 +145,29 @@ def get_dashboard_analytics():
             ORDER BY month ASC
         """.format(dept_condition)
         monthly_trends = get_db().execute_query(monthly_query, tuple(params) if params else ())
+
+        # 8.5 EXPECTED ATTENDEES METRICS
+        # Total Expected Limit
+        expected_query = """
+            SELECT SUM(expected_attendees) as total_expected
+            FROM events e
+            WHERE e.deleted_at IS NULL
+            {}
+        """.format(dept_condition)
+        expected_stats = get_db().execute_one(expected_query, tuple(params) if params else ())
+
+        # Avg Expected by Type
+        avg_expected_query = """
+            SELECT 
+                event_type,
+                ROUND(AVG(expected_attendees)) as avg_expected
+            FROM events e
+            WHERE e.deleted_at IS NULL
+            {}
+            GROUP BY event_type
+            ORDER BY avg_expected DESC
+        """.format(dept_condition)
+        avg_expected_stats = get_db().execute_query(avg_expected_query, tuple(params) if params else ())
         
         # 9. UPCOMING EVENTS COUNT
         upcoming_query = """
@@ -337,6 +360,10 @@ def get_dashboard_analytics():
                 'top_venues': top_venues,
                 # NEW METRICS
                 'department_budget': dept_budget_stats,
+                'expected_attendees': {
+                    'total': expected_stats.get('total_expected', 0) or 0,
+                    'by_type': avg_expected_stats
+                },
                 'success_rate': {
                     'total_events': success_stats.get('total_events', 0) or 0,
                     'completed': success_stats.get('completed', 0) or 0,

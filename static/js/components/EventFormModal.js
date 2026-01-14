@@ -344,12 +344,26 @@ window.EventFormModal = function EventFormModal({
       handleToggleAllTimeline(true, true);
       handleToggleAllResources(true, true);
 
-      // Also apply fields like Venue/Description
+      // Also apply fields like Venue/Description/Attendees
       if (aiSuggestions.description) {
         setFormData(prev => ({ ...prev, description: aiSuggestions.description }));
       }
       if (aiSuggestions.suggestedVenue) {
         setFormData(prev => ({ ...prev, venue: aiSuggestions.suggestedVenue }));
+      }
+      if (aiSuggestions.suggestedAttendees) {
+        setFormData(prev => {
+          // Only update if currently 0 or empty, OR if explicit override desired (Auto-Organize implies override)
+          // But let's check if we should trigger budget recoil? 
+          // setFormData updates won't trigger the onChange logic for attendees input automatically
+
+          // We need to trigger the budget update manually if we change attendees here?
+          // Actually, the useEffect for userBudgetData will handle the budget field update if budget breakdown changes.
+          // But changing attendees alone usually scales budget in the onChange.
+          // Here, we are setting budget via handleToggleAllBudget separately.
+
+          return { ...prev, attendees: aiSuggestions.suggestedAttendees };
+        });
       }
 
       // Reset trigger so it doesn't keep overwriting user changes
