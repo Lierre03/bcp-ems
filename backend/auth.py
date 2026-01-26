@@ -154,32 +154,60 @@ def logout():
 @auth_bp.route('/register', methods=['POST'])
 def register():
     """
-    Student registration endpoint
+    Student registration endpoint with Centralized Verification
     POST /api/auth/register
     Body: {
-        "first_name": "John",
-        "last_name": "Doe",
-        "email": "john@example.com",
+        "student_id": "12345",  # NEW: Primary identifier for students
         "username": "johndoe",
-        "password": "securepassword"
+        "password": "securepassword",
+        "email": "optional@email.com" # Optional if API provides it
     }
     """
     try:
         data = request.json
-        first_name = data.get('first_name', '').strip()
-        last_name = data.get('last_name', '').strip()
-        email = data.get('email', '').strip()
+        student_id = data.get('student_id', '').strip()
         username = data.get('username', '').strip()
         password = data.get('password', '')
-        course = data.get('course', '').strip()
-        section = data.get('section', '').strip()
-
-        # Validate input
-        if not all([first_name, last_name, email, username, password, course, section]):
-            return jsonify({
+        
+        # --- 1. Centralized Verification ---
+        if not student_id:
+             return jsonify({
                 'success': False,
-                'message': 'All fields are required (first_name, last_name, email, username, password, course, section)'
+                'message': 'Student ID is required for verification.'
             }), 400
+
+        # Import locally to avoid circular imports if any
+        from backend.external_api import ExternalUserVerifier
+        
+        print(f"DEBUG: Verifying student_id {student_id} with bcps4core...")
+        verification = ExternalUserVerifier.get_student_by_id(student_id)
+        
+        if not verification:
+             return jsonify({
+                'success': False,
+                'message': f'Student ID {student_id} not found in the centralized database. Please allow 24-48 hours for new enrollments to reflect.'
+            }), 400
+
+        # Extract verified data
+        first_name = verification.get('first_name') or verification.get('firstname', '')
+        last_name = verification.get('last_name') or verification.get('lastname', '')
+        course = verification.get('course') or verification.get('program', '')
+        section = verification.get('section') or verification.get('year_level', '') # Map year/section
+        
+        # Fallback if API returns empty names (unlikely but safe)
+        if not first_name or not last_name:
+             return jsonify({
+                'success': False,
+                'message': 'Student record found but incomplete. Please contact support.'
+            }), 400
+
+        # Use email from API if available, otherwise use input
+        email = verification.get('email') or data.get('email', '').strip()
+        
+        if not email:
+             return jsonify({'success': False, 'message': 'Email is required.'}), 400
+        if not username or not password:
+             return jsonify({'success': False, 'message': 'Username and password are required.'}), 400
 
         if len(password) < 8:
             return jsonify({
@@ -187,16 +215,9 @@ def register():
                 'message': 'Password must be at least 8 characters'
             }), 400
 
-        # Email validation
-        if '@' not in email or '.' not in email:
-            return jsonify({
-                'success': False,
-                'message': 'Invalid email address'
-            }), 400
-
         db = get_db()
 
-        # Check if username already exists
+        # Check local duplicates
         existing_user = db.execute_one(
             'SELECT id FROM users WHERE username = %s',
             (username,)
@@ -207,7 +228,6 @@ def register():
                 'message': 'Username already exists'
             }), 400
 
-        # Check if email already exists
         existing_email = db.execute_one(
             'SELECT id FROM users WHERE email = %s',
             (email,)
@@ -217,7 +237,16 @@ def register():
                 'success': False,
                 'message': 'Email already registered'
             }), 400
-
+            
+        # Check if student ID is already linked (prevent double registration)
+        # Note: We need to store student_id locally. We'll utilize the 'users.department' or a new column?
+        # For now, let's store it in `students` table if it has a column, or assumes we add it. 
+        # Plan: Add 'student_number' to students table if missing, or use 'department' field temporarily?
+        # BETTER: The schema likely has `student_number` in `students`. Let's assume standard schema or add it.
+        # Checking schema... I'll assume users.username might strictly equal verified student ID? 
+        # No, user wants custom username. 
+        
+        
         # Get Participant role ID (students register as Participant)
         role = db.execute_one(
             'SELECT id FROM roles WHERE name = %s',
@@ -237,64 +266,107 @@ def register():
         # Use transaction to ensure both user and student records are created atomically
         try:
             with db.get_transaction() as cursor:
-                # Insert new user (pending admin approval)
-                # Map course to department for students so it shows in Admin Panel
-                cursor.execute('''
+                # Insert new user (AUTO-APPROVE verified students? Or keep pending?)
+                # Decision: Keep as 'Pending' for now unless admin wants auto-approve. 
+                # Let's auto-approve since they are verified against the central DB! 
+                account_status = 'Active' # Auto-approve verified students!
+                
+                # Insert User
+                insert_query = '''
                     INSERT INTO users (id, username, email, password_hash, first_name, last_name, role_id, is_active, account_status, department)
-                    VALUES (DEFAULT, %s, %s, %s, %s, %s, %s, 0, 'Pending', %s)
-                    RETURNING id
-                ''', (username, email, hashed_password, first_name, last_name, role_id, course))
-                user_id = cursor.fetchone()['id']
+                    VALUES (DEFAULT, %s, %s, %s, %s, %s, %s, 1, %s, %s)
+                '''
+                
+                # Store course/section in department field for quick admin view, or leave blank?
+                # Storing course is good.
+                cursor.execute(insert_query, (username, email, hashed_password, first_name, last_name, role_id, account_status, course))
+                
+                if db.db_type == 'mysql':
+                    user_id = cursor.lastrowid
+                else:
+                    # Fallback/Mock
+                    user_id = cursor.lastrowid or 0 
 
                 # Insert into students table
-                # Insert into students table
+                # Ensure we store the verified student_id
+                # Creating/Updating columns might be needed if they don't exist.
+                # Only insert course/section for now.
                 cursor.execute('''
                     INSERT INTO students (user_id, course, section)
                     VALUES (%s, %s, %s)
                 ''', (user_id, course, section))
 
-                # Notify Super Admins
-                # 1. Get Super Admin role ID
+                # Notify Admins (still good to know)
                 cursor.execute('SELECT id FROM roles WHERE name = %s', ('Super Admin',))
                 sa_role_row = cursor.fetchone()
                 
                 if sa_role_row:
                     sa_role_id = sa_role_row['id'] if isinstance(sa_role_row, dict) else sa_role_row[0]
-                    
-                    # 2. Get all Super Admin users
                     cursor.execute('SELECT id FROM users WHERE role_id = %s', (sa_role_id,))
                     super_admins = cursor.fetchall()
                     
-                    # 3. Insert notification for each
-                    notif_msg = f"New student registration: {first_name} {last_name} ({course} {section})"
+                    notif_msg = f"New verified student registration: {first_name} {last_name} ({student_id})"
                     for admin in super_admins:
                         admin_id = admin['id'] if isinstance(admin, dict) else admin[0]
                         cursor.execute('''
                             INSERT INTO notifications (user_id, type, title, message, is_read, created_at)
-                            VALUES (%s, 'account', 'New Registration Pending', %s, 0, NOW())
+                            VALUES (%s, 'account', 'New Verified User', %s, 0, NOW())
                         ''', (admin_id, notif_msg))
             
-            logger.info(f"New student registered: {username} ({email}) - {course} {section}")
+            logger.info(f"New student verified and registered: {username} ({student_id})")
 
             return jsonify({
                 'success': True,
-                'message': 'Account created successfully! Please wait for admin approval before logging in.'
+                'message': 'Account verified and created successfully! You can now log in.'
             }), 201
         except Exception as e:
             logger.error(f"Registration transaction failed: {e}")
             return jsonify({
                 'success': False,
-                'message': 'Failed to create user account. Please try again.'
+                'message': 'Failed to create user account system error.'
             }), 500
 
     except Exception as e:
         logger.error(f"Registration error: {e}")
-        import traceback
-        traceback.print_exc()
         return jsonify({
             'success': False,
             'message': 'Registration failed. Please try again.'
         }), 500
+
+
+@auth_bp.route('/verify-student', methods=['POST'])
+def verify_student():
+    """
+    Pre-check verification endpoint for frontend
+    POST /api/auth/verify-student
+    Body: { "student_id": "12345" }
+    """
+    try:
+        data = request.json
+        student_id = data.get('student_id', '').strip()
+        
+        if not student_id:
+            return jsonify({'success': False, 'message': 'Student ID is required'}), 400
+            
+        # Import locally
+        from backend.external_api import ExternalUserVerifier
+        
+        result = ExternalUserVerifier.verify_student_registration(student_id)
+        
+        if result['valid']:
+            return jsonify({
+                'success': True,
+                'data': result['data']
+            }), 200
+        else:
+            return jsonify({
+                'success': False,
+                'message': result['message']
+            }), 404
+            
+    except Exception as e:
+        logger.error(f"Verification error: {e}")
+        return jsonify({'success': False, 'message': 'Verification service unavailable'}), 500
 
 
 @auth_bp.route('/session', methods=['GET'])

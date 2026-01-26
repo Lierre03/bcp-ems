@@ -283,8 +283,9 @@ const NotificationBell = () => {
                             </div>
                         </div>
                         {reason && (
-                            <div className="md:w-1/3 text-xs bg-red-50 text-red-700 p-2 rounded border border-red-100 flex items-start">
-                                <span className="font-bold mr-1">Reason:</span> {reason}
+                            <div className="md:w-auto md:max-w-[50%] text-xs bg-red-50 text-red-700 p-2 rounded border border-red-100 flex flex-col sm:flex-row items-start gap-1">
+                                <span className="font-bold shrink-0">Reason:</span>
+                                <span className="break-words min-w-0">{reason}</span>
                             </div>
                         )}
                     </div>

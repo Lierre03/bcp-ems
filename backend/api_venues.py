@@ -31,7 +31,7 @@ venues_bp = Blueprint('venues', __name__, url_prefix='/api/venues')
 # VENUE ENDPOINTS
 # ============================================================================
 
-@venues_bp.route('/', methods=['GET'])
+@venues_bp.route('', methods=['GET'])
 def get_venues():
     """Get all available venues"""
     try:
@@ -209,9 +209,12 @@ def add_equipment_quantity(equipment_id):
             UPDATE equipment 
             SET total_quantity = total_quantity + %s 
             WHERE id = %s
-            RETURNING id, name, category, total_quantity
         """
-        result = db.execute_one(query, (quantity_to_add, equipment_id))
+        # Execute update
+        db.execute_update(query, (quantity_to_add, equipment_id))
+        
+        # Fetch updated record
+        result = db.execute_one("SELECT id, name, category, total_quantity FROM equipment WHERE id = %s", (equipment_id,))
         
         if not result:
             return jsonify({'success': False, 'error': 'Equipment not found'}), 404
@@ -242,9 +245,10 @@ def update_equipment(equipment_id):
             UPDATE equipment 
             SET name = %s, category = %s
             WHERE id = %s
-            RETURNING id, name, category, total_quantity
         """
-        result = db.execute_one(query, (name, category, equipment_id))
+        db.execute_update(query, (name, category, equipment_id))
+        
+        result = db.execute_one("SELECT id, name, category, total_quantity FROM equipment WHERE id = %s", (equipment_id,))
         
         if not result:
             return jsonify({'success': False, 'error': 'Equipment not found'}), 404
@@ -301,9 +305,10 @@ def adjust_equipment_quantity(equipment_id):
             UPDATE equipment 
             SET total_quantity = %s
             WHERE id = %s
-            RETURNING id, name, category, total_quantity
         """
-        result = db.execute_one(update_query, (new_qty, equipment_id))
+        db.execute_update(update_query, (new_qty, equipment_id))
+        
+        result = db.execute_one("SELECT id, name, category, total_quantity FROM equipment WHERE id = %s", (equipment_id,))
 
         # Log the change
         log_query = """
@@ -348,9 +353,10 @@ def archive_equipment(equipment_id):
                 archived_by = %s,
                 archive_reason = %s
             WHERE id = %s
-            RETURNING id, name
         """
-        result = db.execute_one(query, (session.get('user_id'), reason, equipment_id))
+        db.execute_update(query, (session.get('user_id'), reason, equipment_id))
+        
+        result = db.execute_one("SELECT id, name FROM equipment WHERE id = %s", (equipment_id,))
         
         if not result:
             return jsonify({'success': False, 'error': 'Equipment not found'}), 404
@@ -376,9 +382,10 @@ def unarchive_equipment(equipment_id):
                 archived_by = NULL,
                 archive_reason = NULL
             WHERE id = %s
-            RETURNING id, name
         """
-        result = db.execute_one(query, (equipment_id,))
+        db.execute_update(query, (equipment_id,))
+        
+        result = db.execute_one("SELECT id, name FROM equipment WHERE id = %s", (equipment_id,))
         
         if not result:
             return jsonify({'success': False, 'error': 'Equipment not found'}), 404
@@ -406,7 +413,7 @@ def get_equipment_logs(equipment_id):
                 l.changed_at,
                 l.previous_quantity,
                 l.new_quantity,
-                u.first_name || ' ' || u.last_name as changed_by_name
+                CONCAT(u.first_name, ' ', u.last_name) as changed_by_name
             FROM equipment_quantity_logs l
             LEFT JOIN users u ON l.changed_by = u.id
             WHERE l.equipment_id = %s
@@ -598,7 +605,7 @@ def get_venue_calendar():
 
         # Filter by month if provided
         if month_str:
-            query += " AND TO_CHAR(e.start_datetime, 'YYYY-MM') = %s"
+            query += " AND DATE_FORMAT(e.start_datetime, '%Y-%m') = %s"
             params.append(month_str)
             
         # Filter by venue if provided

@@ -589,11 +589,12 @@ def get_dashboard_stats():
         if user_role != 'Super Admin':
             # Admins and Department Heads can only see their department's events or shared events
             if user_department:
-                # PostgreSQL array operator: department IN shared_with_departments OR organizing_department = user_department
+                # MySQL JSON operator: department = organizing_department OR JSON_CONTAINS(shared_with_departments, "DEPT")
+                # We assume shared_with_departments is stored as a JSON array ["Dept A", "Dept B"]
                 department_filter = """
                     AND (
                         e.organizing_department = %s 
-                        OR %s = ANY(e.shared_with_departments)
+                        OR JSON_CONTAINS(e.shared_with_departments, JSON_QUOTE(%s))
                     )
                 """
                 params = [user_department, user_department]

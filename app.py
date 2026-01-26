@@ -47,14 +47,6 @@ def create_app(config_name='development'):
     # Initialize database
     init_db(app.config['DB_CONFIG'])
 
-    # Fix PostgreSQL sequences (one-time fix for imported data)
-    with app.app_context():
-        try:
-            from backend.fix_postgres_sequences import fix_sequences
-            fix_sequences()
-        except Exception as e:
-            app.logger.error(f"Failed to run sequence fix: {e}")
-    
     # Configure logging
     logging.basicConfig(
         level=app.config['LOG_LEVEL'],

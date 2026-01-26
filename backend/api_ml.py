@@ -378,17 +378,17 @@ def get_equipment_options():
         # Get all unique categories
         category_rows = db.execute_query("SELECT DISTINCT category FROM equipment ORDER BY category")
 
-        # Get all equipment items grouped by category
-        equipment_rows = db.execute_query("SELECT category, STRING_AGG(name, ',' ORDER BY name) as items FROM equipment GROUP BY category ORDER BY category")
-
-        # Build categories dictionary from database
+        # Get all equipment items
+        # Use simple select and group in python to avoid STRING_AGG/GROUP_CONCAT dialect issues
+        all_items = db.execute_query("SELECT category, name FROM equipment ORDER BY category, name")
+        
+        # Build categories dictionary
         categories = {}
-        for row in equipment_rows:
-            try:
-                items = row['items'].split(',') if row['items'] else []
-                categories[row['category']] = sorted(items)
-            except:
-                categories[row['category']] = []
+        for row in all_items:
+            cat = row['category']
+            if cat not in categories:
+                categories[cat] = []
+            categories[cat].append(row['name'])
 
         # Add any categories that don't have equipment yet
         for cat_row in category_rows:

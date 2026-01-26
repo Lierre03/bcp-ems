@@ -379,10 +379,10 @@ def get_events():
             SELECT e.id, 
                    e.name,
                    e.event_type as type,
-                   TO_CHAR(e.start_datetime, 'YYYY-MM-DD') as date,
-                   TO_CHAR(e.end_datetime, 'YYYY-MM-DD') as "endDate",
-                   TO_CHAR(e.start_datetime, 'HH24:MI') as "startTime",
-                   TO_CHAR(e.end_datetime, 'HH24:MI') as "endTime",
+                   DATE_FORMAT(e.start_datetime, '%Y-%m-%d') as date,
+                   DATE_FORMAT(e.end_datetime, '%Y-%m-%d') as "endDate",
+                   DATE_FORMAT(e.start_datetime, '%H:%i') as "startTime",
+                   DATE_FORMAT(e.end_datetime, '%H:%i') as "endTime",
                    e.expected_attendees as attendees,
                    e.status,
                    e.description,
@@ -394,7 +394,7 @@ def get_events():
                    e.additional_resources,
                    e.organizing_department,
                    e.shared_with_departments,
-                   COALESCE(e.organizer, u.first_name || ' ' || u.last_name) as organizer,
+                   COALESCE(e.organizer, CONCAT(u.first_name, ' ', u.last_name)) as organizer,
                    u.username as requestor_username,
                    e.requestor_id
             FROM events e
@@ -426,7 +426,7 @@ def get_events():
             
             query += """ AND (
                 e.organizing_department = %s 
-                OR %s = ANY(e.shared_with_departments)
+                OR JSON_CONTAINS(e.shared_with_departments, JSON_QUOTE(%s))
                 OR e.status IN ('Approved', 'Ongoing', 'Completed')
             )"""
             params.extend([dept_filter, dept_filter])
@@ -448,7 +448,7 @@ def get_events():
             )
             if student and student.get('course'):
                 student_dept = student['course']
-                query += " AND (e.organizing_department = %s OR %s = ANY(e.shared_with_departments))"
+                query += " AND (e.organizing_department = %s OR JSON_CONTAINS(e.shared_with_departments, JSON_QUOTE(%s)))"
                 params.extend([student_dept, student_dept])
                 logger.info(f"Filtering events for Participant department: {student_dept} (strict + shared)")
             else:
@@ -591,7 +591,7 @@ def get_event(event_id):
         # All data is in events table as JSON - no need for joins to old tables
         query = """
             SELECT e.*, u.username as requestor_username,
-                   u.first_name || ' ' || u.last_name as requestor_name
+                   CONCAT(u.first_name, ' ', u.last_name) as requestor_name
             FROM events e
             JOIN users u ON e.requestor_id = u.id
             WHERE e.id = %s AND e.deleted_at IS NULL
@@ -744,8 +744,8 @@ def create_event():
         else:
             initial_status = 'Pending'
         
-        # shared_with_departments: PostgreSQL array type - pass as Python list
-        shared_departments = data.get('shared_with_departments', [])
+        # shared_with_departments: Convert to JSON string for MySQL LONGTEXT
+        shared_departments = json.dumps(data.get('shared_with_departments', []))
         
         logger.info(f"Creating event with JSON data:")
         logger.info(f"  Equipment: {equipment_json}")
@@ -761,7 +761,6 @@ def create_event():
                 venue, organizer, expected_attendees, budget, equipment, timeline, budget_breakdown, additional_resources,
                 organizing_department, shared_with_departments, status, requestor_id
             ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-            RETURNING id
         """
         event_id = db.execute_insert(query, (
             data['name'],
@@ -798,7 +797,7 @@ def create_event():
             f'Event created by {user_role}'
         ))
         
-        logger.info(f"Event created: ID={event_id}, Name={data['name']}, User={session['username']}")
+        logger.info(f"Event created: ID={event_id}, Name={data['name']}, User={session.get('username', 'Unknown')}")
         
         return jsonify({
             'success': True,
@@ -880,8 +879,8 @@ def update_event(event_id):
             
         if 'shared_with_departments' in data:
             update_fields.append("shared_with_departments = %s")
-            # PostgreSQL array type - pass as Python list
-            shared_list = data['shared_with_departments'] if data['shared_with_departments'] else []
+            # Convert to JSON string for MySQL LONGTEXT
+            shared_list = json.dumps(data['shared_with_departments']) if data['shared_with_departments'] else '[]'
             params.append(shared_list)
             logger.info(f"Saving shared_with_departments: {shared_list}")
         
@@ -903,7 +902,7 @@ def update_event(event_id):
                 (event_id, event['status'], data['status'], session['user_id'], data.get('reason', 'Status updated'))
             )
         
-        logger.info(f"Event updated: ID={event_id}, User={session['username']}")
+        logger.info(f"Event updated: ID={event_id}, User={session.get('username', 'Unknown')}")
         
         return jsonify({
             'success': True,

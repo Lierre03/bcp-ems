@@ -18,66 +18,16 @@ class Config:
     SESSION_COOKIE_SAMESITE = 'Lax'
     SESSION_COOKIE_NAME = 'session'
     
-    # Parse DATABASE_URL if available (for Render/Heroku)
-    database_url = os.environ.get('DATABASE_URL')
-    if database_url:
-        # Debug print
-        masked = database_url.split('@')[-1] if '@' in database_url else '***'
-        print(f"DEBUG: Found DATABASE_URL: ...@{masked}")
-
-        # Robust parsing using urllib
-        import urllib.parse
-        
-        # Ensure scheme is understandable by urlparse
-        parse_url = database_url
-        if parse_url.startswith('postgres://'):
-            parse_url = parse_url.replace('postgres://', 'postgresql://', 1)
-
-        try:
-            url = urllib.parse.urlparse(parse_url)
-            
-            # Extract database name (remove leading /)
-            path = url.path[1:] if url.path.startswith('/') else url.path
-            
-            # Parse query params for sslmode if present, but default to 'require' for Render
-            query_params = urllib.parse.parse_qs(url.query)
-            sslmode = query_params.get('sslmode', ['require'])[0]
-            
-            DB_CONFIG = {
-                'host': url.hostname,
-                'user': url.username,
-                'password': url.password,
-                'database': path,
-                'port': url.port or 5432,
-                'autocommit': True,
-                'sslmode': sslmode
-            }
-            # Verify host is not None
-            if not DB_CONFIG['host']:
-                raise ValueError("Hostname parsing failed (None)")
-
-        except Exception as e:
-            print(f"Error parsing DATABASE_URL: {e}. Falling back to default.")
-            # Fallback to default
-            DB_CONFIG = {
-                'host': os.environ.get('DB_HOST') or 'localhost',
-                'user': os.environ.get('DB_USER') or 'root',
-                'password': os.environ.get('DB_PASSWORD') or '',
-                'database': os.environ.get('DB_NAME') or 'school_event_management',
-                'port': int(os.environ.get('DB_PORT') or 5432),
-                'autocommit': True,
-                'sslmode': 'disable'
-            }
-    else:
-        # Local development
-        DB_CONFIG = {
-            'host': os.environ.get('DB_HOST') or 'localhost',
-            'user': os.environ.get('DB_USER') or 'root',
-            'password': os.environ.get('DB_PASSWORD') or '',
-            'database': os.environ.get('DB_NAME') or 'school_event_management',
-            'port': int(os.environ.get('DB_PORT') or 5432),
-            'autocommit': True
-        }
+    # Database configuration (MySQL Only for XAMPP)
+    DB_CONFIG = {
+        'host': os.environ.get('DB_HOST') or 'localhost',
+        'user': os.environ.get('DB_USER') or 'root',
+        'password': os.environ.get('DB_PASSWORD') or '',
+        'database': os.environ.get('DB_NAME') or 'school_event_management',
+        'port': int(os.environ.get('DB_PORT') or 3306),
+        'autocommit': True,
+        'type': 'mysql'
+    }
     
     # CORS configuration
     CORS_ORIGINS = [

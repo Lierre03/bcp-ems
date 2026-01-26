@@ -166,7 +166,7 @@ def get_my_feedback():
         db = get_db()
         query = """
             SELECT f.*, e.name as event_name, e.start_datetime, e.end_datetime,
-                   e.venue, EXTRACT(EPOCH FROM (NOW() - f.created_at))/3600 as hours_since_submission
+                   e.venue, TIMESTAMPDIFF(HOUR, f.created_at, NOW()) as hours_since_submission
             FROM event_feedback f
             JOIN events e ON f.event_id = e.id
             WHERE f.user_id = %s
@@ -223,7 +223,7 @@ def get_event_feedback(event_id):
         # Get all feedback for this event
         query = """
             SELECT f.*, u.first_name, u.last_name, u.username,
-                   EXTRACT(EPOCH FROM (NOW() - f.created_at))/3600 as hours_since_submission
+                   TIMESTAMPDIFF(HOUR, f.created_at, NOW()) as hours_since_submission
             FROM event_feedback f
             JOIN users u ON f.user_id = u.id
             WHERE f.event_id = %s
@@ -476,7 +476,7 @@ def get_feedback_analytics():
             FROM event_feedback f
             JOIN events e ON f.event_id = e.id
             JOIN users u ON f.user_id = u.id
-            WHERE f.created_at >= NOW() - INTERVAL '30 days'
+            WHERE f.created_at >= DATE_SUB(NOW(), INTERVAL 30 DAY)
             ORDER BY f.created_at DESC
             LIMIT 10
         """

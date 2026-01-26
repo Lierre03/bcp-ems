@@ -76,38 +76,51 @@
                 class="absolute bottom-0 right-0 w-96 h-96 bg-white opacity-5 rounded-full translate-x-1/3 translate-y-1/3">
             </div>
 
-            <div class="text-white max-w-lg relative z-10">
+            <div class="text-white max-w-lg relative z-10 flex flex-col items-center text-center">
+                <!-- Desktop Logo (Moved here) -->
+                <div class="mb-6">
+                    <img src="/static/bcp-olp-logo-mini2.png" alt="Institution Logo" class="h-32 w-auto object-contain"
+                        onerror="this.src='https://via.placeholder.com/150x80?text=Logo'">
+                </div>
+
                 <h2 class="text-4xl font-bold mb-6 tracking-tight">Welcome to SEMS</h2>
-                <p class="text-lg text-blue-100 mb-10 leading-relaxed font-light">
-                    Your all-in-one platform for managing school event participation seamlessly and efficiently.
+                <p class="text-lg text-blue-100 mb-10 leading-relaxed font-light mx-auto max-w-md">
+                    Your all-in-one platform for managing school
+                    <br class="hidden sm:block">
+                    event participation seamlessly and efficiently.
                 </p>
-                <div class="space-y-6">
-                    <div class="flex items-center gap-4 group">
-                        <div class="bg-white/10 p-3 rounded-lg group-hover:bg-white/20 transition-colors">
-                            <svg class="w-6 h-6 text-blue-50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                    d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                            </svg>
+                <div class="flex justify-center w-full">
+                    <div class="space-y-6 inline-flex flex-col items-start">
+                        <div class="flex items-center gap-4 group">
+                            <div
+                                class="bg-white/10 p-3 rounded-lg group-hover:bg-white/20 transition-colors flex-shrink-0">
+                                <svg class="w-6 h-6 text-blue-50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                        d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                                </svg>
+                            </div>
+                            <p class="text-lg text-blue-50 font-medium">Event Registration</p>
                         </div>
-                        <p class="text-lg text-blue-50 font-medium">Event Registration</p>
-                    </div>
-                    <div class="flex items-center gap-4 group">
-                        <div class="bg-white/10 p-3 rounded-lg group-hover:bg-white/20 transition-colors">
-                            <svg class="w-6 h-6 text-blue-50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                    d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
-                            </svg>
+                        <div class="flex items-center gap-4 group">
+                            <div
+                                class="bg-white/10 p-3 rounded-lg group-hover:bg-white/20 transition-colors flex-shrink-0">
+                                <svg class="w-6 h-6 text-blue-50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                        d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
+                                </svg>
+                            </div>
+                            <p class="text-lg text-blue-50 font-medium">Attendance Tracking</p>
                         </div>
-                        <p class="text-lg text-blue-50 font-medium">Attendance Tracking</p>
-                    </div>
-                    <div class="flex items-center gap-4 group">
-                        <div class="bg-white/10 p-3 rounded-lg group-hover:bg-white/20 transition-colors">
-                            <svg class="w-6 h-6 text-blue-50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                    d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z" />
-                            </svg>
+                        <div class="flex items-center gap-4 group">
+                            <div
+                                class="bg-white/10 p-3 rounded-lg group-hover:bg-white/20 transition-colors flex-shrink-0">
+                                <svg class="w-6 h-6 text-blue-50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                        d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z" />
+                                </svg>
+                            </div>
+                            <p class="text-lg text-blue-50 font-medium">Instant Feedback</p>
                         </div>
-                        <p class="text-lg text-blue-50 font-medium">Instant Feedback</p>
                     </div>
                 </div>
             </div>
@@ -117,10 +130,10 @@
         <div class="w-full lg:w-7/12 bg-white flex flex-col items-center justify-center p-6 sm:p-12 relative">
             <div class="w-full max-w-xl mx-auto flex flex-col justify-center h-full">
 
-                <!-- Logo Section -->
-                <div class="flex justify-center mb-6">
+                <!-- Logo Section (Mobile Only) -->
+                <div class="flex justify-center mb-6 lg:hidden">
                     <img src="/static/bcp-olp-logo-mini2.png" alt="Institution Logo"
-                        class="logo-img h-20 lg:h-24 w-auto object-contain transition-all duration-300"
+                        class="logo-img h-20 w-auto object-contain transition-all duration-300"
                         onerror="this.src='https://via.placeholder.com/150x80?text=Logo'">
                 </div>
 
@@ -133,136 +146,126 @@
                 <!-- Form -->
                 <form id="registerForm" class="space-y-5">
 
-                    <!-- Name Row -->
-                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-5 input-group">
+                    <!-- STEP 1: Verification -->
+                    <div id="verificationStep" class="space-y-4">
                         <div class="space-y-1.5">
-                            <label for="firstName" class="block text-sm font-medium text-gray-700">First Name</label>
-                            <input type="text" id="firstName" name="firstName" required
-                                class="w-full px-4 py-2.5 bg-white border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 outline-none text-gray-900 text-sm transition-all hover:border-gray-400 placeholder-gray-400"
-                                placeholder="John">
-                        </div>
-                        <div class="space-y-1.5">
-                            <label for="lastName" class="block text-sm font-medium text-gray-700">Last Name</label>
-                            <input type="text" id="lastName" name="lastName" required
-                                class="w-full px-4 py-2.5 bg-white border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 outline-none text-gray-900 text-sm transition-all hover:border-gray-400 placeholder-gray-400"
-                                placeholder="Doe">
-                        </div>
-                    </div>
-
-                    <!-- Email & Username Row -->
-                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-5 input-group">
-                        <div class="space-y-1.5">
-                            <label for="email" class="block text-sm font-medium text-gray-700">Email Address</label>
-                            <input type="email" id="email" name="email" required
-                                class="w-full px-4 py-2.5 bg-white border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 outline-none text-gray-900 text-sm transition-all hover:border-gray-400 placeholder-gray-400"
-                                placeholder="name@school.edu">
-                        </div>
-                        <div class="space-y-1.5">
-                            <label for="username" class="block text-sm font-medium text-gray-700">Username</label>
-                            <input type="text" id="username" name="username" required
-                                class="w-full px-4 py-2.5 bg-white border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 outline-none text-gray-900 text-sm transition-all hover:border-gray-400 placeholder-gray-400"
-                                placeholder="johndoe">
+                            <label for="studentId" class="block text-sm font-medium text-gray-700">Student ID
+                                Number</label>
+                            <div class="flex gap-2">
+                                <input type="text" id="studentId" name="studentId" required
+                                    class="flex-1 px-4 py-2.5 bg-white border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 outline-none text-gray-900 text-sm transition-all placeholder-gray-400"
+                                    placeholder="e.g. 2023-10245">
+                                <button type="button" id="verifyBtn" onclick="verifyStudent()"
+                                    class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-colors flex items-center gap-2 whitespace-nowrap">
+                                    Verify ID
+                                </button>
+                            </div>
+                            <p class="text-xs text-blue-600 mt-1">
+                                <span class="font-semibold">Note:</span> We will fetch your details from the central
+                                database.
+                            </p>
                         </div>
                     </div>
 
-                    <!-- Course & Section Row -->
-                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-5 input-group">
-                        <!-- Course Selection -->
-                        <div class="space-y-1.5">
-                            <label for="course" class="block text-sm font-medium text-gray-700">Course</label>
-                            <div class="relative">
-                                <select id="course" name="course" required
-                                    class="w-full px-4 py-2.5 bg-white border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 outline-none text-gray-900 text-sm transition-all hover:border-gray-400 appearance-none truncate">
-                                    <option value="" disabled selected>Select Course</option>
+                    <!-- STEP 2: Account Details (Hidden until Verified) -->
+                    <div id="accountDetailsStep" class="hidden space-y-5 animate-fade-in-down">
+                        <div class="bg-blue-50 border border-blue-100 rounded-lg p-3 flex gap-3 text-sm text-blue-800">
+                            <svg class="w-5 h-5 flex-shrink-0 text-blue-600" fill="none" stroke="currentColor"
+                                viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
+                            <div>
+                                <p class="font-bold">Identity Verified</p>
+                                <p class="text-xs mt-1">Please set a username and password to create your account.</p>
+                            </div>
+                        </div>
 
-                                    <optgroup label="Information Technology & Engineering">
-                                        <option value="BSIT">BS Information Technology (BSIT)</option>
-                                        <option value="BSCpE">BS Computer Engineering (BSCpE)</option>
-                                        <option value="BSIS">BS Information Systems (BSIS)</option>
-                                    </optgroup>
+                        <!-- Name Row (Read Only) -->
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-5 input-group">
+                            <div class="space-y-1.5">
+                                <label class="block text-sm font-medium text-gray-700">First Name</label>
+                                <input type="text" id="firstName" readonly
+                                    class="w-full px-4 py-2.5 bg-gray-100 border border-gray-300 rounded-lg text-gray-500 text-sm cursor-not-allowed font-medium">
+                            </div>
+                            <div class="space-y-1.5">
+                                <label class="block text-sm font-medium text-gray-700">Last Name</label>
+                                <input type="text" id="lastName" readonly
+                                    class="w-full px-4 py-2.5 bg-gray-100 border border-gray-300 rounded-lg text-gray-500 text-sm cursor-not-allowed font-medium">
+                            </div>
+                        </div>
 
-                                    <optgroup label="Business & Management">
-                                        <option value="BSBA">BS Business Administration (BSBA)</option>
-                                        <option value="BSOA">BS Office Administration (BSOA)</option>
-                                        <option value="BSHRM">BS Hotel & Restaurant Mgt (BSHRM)</option>
-                                        <option value="BSTM">BS Tourism Management (BSTM)</option>
-                                        <option value="BSAct">BS Accounting Technology (BSAct)</option>
-                                    </optgroup>
+                        <!-- Course & Section (Read Only) -->
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-5 input-group">
+                            <div class="space-y-1.5">
+                                <label class="block text-sm font-medium text-gray-700">Course</label>
+                                <input type="text" id="course" readonly
+                                    class="w-full px-4 py-2.5 bg-gray-100 border border-gray-300 rounded-lg text-gray-500 text-sm cursor-not-allowed font-medium">
+                            </div>
+                            <div class="space-y-1.5">
+                                <label class="block text-sm font-medium text-gray-700">Section</label>
+                                <input type="text" id="section" readonly
+                                    class="w-full px-4 py-2.5 bg-gray-100 border border-gray-300 rounded-lg text-gray-500 text-sm cursor-not-allowed font-medium">
+                            </div>
+                        </div>
 
-                                    <optgroup label="Education & Arts">
-                                        <option value="BEED">BS Elementary Education (BEED)</option>
-                                        <option value="BSED">BS Secondary Education (BSED)</option>
-                                        <option value="BTTE">BS Technical Teacher Educ (BTTE)</option>
-                                        <option value="BLIS">Bachelor of Library & Info Sci (BLIS)</option>
-                                        <option value="BSPsych">BS Psychology (BSPsych)</option>
-                                        <option value="BSCrim">BS Criminology (BSCrim)</option>
-                                    </optgroup>
-                                </select>
-                                <div class="absolute inset-y-0 right-0 flex items-center px-2 pointer-events-none">
-                                    <svg class="w-4 h-4 text-gray-500" fill="none" stroke="currentColor"
-                                        viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                            d="M19 9l-7 7-7-7" />
-                                    </svg>
+                        <!-- Email & Username -->
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-5 input-group">
+                            <div class="space-y-1.5">
+                                <label for="email" class="block text-sm font-medium text-gray-700">Email Address</label>
+                                <input type="email" id="email" name="email" required
+                                    class="w-full px-4 py-2.5 bg-white border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 outline-none text-gray-900 text-sm transition-all"
+                                    placeholder="name@school.edu">
+                            </div>
+                            <div class="space-y-1.5">
+                                <label for="username" class="block text-sm font-medium text-gray-700">Username</label>
+                                <input type="text" id="username" name="username" required
+                                    class="w-full px-4 py-2.5 bg-white border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 outline-none text-gray-900 text-sm transition-all"
+                                    placeholder="johndoe">
+                            </div>
+                        </div>
+
+                        <!-- Password Row -->
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-5 input-group">
+                            <div class="space-y-1.5">
+                                <label for="password" class="block text-sm font-medium text-gray-700">Password</label>
+                                <div class="relative">
+                                    <input type="password" id="password" name="password" required minlength="8"
+                                        class="w-full px-4 py-2.5 bg-white border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 outline-none text-gray-900 text-sm transition-all"
+                                        placeholder="8+ characters">
+                                    <span
+                                        class="absolute right-3 top-2.5 password-toggle text-gray-400 hover:text-gray-600"
+                                        onclick="togglePassword('password')">
+                                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                                d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                                d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                                        </svg>
+                                    </span>
+                                </div>
+                            </div>
+                            <div class="space-y-1.5">
+                                <label for="confirmPassword" class="block text-sm font-medium text-gray-700">Confirm
+                                    Password</label>
+                                <div class="relative">
+                                    <input type="password" id="confirmPassword" name="confirmPassword" required
+                                        class="w-full px-4 py-2.5 bg-white border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 outline-none text-gray-900 text-sm transition-all"
+                                        placeholder="Repeat password">
                                 </div>
                             </div>
                         </div>
 
-                        <!-- Section Selection (Dynamic Dropdown) -->
-                        <div class="space-y-1.5">
-                            <label for="section" class="block text-sm font-medium text-gray-700">Section</label>
-                            <div class="relative">
-                                <select id="section" name="section" required disabled
-                                    class="w-full px-4 py-2.5 bg-white border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 outline-none text-gray-900 text-sm transition-all hover:border-gray-400 appearance-none disabled:bg-gray-100 disabled:text-gray-400">
-                                    <option value="" disabled selected>Select Course First</option>
-                                </select>
-                                <div class="absolute inset-y-0 right-0 flex items-center px-2 pointer-events-none">
-                                    <svg class="w-4 h-4 text-gray-500" fill="none" stroke="currentColor"
-                                        viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                            d="M19 9l-7 7-7-7" />
-                                    </svg>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Password Row -->
-                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-5 input-group">
-                        <div class="space-y-1.5">
-                            <label for="password" class="block text-sm font-medium text-gray-700">Password</label>
-                            <div class="relative">
-                                <input type="password" id="password" name="password" required minlength="8"
-                                    class="w-full px-4 py-2.5 bg-white border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 outline-none text-gray-900 text-sm transition-all hover:border-gray-400 placeholder-gray-400"
-                                    placeholder="8+ characters">
-                                <span class="absolute right-3 top-2.5 password-toggle text-gray-400 hover:text-gray-600"
-                                    onclick="togglePassword('password')">
-                                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                            d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                            d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                                    </svg>
-                                </span>
-                            </div>
-                        </div>
-                        <div class="space-y-1.5">
-                            <label for="confirmPassword" class="block text-sm font-medium text-gray-700">Confirm
-                                Password</label>
-                            <div class="relative">
-                                <input type="password" id="confirmPassword" name="confirmPassword" required
-                                    class="w-full px-4 py-2.5 bg-white border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 outline-none text-gray-900 text-sm transition-all hover:border-gray-400 placeholder-gray-400"
-                                    placeholder="Repeat password">
-                                <span class="absolute right-3 top-2.5 password-toggle text-gray-400 hover:text-gray-600"
-                                    onclick="togglePassword('confirmPassword')">
-                                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                            d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                            d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                                    </svg>
-                                </span>
-                            </div>
+                        <!-- Action Buttons -->
+                        <div class="pt-2">
+                            <button type="submit" id="registerBtn"
+                                class="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 rounded-lg shadow-sm hover:shadow-md transition-all duration-200 transform active:scale-[0.99] flex items-center justify-center gap-2">
+                                Create Verified Account
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                        d="M13 7l5 5m0 0l-5 5m5-5H6" />
+                                </svg>
+                            </button>
                         </div>
                     </div>
 
@@ -278,18 +281,6 @@
                         </div>
                     </div>
 
-                    <!-- Action Buttons -->
-                    <div class="pt-2">
-                        <button type="submit" id="registerBtn"
-                            class="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 rounded-lg shadow-sm hover:shadow-md transition-all duration-200 transform active:scale-[0.99] flex items-center justify-center gap-2">
-                            Create Account
-                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                    d="M13 7l5 5m0 0l-5 5m5-5H6" />
-                            </svg>
-                        </button>
-                    </div>
-
                     <!-- Sign In Link -->
                     <div class="text-center">
                         <p class="text-gray-500 text-sm">
@@ -303,7 +294,7 @@
 
                 <!-- Footer -->
                 <div class="mt-8 text-center border-t border-gray-100 pt-4 hidden sm:block">
-                    <p class="text-xs text-gray-400">&copy; 2025 SEMS. All rights reserved.</p>
+                    <p class="text-xs text-gray-400">&copy; 2025 SEMS. Verified Registration.</p>
                 </div>
             </div>
         </div>
@@ -315,78 +306,118 @@
             field.type = field.type === 'password' ? 'text' : 'password';
         }
 
-        // Section Population Logic (2 sample sections per course, requested simplified format)
-        const courseSelect = document.getElementById('course');
-        const sectionSelect = document.getElementById('section');
+        // Mock verification for fallback (since we might not reach external API in 'local' dev without tunnel)
+        // In PROD, this calls the backend which calls external API.
 
-        const sectionsByCourse = {
-            'BSIT': ['IT01', 'IT02'],
-            'BSCpE': ['CpE01', 'CpE02'],
-            'BSIS': ['IS01', 'IS02'],
-            'BSBA': ['BA01', 'BA02'],
-            'BSOA': ['OA01', 'OA02'],
-            'BSHRM': ['HM01', 'HM02'],
-            'BSTM': ['TM01', 'TM02'],
-            'BSAct': ['Act01', 'Act02'],
-            'BEED': ['EED01', 'EED02'],
-            'BSED': ['SED01', 'SED02'],
-            'BTTE': ['TTE01', 'TTE02'],
-            'BLIS': ['LIS01', 'LIS02'],
-            'BSPsych': ['Psy01', 'Psy02'],
-            'BSCrim': ['Crim01', 'Crim02']
-        };
+        async function verifyStudent() {
+            const studentId = document.getElementById('studentId').value.trim();
+            const btn = document.getElementById('verifyBtn');
+            const errorDiv = document.getElementById('errorMessage');
 
-        courseSelect.addEventListener('change', function () {
-            const selectedCourse = this.value;
-            sectionSelect.innerHTML = '<option value="" disabled selected>Select Section</option>';
+            errorDiv.classList.add('hidden');
 
-            if (sectionsByCourse[selectedCourse]) {
-                sectionsByCourse[selectedCourse].forEach(section => {
-                    const option = document.createElement('option');
-                    option.value = section;
-                    option.textContent = section;
-                    sectionSelect.appendChild(option);
-                });
-                sectionSelect.disabled = false;
-            } else {
-                sectionSelect.innerHTML = '<option value="" disabled selected>Select Course First</option>';
-                sectionSelect.disabled = true;
+            if (!studentId) {
+                showError("Please enter your Student ID Number.");
+                return;
             }
-        });
+
+            // UI Loading
+            const originalText = btn.innerHTML;
+            btn.disabled = true;
+            btn.innerHTML = '<svg class="animate-spin h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg> Verifying...';
+
+            // Simulate API Call or Call Backend? 
+            // We can't call backend /register purely for verification yet without submitting.
+            // But wait, I updated /register to DO verification + create.
+            // frontend needs a dedicated verification check OR I should just submit to register?
+            // "Verify" button suggests a pre-check.
+            // I should make a /api/auth/verify-student endpoint?
+            // OR simpler: Just let them fill ID, then we show the rest?
+
+            // For now, let's implement a 'Pre-Fill' mechanism.
+            // Since we didn't make a dedicated verify endpoint, let's use a trick or add one.
+            // Creating a dedicated verify endpoint is cleaner. 
+            // BUT for speed, I can Mock it client side if I can't reach API?
+            // No, the requirement is "Centralized". 
+            // Use the Backend Proxy I created!
+
+            try {
+                // I need to add this endpoint to auth.py quickly or use a workaround.
+                // Workaround: I'll use a new endpoint /api/auth/verify-student
+                const response = await fetch('/api/auth/verify-student', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ student_id: studentId })
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    // Success! Populate fields
+                    const firstNameField = document.getElementById('firstName');
+                    const lastNameField = document.getElementById('lastName');
+                    const courseField = document.getElementById('course');
+                    const sectionField = document.getElementById('section');
+                    const emailField = document.getElementById('email');
+
+                    firstNameField.value = data.data.first_name;
+                    lastNameField.value = data.data.last_name;
+                    courseField.value = data.data.course;
+
+                    // Handle Section: If empty, allow manual entry
+                    if (data.data.section) {
+                        sectionField.value = data.data.section;
+                        sectionField.readOnly = true;
+                        sectionField.classList.add('bg-gray-100', 'cursor-not-allowed');
+                        sectionField.classList.remove('bg-white');
+                    } else {
+                        sectionField.value = '';
+                        sectionField.readOnly = false;
+                        sectionField.placeholder = "Enter Section (e.g. 1A)";
+                        sectionField.classList.remove('bg-gray-100', 'cursor-not-allowed');
+                        sectionField.classList.add('bg-white');
+                        // Optional: Focus it to alert user
+                        // sectionField.focus(); 
+                    }
+
+                    if (data.data.email) emailField.value = data.data.email;
+
+                    // Show next step
+                    document.getElementById('accountDetailsStep').classList.remove('hidden');
+
+                    // Lock ID and Button
+                    document.getElementById('studentId').disabled = true;
+                    document.getElementById('studentId').classList.add('bg-gray-50');
+
+                    btn.innerHTML = 'Verified <svg class="w-4 h-4 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>';
+                    btn.classList.remove('bg-blue-600', 'hover:bg-blue-700');
+                    btn.classList.add('bg-green-600', 'hover:bg-green-700', 'cursor-default');
+                    btn.disabled = true; // Disable to prevent re-clicks
+                } else {
+                    showError(data.message || "Student ID not found.");
+                }
+            } catch (e) {
+                // Fallback for demo if endpoint missing
+                showError("Connection error. Please try again.");
+            } finally {
+                if (!document.getElementById('studentId').disabled) {
+                    btn.disabled = false;
+                    btn.innerHTML = originalText;
+                }
+            }
+        }
 
         document.getElementById('registerForm').addEventListener('submit', async (e) => {
             e.preventDefault();
 
-            const firstName = document.getElementById('firstName').value.trim();
-            const lastName = document.getElementById('lastName').value.trim();
+            const studentId = document.getElementById('studentId').value.trim();
             const email = document.getElementById('email').value.trim();
             const username = document.getElementById('username').value.trim();
-            const course = document.getElementById('course').value;
-            const section = document.getElementById('section').value;
             const password = document.getElementById('password').value;
             const confirmPassword = document.getElementById('confirmPassword').value;
 
-            const errorDiv = document.getElementById('errorMessage');
-            errorDiv.classList.add('hidden');
-
-            if (!firstName || !lastName || !email || !username || !password || !course || !section) {
-                showError('All fields are required');
-                return;
-            }
-
-            if (password.length < 8) {
-                showError('Password must be at least 8 characters');
-                return;
-            }
-
             if (password !== confirmPassword) {
                 showError('Passwords do not match');
-                return;
-            }
-
-            const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-            if (!emailRegex.test(email)) {
-                showError('Please enter a valid email address');
                 return;
             }
 
@@ -400,12 +431,9 @@
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
-                        first_name: firstName,
-                        last_name: lastName,
+                        student_id: studentId,
                         email: email,
                         username: username,
-                        course: course,
-                        section: section,
                         password: password
                     })
                 });

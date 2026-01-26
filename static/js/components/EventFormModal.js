@@ -285,31 +285,53 @@ window.EventFormModal = function EventFormModal({
     if (!aiSuggestions || !aiSuggestions.timeline) return;
 
     if (shouldApply) {
-      const existingPhases = new Set(userTimelineData.timeline.map(p => p.phase));
-      const uniqueNewPhases = aiSuggestions.timeline.filter(p => !existingPhases.has(p.phase));
+      // Create a map of existing phases for easy lookup
+      const existingTimeline = [...userTimelineData.timeline];
+      const existingPhaseMap = new Map(existingTimeline.map((p, i) => [p.phase, i]));
 
-      const newTimeline = [...userTimelineData.timeline, ...uniqueNewPhases].sort((a, b) => {
+      const newItems = [];
+      const updatedIndices = new Set();
+
+      aiSuggestions.timeline.forEach(suggestion => {
+        if (existingPhaseMap.has(suggestion.phase)) {
+          // Phase exists - MERGE description if missing or update logic
+          const idx = existingPhaseMap.get(suggestion.phase);
+          updatedIndices.add(idx);
+
+          // Only update description if existing is empty/default, or if we want to force update
+          // For Auto-Organize, we generally want to enrich.
+          if (!existingTimeline[idx].description || existingTimeline[idx].description.trim() === '') {
+            existingTimeline[idx] = {
+              ...existingTimeline[idx],
+              description: suggestion.description || ''
+            };
+          }
+        } else {
+          // New phase
+          newItems.push(suggestion);
+        }
+      });
+
+      const newTimeline = [...existingTimeline, ...newItems].sort((a, b) => {
         const timeA = a.startTime || '00:00';
         const timeB = b.startTime || '00:00';
         return timeA.localeCompare(timeB);
       });
 
-      const addedDuration = uniqueNewPhases.reduce((acc, curr) => acc + (curr.duration || 0), 0);
-      const newTotalDuration = (userTimelineData.totalDuration || 0) + addedDuration;
+      const totalDuration = newTimeline.reduce((acc, curr) => acc + (curr.duration || 0), 0);
 
       setTimelineAndSync({
         timeline: newTimeline,
-        totalDuration: newTotalDuration
+        totalDuration: totalDuration
       });
       if (!silent) setTimeout(() => handleTabChange('timeline'), 10);
     } else {
-      // Unapply - Remove ALL suggested phases
+      // Unapply - Remove ONLY phases that were suggested and added (strict match?)
+      // Or revert descriptions? Reverting is hard without history.
+      // Current logic: Remove suggested phases.
       const suggestedPhases = new Set(aiSuggestions.timeline.map(p => p.phase));
       const newTimeline = userTimelineData.timeline.filter(p => !suggestedPhases.has(p.phase));
 
-      // Recalculate duration is tricky without individual tracking, but simplistic approach:
-      // Just sum remaining.
-      // (Simplified duration calc for unapply)
       setTimelineAndSync({
         timeline: newTimeline,
         totalDuration: 0 // Ideally recalc

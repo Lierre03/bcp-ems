@@ -134,14 +134,14 @@ def get_dashboard_analytics():
         # 8. MONTHLY EVENT TRENDS (last 6 months)
         monthly_query = """
             SELECT 
-                TO_CHAR(start_datetime, 'YYYY-MM') as month,
+                DATE_FORMAT(start_datetime, '%Y-%m') as month,
                 COUNT(*) as event_count,
                 SUM(expected_attendees) as total_attendees
             FROM events e
             WHERE e.deleted_at IS NULL
-            AND e.start_datetime >= CURRENT_DATE - INTERVAL '6 months'
+            AND e.start_datetime >= DATE_SUB(CURDATE(), INTERVAL 6 MONTH)
             {}
-            GROUP BY TO_CHAR(e.start_datetime, 'YYYY-MM')
+            GROUP BY month
             ORDER BY month ASC
         """.format(dept_condition)
         monthly_trends = get_db().execute_query(monthly_query, tuple(params) if params else ())
@@ -252,10 +252,10 @@ def get_dashboard_analytics():
         success_rate_query = """
             SELECT 
                 COUNT(*) as total_events,
-                COUNT(*) FILTER (WHERE status = 'Completed') as completed,
-                COUNT(*) FILTER (WHERE status IN ('Cancelled', 'Rejected', 'Conflict_Rejected')) as failed,
-                COUNT(*) FILTER (WHERE status = 'Approved') as approved,
-                ROUND(COUNT(*) FILTER (WHERE status = 'Completed')::numeric / NULLIF(COUNT(*), 0) * 100, 1) as success_rate
+                SUM(CASE WHEN status = 'Completed' THEN 1 ELSE 0 END) as completed,
+                SUM(CASE WHEN status IN ('Cancelled', 'Rejected', 'Conflict_Rejected') THEN 1 ELSE 0 END) as failed,
+                SUM(CASE WHEN status = 'Approved' THEN 1 ELSE 0 END) as approved,
+                ROUND(SUM(CASE WHEN status = 'Completed' THEN 1 ELSE 0 END) / NULLIF(COUNT(*), 0) * 100, 1) as success_rate
             FROM events
             WHERE deleted_at IS NULL
             {}
@@ -274,7 +274,7 @@ def get_dashboard_analytics():
             FROM events e
             JOIN event_feedback ef ON e.id = ef.event_id
             WHERE e.deleted_at IS NULL
-            AND e.start_datetime >= CURRENT_DATE - INTERVAL '6 months'
+            AND e.start_datetime >= DATE_SUB(CURDATE(), INTERVAL 6 MONTH)
             {}
             GROUP BY e.id, e.name, e.start_datetime, e.event_type
             HAVING AVG(ef.overall_rating) < 3.5
@@ -294,9 +294,9 @@ def get_dashboard_analytics():
                 e.event_type,
                 COUNT(DISTINCT e.id) as event_count,
                 SUM(e.expected_attendees) as total_expected,
-                COUNT(DISTINCT ea.id) FILTER (WHERE ea.attendance_status IN ('Present', 'Late')) as total_attended,
+                COUNT(DISTINCT CASE WHEN ea.attendance_status IN ('Present', 'Late') THEN ea.id END) as total_attended,
                 ROUND(
-                    COUNT(DISTINCT ea.id) FILTER (WHERE ea.attendance_status IN ('Present', 'Late'))::numeric / 
+                    COUNT(DISTINCT CASE WHEN ea.attendance_status IN ('Present', 'Late') THEN ea.id END) / 
                     NULLIF(SUM(e.expected_attendees), 0) * 100,
                     1
                 ) as attendance_rate
@@ -313,7 +313,7 @@ def get_dashboard_analytics():
         # 16. FEEDBACK TREND (ALL-TIME, monthly)
         feedback_trend_query = """
             SELECT 
-                TO_CHAR(e.start_datetime, 'YYYY-MM') as month,
+                DATE_FORMAT(e.start_datetime, '%Y-%m') as month,
                 AVG(ef.overall_rating) as avg_overall,
                 AVG(ef.venue_rating) as avg_venue,
                 AVG(ef.activities_rating) as avg_activities,
@@ -321,9 +321,7 @@ def get_dashboard_analytics():
                 COUNT(ef.id) as response_count
             FROM events e
             JOIN event_feedback ef ON e.id = ef.event_id
-            WHERE e.deleted_at IS NULL
-            {}
-            GROUP BY TO_CHAR(e.start_datetime, 'YYYY-MM')
+            GROUP BY month
             ORDER BY month ASC
         """.format(dept_condition)
         feedback_trend = get_db().execute_query(feedback_trend_query, tuple(params) if params else ())

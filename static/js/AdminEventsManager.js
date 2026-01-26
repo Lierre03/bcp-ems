@@ -128,7 +128,7 @@ window.AdminEventsManager = function AdminEventsManager({ eventIdToOpen }) {
 
   const loadVenues = async () => {
     try {
-      const res = await fetch('/api/venues/');
+      const res = await fetch('/api/venues');
       if (res.ok) {
         const data = await res.json();
         if (data.success && data.venues) {

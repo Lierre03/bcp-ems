@@ -5,12 +5,29 @@ window.EventTimelineGenerator = function EventTimelineGenerator({ timelineData, 
 
   // Initialize editedTimeline immediately if initialEditMode is true
   // If timeline is empty, start with one empty phase for user input
+  // Helper to normalize timeline items
+  const normalizeTimelineItems = (items) => {
+    if (!items || !Array.isArray(items)) return [];
+    return items.map(item => {
+      if (typeof item === 'string') {
+        return {
+          phase: item,
+          description: '',
+          startTime: '09:00',
+          endTime: '10:00',
+          duration: 60
+        };
+      }
+      return item; // Keep existing object structure including description
+    });
+  };
+
+  // Initialize editedTimeline immediately if initialEditMode is true
   const getInitialEditedTimeline = () => {
     if (!initialEditMode) return null;
 
     const timeline = timelineData?.timeline || [];
     if (timeline.length === 0) {
-      // Return one empty phase if starting with empty timeline
       return [{
         phase: '',
         description: '',
@@ -20,18 +37,8 @@ window.EventTimelineGenerator = function EventTimelineGenerator({ timelineData, 
       }];
     }
 
-    // Handle legacy string array format
-    if (typeof timeline[0] === 'string') {
-      return timeline.map((item, index) => ({
-        phase: item,
-        description: '',
-        startTime: '09:00', // Default start
-        endTime: '10:00',   // Default end
-        duration: 60
-      }));
-    }
-
-    return JSON.parse(JSON.stringify(timeline));
+    // Use robust normalization
+    return JSON.parse(JSON.stringify(normalizeTimelineItems(timeline)));
   };
 
   const [editedTimeline, setEditedTimeline] = React.useState(getInitialEditedTimeline());
@@ -49,7 +56,6 @@ window.EventTimelineGenerator = function EventTimelineGenerator({ timelineData, 
     if (initialEditMode && timelineData?.timeline && !editedTimeline) {
       const timeline = timelineData.timeline;
       if (timeline.length === 0) {
-        // Set one empty phase if timeline is empty
         setEditedTimeline([{
           phase: '',
           description: '',
@@ -58,7 +64,7 @@ window.EventTimelineGenerator = function EventTimelineGenerator({ timelineData, 
           duration: 60
         }]);
       } else {
-        setEditedTimeline(JSON.parse(JSON.stringify(timeline)));
+        setEditedTimeline(JSON.parse(JSON.stringify(normalizeTimelineItems(timeline))));
       }
     }
   }, [initialEditMode, timelineData]);
