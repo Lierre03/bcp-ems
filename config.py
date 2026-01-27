@@ -22,7 +22,7 @@ class Config:
     DB_CONFIG = {
         'host': os.environ.get('DB_HOST') or 'localhost',
         'user': os.environ.get('DB_USER') or 'root',
-        'password': os.environ.get('DB_PASSWORD') or '',
+        'password': os.environ.get('DB_PASSWORD') or 'root',
         'database': os.environ.get('DB_NAME') or 'school_event_management',
         'port': int(os.environ.get('DB_PORT') or 3306),
         'autocommit': True,

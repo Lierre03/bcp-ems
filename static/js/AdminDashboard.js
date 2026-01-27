@@ -336,7 +336,7 @@ window.AdminDashboard = function AdminDashboard() {
           </div>
         </header>
 
-        <main className="flex-1 overflow-y-auto p-4">
+        <main className={`flex-1 p-4 ${activeView === 'calendar' ? 'overflow-hidden flex flex-col min-h-0' : 'overflow-y-auto'}`}>
           {activeView === 'events' && <AdminEventsManager eventIdToOpen={eventIdToOpen} />}
           {activeView === 'approvals' && <AccountApprovalPanel />}
           {activeView === 'analytics' && <AnalyticsDashboard />}

@@ -79,7 +79,7 @@ window.VenueCalendar = function VenueCalendar({ userRole }) {
   return (
     <div className="flex flex-col md:flex-row gap-3 md:gap-4 h-full">
       {/* Calendar Section */}
-      <div className="flex-1 bg-white rounded-xl shadow-sm border border-blue-200 overflow-hidden">
+      <div className="flex-1 bg-white rounded-xl shadow-sm border border-blue-200 overflow-hidden flex flex-col">
         {/* Header / Controls */}
         <div className="p-2 md:p-3 bg-blue-950 border-b border-blue-900 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
           <div className="flex items-center gap-2 md:gap-4">
@@ -111,13 +111,13 @@ window.VenueCalendar = function VenueCalendar({ userRole }) {
         </div>
 
         {/* Calendar - Grid on Desktop, List on Mobile */}
-        <div className="p-2 md:p-3">
+        <div className="flex-1 p-2 md:p-3 min-h-0 flex flex-col overflow-hidden">
           {loading ? (
-            <div className="flex justify-center items-center h-32 md:h-64 text-slate-400">Loading calendar...</div>
+            <div className="flex justify-center items-center h-full text-slate-400">Loading calendar...</div>
           ) : (
             <>
               {/* Mobile: List View */}
-              <div className="md:hidden space-y-1 max-h-96 overflow-y-auto">
+              <div className="md:hidden space-y-1 h-full overflow-y-auto">
                 {events.slice(0, 20).map(event => (
                   <div key={event.id} className={`p-2 rounded-lg border text-xs ${event.colorClass}`}>
                     <div className="font-semibold truncate">{event.title}</div>
@@ -132,17 +132,20 @@ window.VenueCalendar = function VenueCalendar({ userRole }) {
               </div>
 
               {/* Desktop: Calendar Grid */}
-              <div className="hidden md:grid grid-cols-7 gap-px bg-slate-200 border border-slate-200 rounded-lg overflow-hidden">
+              <div
+                className="hidden md:grid grid-cols-7 gap-px bg-slate-200 border border-slate-200 rounded-lg overflow-hidden flex-1"
+                style={{ gridTemplateRows: `auto repeat(${Math.ceil((firstDay + days) / 7)}, 1fr)` }}
+              >
                 {/* Weekday Headers */}
                 {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(d => (
-                  <div key={d} className="bg-slate-50 p-1 text-center text-xs font-bold text-slate-500 uppercase tracking-wider">
+                  <div key={d} className="bg-slate-50 p-2 text-center text-xs font-bold text-slate-500 uppercase tracking-wider flex items-center justify-center">
                     {d}
                   </div>
                 ))}
 
                 {/* Empty Cells */}
                 {emptyDays.map(i => (
-                  <div key={`empty-${i}`} className="bg-white h-28"></div>
+                  <div key={`empty-${i}`} className="bg-white min-h-0"></div>
                 ))}
 
                 {/* Days */}
@@ -154,23 +157,18 @@ window.VenueCalendar = function VenueCalendar({ userRole }) {
                     <div
                       key={day}
                       onClick={() => handleDateClick(day)}
-                      className={`bg-white h-28 p-1 transition hover:bg-slate-50 cursor-pointer relative group ${isToday ? 'bg-blue-50/30' : ''}`}
+                      className={`bg-white min-h-0 p-1 transition hover:bg-slate-50 cursor-pointer relative group flex flex-col overflow-hidden ${isToday ? 'bg-blue-50/30' : ''}`}
                     >
-                      <span className={`text-xs font-medium ${isToday ? 'bg-blue-600 text-white w-5 h-5 flex items-center justify-center rounded-full' : 'text-slate-700'}`}>
+                      <span className={`text-xs font-medium shrink-0 ${isToday ? 'bg-blue-600 text-white w-5 h-5 flex items-center justify-center rounded-full' : 'text-slate-700'}`}>
                         {day}
                       </span>
 
-                      <div className="mt-1 space-y-0.5 overflow-y-auto max-h-[75px] custom-scrollbar">
-                        {dayEvents.slice(0, 3).map(event => (
+                      <div className="mt-1 space-y-0.5 overflow-y-auto custom-scrollbar flex-1">
+                        {dayEvents.map(event => (
                           <div key={event.id} className={`text-[10px] px-1.5 py-1 rounded border truncate ${event.colorClass} mb-0.5`}>
                             <span className="font-semibold">{new Date(event.start).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span> {event.title}
                           </div>
                         ))}
-                        {dayEvents.length > 3 && (
-                          <div className="text-[10px] text-slate-500 font-medium pl-1">
-                            +{dayEvents.length - 3} more
-                          </div>
-                        )}
                       </div>
                     </div>
                   );
