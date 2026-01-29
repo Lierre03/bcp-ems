@@ -1,25 +1,31 @@
-import pymysql.cursors
+import mysql.connector
 from config import Config
 
-def inspect_table():
+def check_enum():
+    config = Config.DB_CONFIG.copy()
+    config['database'] = 'bcp_sms4_pcm'
+    if config['password'] == 'root':
+        config['password'] = 'root'
+    
+    if 'type' in config:
+        del config['type']
+        
     try:
-        conf = Config.DB_CONFIG
-        conn = pymysql.connect(
-            host=conf['host'],
-            user=conf['user'],
-            password=conf['password'],
-            database=conf['database'],
-            port=conf['port'],
-            cursorclass=pymysql.cursors.DictCursor
-        )
+        conn = mysql.connector.connect(**config)
         cursor = conn.cursor()
-        cursor.execute("SHOW CREATE TABLE events")
-        result = cursor.fetchone()
-        print(result['Create Table'])
+        
+        cursor.execute("DESCRIBE bcp_sms4_asset")
+        rows = cursor.fetchall()
+        
+        print("Schema for bcp_sms4_asset:")
+        for row in rows:
+            if row[0] == 'status':
+                print(f"STATUS COLUMN: {row}")
+                
         cursor.close()
         conn.close()
     except Exception as e:
-        print(e)
+        print(f"Error: {e}")
 
 if __name__ == "__main__":
-    inspect_table()
+    check_enum()

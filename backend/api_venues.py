@@ -31,7 +31,7 @@ venues_bp = Blueprint('venues', __name__, url_prefix='/api/venues')
 # VENUE ENDPOINTS
 # ============================================================================
 
-@venues_bp.route('', methods=['GET'])
+@venues_bp.route('/', methods=['GET'])
 def get_venues():
     """Get all available venues"""
     try:

@@ -19,6 +19,11 @@ window.ApprovalActions = function ApprovalActions({ event, onSuccess }) {
   const [manualEnd, setManualEnd] = useState(false);
   const [activeTab, setActiveTab] = useState('overview'); // Tab state for review modal
 
+  const safeAlert = (msg, title='Alert') => {
+      if (window.showAlert) window.showAlert(msg, title);
+      else alert(msg);
+  };
+
   // Timeline helpers
   const format12h = (timeStr) => {
     if (!timeStr) return '';
@@ -241,7 +246,7 @@ window.ApprovalActions = function ApprovalActions({ event, onSuccess }) {
   const handleRescheduleConfirm = async () => {
     // Validate dates
     if (!rescheduleDates.date || !rescheduleDates.startTime || !rescheduleDates.endTime) {
-      alert('Please select date, start time, and end time');
+      safeAlert('Please select date, start time, and end time', 'Validation Error');
       return;
     }
 
@@ -249,14 +254,14 @@ window.ApprovalActions = function ApprovalActions({ event, onSuccess }) {
     const endDateTime = `${rescheduleDates.date}T${rescheduleDates.endTime}:00`;
 
     if (new Date(startDateTime) >= new Date(endDateTime)) {
-      alert('End time must be after start time');
+      safeAlert('End time must be after start time', 'Validation Error');
       return;
     }
 
     // Check conflicts
     const hasConflicts = await checkConflicts();
     if (hasConflicts) {
-      alert('The selected time slot conflicts with an existing booking. Please choose a different time.');
+      safeAlert('The selected time slot conflicts with an existing booking. Please choose a different time.', 'Conflict Detected');
       return;
     }
 
@@ -286,17 +291,17 @@ window.ApprovalActions = function ApprovalActions({ event, onSuccess }) {
 
       const data = await response.json();
       if (data.success) {
-        alert('Event rescheduled and sent to Pending status.');
+        safeAlert('Event rescheduled and sent to Pending status.', 'Success');
         setShowReviewModal(false);
         setIsRescheduling(false);
         setFullEventData(null); // Clear state to force fresh fetch
         if (onSuccess) onSuccess();
       } else {
-        alert(data.error || 'Failed to reschedule');
+        safeAlert(data.error || 'Failed to reschedule', 'Error');
       }
     } catch (err) {
       console.error(err);
-      alert('Error rescheduling event');
+      safeAlert('Error rescheduling event', 'System Error');
     } finally {
       setLoading(false);
     }
@@ -394,11 +399,11 @@ window.ApprovalActions = function ApprovalActions({ event, onSuccess }) {
         setFullEventData(data.event);
         setShowReviewModal(true);
       } else {
-        alert('Failed to load event details');
+        safeAlert('Failed to load event details', 'Error');
       }
     } catch (err) {
       console.error('Failed to fetch event:', err);
-      alert('Error loading event details');
+      safeAlert('Error loading event details', 'Network Error');
     } finally {
       setLoading(false);
     }
@@ -427,14 +432,14 @@ window.ApprovalActions = function ApprovalActions({ event, onSuccess }) {
       });
       const data = await res.json();
       if (data.success) {
-        alert(data.message || 'Action completed successfully');
+        safeAlert(data.message || 'Action completed successfully', 'Success');
         if (onSuccess) onSuccess();
       } else {
-        alert(data.message || 'Action failed');
+        safeAlert(data.message || 'Action failed', 'Error');
       }
     } catch (err) {
       console.error('Action failed:', err);
-      alert('Error performing action');
+      safeAlert('Error performing action', 'System Error');
     } finally {
       setLoading(false);
     }
@@ -459,11 +464,11 @@ window.ApprovalActions = function ApprovalActions({ event, onSuccess }) {
         setFullEventData(null);
         // Do NOT call onSuccess here to prevent unmounting/refreshing before the user sees the modal
       } else {
-        alert(data.message || 'Action failed');
+        safeAlert(data.message || 'Action failed', 'Error');
       }
     } catch (err) {
       console.error('Action failed:', err);
-      alert('Error performing action');
+      safeAlert('Error performing action', 'System Error');
     } finally {
       setLoading(false);
     }
@@ -476,7 +481,7 @@ window.ApprovalActions = function ApprovalActions({ event, onSuccess }) {
 
   const handleReject = async () => {
     if (!selectedReason) {
-      alert('Please select a rejection reason');
+      safeAlert('Please select a rejection reason', 'Validation Error');
       return;
     }
 
@@ -485,7 +490,7 @@ window.ApprovalActions = function ApprovalActions({ event, onSuccess }) {
     if (selectedReason === 'Other (specify below)') {
       // For "Other", custom note is required
       if (!customNote.trim()) {
-        alert('Please provide rejection details');
+        safeAlert('Please provide rejection details', 'Validation Error');
         return;
       }
       reason = customNote.trim();
@@ -498,7 +503,7 @@ window.ApprovalActions = function ApprovalActions({ event, onSuccess }) {
 
     // Validate minimum length
     if (reason.length < 10) {
-      alert('Rejection reason must be at least 10 characters');
+      safeAlert('Rejection reason must be at least 10 characters', 'Validation Error');
       return;
     }
 
@@ -512,17 +517,17 @@ window.ApprovalActions = function ApprovalActions({ event, onSuccess }) {
       });
       const data = await res.json();
       if (data.success) {
-        alert(data.message || 'Event rejected');
+        safeAlert(data.message || 'Event rejected', 'Rejected');
         setShowRejectModal(false);
         setSelectedReason('');
         setCustomNote('');
         if (onSuccess) onSuccess();
       } else {
-        alert(data.message || 'Rejection failed');
+        safeAlert(data.message || 'Rejection failed', 'Error');
       }
     } catch (err) {
       console.error('Rejection failed:', err);
-      alert('Error rejecting event');
+      safeAlert('Error rejecting event', 'System Error');
     } finally {
       setLoading(false);
     }

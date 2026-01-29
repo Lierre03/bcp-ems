@@ -107,7 +107,11 @@ window.EquipmentApprovalReview = function EquipmentApprovalReview({ eventId, onC
             });
 
             if (response.ok) {
-                alert('Equipment adjustments accepted. Your event will proceed with the approved equipment.');
+                if (window.showAlert) {
+                    window.showAlert('Equipment adjustments accepted. Your event will proceed with the approved equipment.');
+                } else {
+                    alert('Equipment adjustments accepted. Your event will proceed with the approved equipment.');
+                }
                 // Trigger notification refresh if available
                 if (window.refreshNotifications) {
                     window.refreshNotifications();
@@ -115,7 +119,8 @@ window.EquipmentApprovalReview = function EquipmentApprovalReview({ eventId, onC
                 if (onClose) onClose();
             } else {
                 const errorData = await response.json();
-                alert('Failed to acknowledge equipment adjustments: ' + (errorData.error || 'Unknown error'));
+                const msg = 'Failed to acknowledge equipment adjustments: ' + (errorData.error || 'Unknown error');
+                if (window.showAlert) window.showAlert(msg, 'Error'); else alert(msg);
             }
         } catch (error) {
             console.error('Failed to accept equipment:', error);

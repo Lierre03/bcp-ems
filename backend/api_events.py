@@ -9,6 +9,7 @@ from backend.event_helpers import (
     save_event_equipment, save_event_activities, save_budget_breakdown,
     get_event_equipment, get_event_activities, get_budget_breakdown
 )
+from backend.property_custodian_connector import connector
 from backend.api_venues import get_venue_conflicts
 from database.db import get_db
 from datetime import datetime
@@ -243,6 +244,15 @@ def _change_event_status(event_id, action, reason=None, action_on_conflict=None)
         "UPDATE events SET status = %s, updated_at = NOW() WHERE id = %s",
         (new_status, event_id)
     )
+
+    # RELEASE EQUIPMENT if Event is Rejected, Completed or Archived
+    # This removes the "Reservation" lock.
+    # If items were physically issued in Property Custodian, they are "In-Use" there and still unavailable.
+    # If they were never issued (e.g. Rejected), they become "In-Storage" and available again.
+    if new_status in ['Rejected', 'Completed', 'Archived']:
+        connector.release_event_items(event_id)
+        if new_status == 'Rejected':
+             db.execute_update("UPDATE events SET equipment_approval_status = 'Rejected' WHERE id = %s", (event_id,))
     
     # Log to history
     db.execute_insert(
@@ -394,7 +404,7 @@ def get_events():
                    e.additional_resources,
                    e.organizing_department,
                    e.shared_with_departments,
-                   COALESCE(e.organizer, CONCAT(u.first_name, ' ', u.last_name)) as organizer,
+                   COALESCE(NULLIF(e.organizer, ''), CONCAT(u.first_name, ' ', u.last_name)) as organizer,
                    u.username as requestor_username,
                    e.requestor_id
             FROM events e
@@ -692,6 +702,29 @@ def create_event():
         for field in required_fields:
             if not data.get(field):
                 return jsonify({'error': f'Missing required field: {field}'}), 400
+
+        # Validate Equipment Availability (New Integration)
+        from backend.event_helpers import validate_equipment_availability
+        equipment_list = data.get('equipment', []) # Expecting list of {name, quantity} or strings
+        
+        # Determine if equipment format is list of strings or objects. Frontend might send strings.
+        # If strings, we CANNOT validate quantity easily without default.
+        # Assuming frontend will be updated to send objects or we skip validation for legacy string-only reqs.
+        # Based on connector, we need Names.
+        
+        # Normalize equipment list for validation
+        normalized_equipment = []
+        if equipment_list and isinstance(equipment_list, list):
+            for item in equipment_list:
+                if isinstance(item, str):
+                    normalized_equipment.append({'name': item, 'quantity': 1})
+                elif isinstance(item, dict):
+                    normalized_equipment.append(item)
+                    
+        is_available, error_msg = validate_equipment_availability(normalized_equipment)
+        if not is_available:
+             return jsonify({'error': error_msg}), 400
+
         
         # Validate dates
         start_dt = datetime.strptime(data['start_datetime'], '%Y-%m-%d %H:%M:%S')

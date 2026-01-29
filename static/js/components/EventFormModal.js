@@ -374,35 +374,29 @@ window.EventFormModal = function EventFormModal({
   // Effect: Auto-Populate when AI Suggestions arrive AND trigger was fired
   React.useEffect(() => {
     if (isAutoPopulateTriggered && aiSuggestions && aiSuggestions.confidence > 10) {
-      // Apply everything - SILENTLY (don't switch tabs)
-      handleToggleAllBudget(true, true);
-      handleToggleAllEquipment(true, true);
-      handleToggleAllTimeline(true, true);
-      handleToggleAllResources(true, true);
+      console.log('Auto-populating AI suggestions', aiSuggestions);
+      
+      // Force batch these updates
+      ReactDOM.unstable_batchedUpdates(() => {
+        // Apply everything - SILENTLY (don't switch tabs)
+        handleToggleAllBudget(true, true);
+        handleToggleAllEquipment(true, true);
+        handleToggleAllTimeline(true, true);
+        handleToggleAllResources(true, true);
 
-      // Also apply fields like Venue/Description/Attendees
-      if (aiSuggestions.description) {
-        setFormData(prev => ({ ...prev, description: aiSuggestions.description }));
-      }
-      if (aiSuggestions.suggestedVenue) {
-        setFormData(prev => ({ ...prev, venue: aiSuggestions.suggestedVenue }));
-      }
-      if (aiSuggestions.suggestedAttendees) {
-        setFormData(prev => {
-          // Only update if currently 0 or empty, OR if explicit override desired (Auto-Organize implies override)
-          // But let's check if we should trigger budget recoil? 
-          // setFormData updates won't trigger the onChange logic for attendees input automatically
+        // Also apply fields like Venue/Description/Attendees
+        if (aiSuggestions.description) {
+          setFormData(prev => ({ ...prev, description: aiSuggestions.description }));
+        }
+        if (aiSuggestions.suggestedVenue) {
+          setFormData(prev => ({ ...prev, venue: aiSuggestions.suggestedVenue }));
+        }
+        if (aiSuggestions.suggestedAttendees) {
+           setFormData(prev => ({ ...prev, attendees: aiSuggestions.suggestedAttendees }));
+        }
+      });
 
-          // We need to trigger the budget update manually if we change attendees here?
-          // Actually, the useEffect for userBudgetData will handle the budget field update if budget breakdown changes.
-          // But changing attendees alone usually scales budget in the onChange.
-          // Here, we are setting budget via handleToggleAllBudget separately.
-
-          return { ...prev, attendees: aiSuggestions.suggestedAttendees };
-        });
-      }
-
-      // Reset trigger so it doesn't keep overwriting user changes
+      // Reset trigger
       setIsAutoPopulateTriggered(false);
     }
   }, [aiSuggestions, isAutoPopulateTriggered]);
@@ -1064,7 +1058,8 @@ window.EventFormModal = function EventFormModal({
           <div className="flex gap-4 px-6 py-4 border-t border-gray-200 bg-white flex-shrink-0 items-center">
             <button
               onClick={() => {
-                setIsAutoPopulateTriggered(true); // Set trigger!
+                if (setAiSuggestions) setAiSuggestions(null); // Clear old data to prevent premature auto-populating
+                setIsAutoPopulateTriggered(true); 
                 handleAutoFill();
               }}
               disabled={aiLoading}

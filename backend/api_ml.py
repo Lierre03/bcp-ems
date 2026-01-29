@@ -1206,7 +1206,7 @@ def generate_fallback_predictions(event_type, attendees, duration):
             'Venue': int(budget * 0.3),
             'Other': int(budget * 0.3)
         },
-        'confidence': 0.5
+        'confidence': 50.0
     })
 
 @ml_bp.route('/classify-event-type', methods=['POST'])

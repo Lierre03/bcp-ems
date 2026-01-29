@@ -25,6 +25,8 @@ from backend.api_venues import venues_bp
 from backend.api_users import users_bp
 from backend.api_notifications import notifications_bp
 from backend.api_analytics import analytics_bp
+from backend.api_inventory import inventory_bp
+from backend.api_equipment import equipment_bp
 
 
 # ============================================================================
@@ -75,6 +77,10 @@ def create_app(config_name='development'):
     print("DEBUG: Notifications blueprint registered")
     app.register_blueprint(analytics_bp)
     print("DEBUG: Analytics blueprint registered")
+    app.register_blueprint(inventory_bp)
+    print("DEBUG: Inventory blueprint registered")
+    app.register_blueprint(equipment_bp)
+    print("DEBUG: Equipment blueprint registered")
     
     # Debug route for database connection
     @app.route('/debug-db')

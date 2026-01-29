@@ -9,6 +9,45 @@ import logging
 logger = logging.getLogger(__name__)
 
 
+
+def validate_equipment_availability(equipment_list):
+    """
+    Validate if requested equipment is available in Property Custodian System.
+    Args:
+        equipment_list: List of dicts [{'name': 'Projector', 'quantity': 2}, ...]
+    Returns:
+        (bool, str): (True, "Available") or (False, "Error Message")
+    """
+    from backend.property_custodian_connector import connector
+    
+    if not equipment_list:
+        return True, "No equipment requested"
+        
+    errors = []
+    
+    for item in equipment_list:
+        name = item.get('name')
+        qty_needed = int(item.get('quantity', 0))
+        
+        if not name or qty_needed <= 0:
+            continue
+            
+        # Check real-time availability from Property Custodian DB
+        # This counts valid 'In-Storage' assets matching the name
+        available_count = connector.get_available_asset_count(name)
+        
+        # NOTE: Ideally we should also subtract quantities reserved by overlapping events
+        # But for this iteration, we focus on hard inventory limits as requested.
+        
+        if available_count < qty_needed:
+            errors.append(f"{name}: Requested {qty_needed}, only {available_count} available in storage.")
+            
+    if errors:
+        return False, "Equipment unavailable: " + "; ".join(errors)
+        
+    return True, "All equipment available"
+
+
 def suggest_alternative_times(db, venue, requested_start, requested_end, exclude_event_id=None):
     """
     Find next available time slots for the same venue.
