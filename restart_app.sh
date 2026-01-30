@@ -1,6 +1,7 @@
 #!/bin/bash
 
 PORT=12345
+export PORT
 PID=$(lsof -t -i:$PORT)
 
 echo "--------------------------------------------------"
