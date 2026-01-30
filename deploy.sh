@@ -3,7 +3,7 @@
 echo "Starting deployment..."
 
 # 1. Pull latest changes
-git pull origin integration-v2
+git pull origin main
 
 # 2. Fix permissions
 chmod +x restart_app.sh
