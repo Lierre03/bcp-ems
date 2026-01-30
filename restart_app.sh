@@ -15,7 +15,7 @@ fi
 
 echo ">> Starting new server on port $PORT..."
 # Run in background, redirect output to log
-nohup python3 backend/app.py > flask.log 2>&1 &
+nohup python3 app.py > flask.log 2>&1 &
 
 NEW_PID=$!
 echo ">> Server started! PID: $NEW_PID"
