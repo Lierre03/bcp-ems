@@ -5,24 +5,35 @@
 
 import os
 
+# Try to load optional environment variables (requires python-dotenv)
+# If not installed, just use os.environ (which is standard)
+try:
+    from dotenv import load_dotenv
+    load_dotenv()
+except ImportError:
+    pass
+
 class Config:
     """Base configuration"""
     
     # Secret key for session management (Flask native sessions)
     SECRET_KEY = os.environ.get('SECRET_KEY') or 'dev-secret-key-change-in-production'
     
-    # Session configuration (Flask native - no Flask-Session extension)
-    PERMANENT_SESSION_LIFETIME = 28800  # 8 hours (28800 seconds)
-    SESSION_COOKIE_SECURE = False  # Set to True in production with HTTPS
-    SESSION_COOKIE_HTTPONLY = True
-    SESSION_COOKIE_SAMESITE = 'Lax'
+    # Session configuration
+    PERMANENT_SESSION_LIFETIME = 28800  # 8 hours
+    
+    # CRITICAL FIX FOR HTTP DEPLOYMENT:
+    SESSION_COOKIE_SECURE = False   # Must be False if using http://
+    SESSION_COOKIE_HTTPONLY = True  # Keep True for security
+    SESSION_COOKIE_SAMESITE = 'Lax' # Lax is safer than None for HTTP
     SESSION_COOKIE_NAME = 'session'
     
     # Database configuration (MySQL Only for XAMPP)
+    # Priority: 1. ENV VAR  2. Default
     DB_CONFIG = {
         'host': os.environ.get('DB_HOST') or 'localhost',
         'user': os.environ.get('DB_USER') or 'root',
-        'password': os.environ.get('DB_PASSWORD') or 'root',
+        'password': os.environ.get('DB_PASSWORD') if os.environ.get('DB_PASSWORD') is not None else 'root',
         'database': os.environ.get('DB_NAME') or 'school_event_management',
         'port': int(os.environ.get('DB_PORT') or 3306),
         'autocommit': True,
@@ -67,8 +78,8 @@ class ProductionConfig(Config):
     TESTING = False
     # Override with stronger secret key in production
     SECRET_KEY = os.environ.get('SECRET_KEY') or os.urandom(32).hex()
-    # Enable secure cookies for HTTPS
-    SESSION_COOKIE_SECURE = True
+    # Enable secure cookies for HTTPS (DISABLED for HTTP Deployment)
+    SESSION_COOKIE_SECURE = False
 
 
 class TestingConfig(Config):
