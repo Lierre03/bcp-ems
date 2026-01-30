@@ -908,7 +908,7 @@ window.ApprovalActions = function ApprovalActions({ event, onSuccess }) {
                                         </svg>
                                         {itemName}
                                       </span>
-                                      {quantity > 1 && (
+                                      {quantity >= 1 && (
                                         <span className="bg-orange-600 text-white text-xs font-bold px-2.5 py-1 rounded-full">×{quantity}</span>
                                       )}
                                     </li>

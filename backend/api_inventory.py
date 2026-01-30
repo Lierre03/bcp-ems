@@ -86,7 +86,7 @@ def get_fulfillment_dashboard():
                 u.username as requestor_username
             FROM events e
             LEFT JOIN users u ON e.requestor_id = u.id
-            WHERE e.status IN ('Pending', 'Approved', 'Completed') 
+            WHERE e.status IN ('Pending', 'Under Review', 'Approved', 'Completed') 
             AND e.equipment IS NOT NULL 
             AND e.equipment != '[]'
             ORDER BY e.start_datetime ASC
@@ -199,7 +199,7 @@ def reserve_items():
                          # Case A: Explicitly sending 0 to acknowledge unavailable/rejection
                          if r_qty == 0:
                              # Retrieve original needed count from event if possible, or just default message
-                             lines.append(f"• {r_name}: 0/0 available (Rejected: Unavailable)")
+                             lines.append(f"• {r_name}: 0/0 available (Self-Provided)")
                              any_partial = True # TRIGGER ACTION REQUIRED MODAL
                              continue
 
@@ -211,7 +211,7 @@ def reserve_items():
                              res = det.get('reserved', 0)
                              
                              if res == 0:
-                                  lines.append(f"• {name}: 0/{req} available (Rejected: Unavailable)")
+                                  lines.append(f"• {name}: 0/{req} available (Self-Provided)")
                                   any_partial = True # TRIGGER ACTION REQUIRED MODAL
                              elif res < req:
                                   lines.append(f"• {name}: {res}/{req} available (Partially Approved)")
@@ -243,30 +243,30 @@ def reserve_items():
                                  
                                  for item in eq_list:
                                      if item.get('name') == d_name:
+                                         # Update approved_quantity (Critical for Resource Approval Logic)
+                                         item['approved_quantity'] = d_res
+                                         
                                          if d_res == 0:
-                                             item['status'] = 'Rejected'
-                                             item['rejection_reason'] = 'Maintenance/Repair (Unavailable)' # Default reason for 0 avail
-                                             item['approved_quantity'] = 0
+                                             # If 0 reserved, it means unavailable.
+                                             # User requested "Self-Provided" logic for partials/unavailable
+                                             item['status'] = 'Self-Provided' 
+                                             item['rejection_reason'] = 'Unavailable (0 Stock)'
                                          elif d_res < d_req:
-                                             item['status'] = 'Approved' # Partial is technically Approved with lower qty in this system
-                                             item['approved_quantity'] = d_res
+                                             item['status'] = 'Approved' # Partial approval
                                          else:
                                               item['status'] = 'Approved'
-                                              item['approved_quantity'] = d_res
                                          break
                              
                              # Save back to DB
-                             # Also set equipment_approval_status
+                             # Also set equipment_approval_status per user request
                              new_status = 'Approved'
-                             if any_partial: # Triggers resolution flow
-                                 # We keep status as Approved but maybe notify? 
-                                 # Actually if any_partial, we usually want 'Pending' or similar if we want them to click?
-                                 # The api_venues logic sets it to 'Approved' but notification triggers the flow.
-                                 # However, to be safe, let's keep it Approved as the base status, notifications drive the UI.
-                                 pass
-                                 
+                             
+                             # If we have rejected items (0 reserved), we might want to flag it?
+                             # But user instruction is "it must be Approved once reserved".
+                             # So we force Approved status on the event level, letting items show partial/rejected statuses.
+
                              db.execute_update(
-                                 "UPDATE events SET equipment = %s WHERE id = %s",
+                                 "UPDATE events SET equipment = %s, equipment_approval_status = 'Approved' WHERE id = %s",
                                  (json.dumps(eq_list), event_id)
                              )
                      except Exception as e:

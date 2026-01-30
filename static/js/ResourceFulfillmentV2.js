@@ -305,11 +305,11 @@ window.ResourceFulfillmentV2 = function ResourceFulfillmentV2() {
                     className: "bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden transition-all hover:shadow-md"
                 },
                     // Header
-                    React.createElement('div', { className: "p-6" },
-                        React.createElement('div', { className: "flex items-start justify-between mb-4" },
+                    React.createElement('div', { className: "px-4 py-3" },
+                        React.createElement('div', { className: "flex items-center justify-between" },
                             React.createElement('div', null,
-                                React.createElement('h3', { className: "text-lg font-semibold text-slate-900 leading-tight" }, event.title),
-                                React.createElement('div', { className: "flex items-center gap-4 mt-2 text-sm text-slate-500" },
+                                React.createElement('h3', { className: "text-base font-semibold text-slate-900 leading-tight" }, event.title),
+                                React.createElement('div', { className: "flex items-center gap-4 mt-1 text-xs text-slate-500" },
                                     React.createElement('span', { className: "flex items-center gap-1.5" },
                                         React.createElement('svg', { className: "w-4 h-4", fill: "none", viewBox: "0 0 24 24", stroke: "currentColor" },
                                             React.createElement('path', { strokeLinecap: "round", strokeLinejoin: "round", strokeWidth: 2, d: "M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" })
@@ -333,7 +333,7 @@ window.ResourceFulfillmentV2 = function ResourceFulfillmentV2() {
 
                     // Equipment Section Header (Expand Toggle)
                     React.createElement('div', { 
-                        className: "border-t border-slate-100 px-6 py-4 bg-slate-50/50 flex items-center justify-between cursor-pointer hover:bg-slate-50 transition-colors",
+                        className: "border-t border-slate-100 px-4 py-2 bg-slate-50/50 flex items-center justify-between cursor-pointer hover:bg-slate-50 transition-colors",
                         onClick: () => toggleExpand(event.event_id)
                     },
                         React.createElement('div', { className: "flex items-center gap-3" },

@@ -197,7 +197,11 @@ window.VenueCalendar = function VenueCalendar({ userRole }) {
                 eventDate.getFullYear() === selectedDate.getFullYear();
             });
             return dateEvents.length > 0 ? dateEvents.map(event => (
-              <div key={event.id} className="p-3 rounded-lg border border-slate-200 hover:border-blue-300 transition bg-slate-50">
+              <div 
+                key={event.id} 
+                onClick={() => window.openEventForReview && window.openEventForReview(event.id)}
+                className="p-3 rounded-lg border border-slate-200 hover:border-blue-300 transition bg-slate-50 cursor-pointer hover:shadow-md"
+              >
                 <div className="flex justify-between items-start mb-2">
                   <div className="font-semibold text-slate-800 text-xs truncate flex-1">{event.title}</div>
                   <span className={`text-[10px] px-2 py-0.5 rounded-full font-semibold border ${event.colorClass} ml-2 whitespace-nowrap`}>

@@ -7,7 +7,7 @@ window.AdminEventsManager = function AdminEventsManager({ eventIdToOpen }) {
   const [showModal, setShowModal] = useState(false);
   const [editingId, setEditingId] = useState(null);
   const [sortBy, setSortBy] = useState('date');
-  const [filterStatus, setFilterStatus] = useState('All');
+  const [filterStatus, setFilterStatus] = useState('Active'); // Default to Active/Action Required
   const [filterType, setFilterType] = useState('All');
   const [filterDepartment, setFilterDepartment] = useState('All');
   const [searchTerm, setSearchTerm] = useState('');
@@ -16,6 +16,7 @@ window.AdminEventsManager = function AdminEventsManager({ eventIdToOpen }) {
   const [budgetData, setBudgetData] = useState(null);
   const [resourceData, setResourceData] = useState(null);
   const [selectedEventHistory, setSelectedEventHistory] = useState(null);
+  const [viewStatusEvent, setViewStatusEvent] = useState(null); // For detailed status modal
   // const [selectedEventAttendance, setSelectedEventAttendance] = useState(null); // Deprecated: Moved to dedicated tab
   const [timelineData, setTimelineData] = useState(null);
   const [activeEquipmentTab, setActiveEquipmentTab] = useState('Audio & Visual');
@@ -103,13 +104,23 @@ window.AdminEventsManager = function AdminEventsManager({ eventIdToOpen }) {
     }
   }, [sortBy, filterStatus, filterType]);
 
-  // Open event when triggered from notification
+  // Open event when triggered from notification (or calendar)
   useEffect(() => {
     if (eventIdToOpen && events.length > 0) {
-      const event = events.find(e => e.id === eventIdToOpen);
-      if (event) {
-        handleEditEvent(event);
+      // 1. Scroll into view and Highlight
+      const row = document.getElementById(`event-row-${eventIdToOpen}`);
+      if (row) {
+        row.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        row.style.transition = 'all 0.5s';
+        row.classList.add('bg-blue-100'); // Add highlight
+        setTimeout(() => row.classList.remove('bg-blue-100'), 2000); // Remove after 2s
       }
+
+      // REMOVED: handleEditEvent(event) - User requested only scrolling, not opening modal
+      // const event = events.find(e => e.id === eventIdToOpen);
+      // if (event) {
+      //   handleEditEvent(event);
+      // }
     }
   }, [eventIdToOpen, events]);
 
@@ -156,9 +167,12 @@ window.AdminEventsManager = function AdminEventsManager({ eventIdToOpen }) {
   const fetchEvents = async () => {
     try {
       setLoading(true);
+      // Don't send 'Active' to backend as it's a frontend composite filter
+      const statusParam = (filterStatus !== 'All' && filterStatus !== 'Active') ? filterStatus : '';
+      
       const queryParams = new URLSearchParams({
         sort: sortBy,
-        status: filterStatus !== 'All' ? filterStatus : '',
+        status: statusParam,
         type: filterType !== 'All' ? filterType : ''
       });
 
@@ -667,7 +681,14 @@ window.AdminEventsManager = function AdminEventsManager({ eventIdToOpen }) {
 
   // Filter Logic
   let filteredEvents = events.filter(e => {
-    const matchStatus = filterStatus === 'All' || e.status === filterStatus;
+    // 1. Status Filter
+    let matchStatus = true;
+    if (filterStatus === 'Active') {
+      matchStatus = ['Pending', 'Under Review', 'Draft', 'Conflict_Rejected'].includes(e.status);
+    } else {
+      matchStatus = filterStatus === 'All' || e.status === filterStatus;
+    }
+
     const matchType = filterType === 'All' || (e.event_type || e.type) === filterType;
     const matchDepartment = filterDepartment === 'All' || e.organizing_department === filterDepartment;
     const matchSearch = e.name.toLowerCase().includes(searchTerm.toLowerCase());
@@ -788,6 +809,7 @@ window.AdminEventsManager = function AdminEventsManager({ eventIdToOpen }) {
                 onChange={(e) => setFilterStatus(e.target.value)}
                 className="px-4 py-2 bg-white border border-slate-300 rounded-lg text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-slate-500"
               >
+                <option value="Active">Active (Action Required)</option>
                 <option value="All">All Status</option>
                 <option value="Pending">Pending</option>
                 <option value="Under Review">Under Review</option>
@@ -851,7 +873,7 @@ window.AdminEventsManager = function AdminEventsManager({ eventIdToOpen }) {
               {/* Create Button */}
               <button
                 onClick={handleAddEvent}
-                className="px-4 py-2 bg-slate-900 text-white rounded-lg hover:bg-slate-800 transition font-medium flex items-center gap-2 text-sm shadow-sm ml-2"
+                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition font-medium flex items-center gap-2 text-sm shadow-sm ml-2"
               >
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4" />
@@ -882,7 +904,7 @@ window.AdminEventsManager = function AdminEventsManager({ eventIdToOpen }) {
               {filteredEvents.map(event => {
                 const user = JSON.parse(localStorage.getItem('user') || '{}');
                 return (
-                  <tr key={event.id} className="hover:bg-slate-50 transition-colors">
+                  <tr key={event.id} id={`event-row-${event.id}`} className="hover:bg-slate-50 transition-colors">
                     <td className="px-4 py-4">
                       <div className="flex items-center gap-3">
                         <div className="w-10 h-10 bg-slate-100 rounded-lg flex items-center justify-center flex-shrink-0 border border-slate-200 text-slate-500">
@@ -926,7 +948,39 @@ window.AdminEventsManager = function AdminEventsManager({ eventIdToOpen }) {
                       <div className="font-semibold text-slate-900 text-sm">₱{Number(event.budget || 0).toLocaleString()}</div>
                     </td>
                     <td className="px-4 py-3.5">
-                      {window.StatusBadge ? <StatusBadge status={event.status} /> : <span className="text-sm">{event.status}</span>}
+                      {event.status === 'Approved' && 
+                       (!event.venue || ['Approved', 'Accepted'].includes(event.venue_approval_status)) && 
+                       (!event.equipment || event.equipment.length === 0 || ['Approved', 'Accepted'].includes(event.equipment_approval_status)) ? (
+                        <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold bg-green-100 text-green-800 border border-green-200 shadow-sm whitespace-nowrap">
+                          Fully Approved
+                        </span>
+                      ) : ['Draft', 'Pending', 'Under Review', 'Approved', 'Rejected', 'Conflict_Rejected'].includes(event.status) ? (
+                         <button
+                           onClick={async (e) => { 
+                             e.stopPropagation(); 
+                             setViewStatusEvent(event);
+                             try {
+                               const res = await fetch(`/api/events/${event.id}`);
+                               if (res.ok) {
+                                 const data = await res.json();
+                                 if (data.event) {
+                                   setViewStatusEvent(data.event);
+                                   setEvents(prev => prev.map(ev => ev.id === event.id ? data.event : ev));
+                                 }
+                               }
+                             } catch (err) { console.error(err); }
+                           }}
+                           className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium bg-white text-slate-600 border border-slate-300 hover:bg-slate-50 hover:text-slate-900 transition-all shadow-sm group whitespace-nowrap"
+                         >
+                           <span>View Status</span>
+                           <svg className="w-3 h-3 text-slate-400 group-hover:text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                           </svg>
+                         </button>
+                      ) : (
+                        window.StatusBadge ? <StatusBadge status={event.status} /> : <span className="text-sm">{event.status}</span>
+                      )}
                     </td>
                     <td className="px-4 py-3.5">
                       {window.ApprovalActions && <ApprovalActions event={event} userRole={user.role_name} onSuccess={fetchEvents} />}
@@ -992,17 +1046,119 @@ window.AdminEventsManager = function AdminEventsManager({ eventIdToOpen }) {
           </div>
         )}
 
-        {/* Attendance Modal - DEPRECATED: Now using dedicated tab */}
-        {/* {selectedEventAttendance && (
-        window.AttendanceModal && <AttendanceModal eventId={selectedEventAttendance} onClose={() => setSelectedEventAttendance(null)} />
-      )} */}
+        {/* Detailed Status Modal */}
+        {viewStatusEvent && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" onClick={() => setViewStatusEvent(null)}>
+            <div className="bg-white rounded-xl shadow-2xl p-6 w-[400px] transform transition-all" onClick={e => e.stopPropagation()}>
+              <div className="flex justify-between items-center mb-6">
+                <div>
+                   <h3 className="text-lg font-bold text-slate-900">Approval Status</h3>
+                   <p className="text-xs text-slate-500 mt-1">Breakdown for {viewStatusEvent.name}</p>
+                </div>
+                <button onClick={() => { setViewStatusEvent(null); fetchEvents(); }} className="text-slate-400 hover:text-slate-600 transition-colors">
+                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" /></svg>
+                </button>
+              </div>
 
-        {/* Modal Overlay */}
-        {showModal && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 z-40" onClick={() => setShowModal(false)}></div>
+              <div className="space-y-3">
+                {/* Concept Status */}
+                <div className="flex items-center justify-between p-3 bg-slate-50 rounded-lg border border-slate-100">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 bg-blue-100 text-blue-600 rounded-lg">
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" /></svg>
+                    </div>
+                    <div>
+                      <div className="text-sm font-semibold text-slate-900">Concept</div>
+                      <div className="text-xs text-slate-500">Main Proposal</div>
+                    </div>
+                  </div>
+                  {window.StatusBadge ? (
+                      viewStatusEvent.status === 'Conflict_Rejected' ? (
+                          /* If conflict blocked, Concept is actually 'Pending' (not reviewed yet) or just Generic 'Rejected' 
+                             but definitely NOT 'Conflict Rejected' per user request. 
+                             Let's assume 'Pending' or 'Rejected' - User said 'no conflict rejected for concept'.
+                             I'll show 'Pending' if it's conflict, assuming concept wasn't the issue.
+                             Actually, if the event is DEAD, it should be Rejected. But not 'Conflict Rejected'.
+                             Let's use a custom badge for this specific edge case.
+                          */
+                          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">Rejected</span>
+                      ) : (
+                          <StatusBadge status={viewStatusEvent.status} />
+                      )
+                  ) : <span className="font-medium text-sm">{viewStatusEvent.status}</span>}
+                </div>
+
+                {/* Venue Status */}
+                 <div className="flex items-center justify-between p-3 bg-slate-50 rounded-lg border border-slate-100">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 bg-indigo-100 text-indigo-600 rounded-lg">
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
+                    </div>
+                    <div>
+                      <div className="text-sm font-semibold text-slate-900">Venue</div>
+                      <div className="text-xs text-slate-500">{viewStatusEvent.venue ? (viewStatusEvent.venue.length > 20 ? viewStatusEvent.venue.substring(0, 20) + '...' : viewStatusEvent.venue) : 'No Venue'}</div>
+                    </div>
+                  </div>
+                  {['Approved', 'Accepted'].includes(viewStatusEvent.venue_approval_status) ? (
+                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">Approved</span>
+                  ) : (viewStatusEvent.venue_approval_status === 'Rejected' || viewStatusEvent.status === 'Conflict_Rejected') ? (
+                     <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">
+                         {viewStatusEvent.status === 'Conflict_Rejected' ? 'Conflict Rejected' : 'Rejected'}
+                     </span>
+                  ) : (
+                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-800">Pending</span>
+                  )}
+                </div>
+
+                {/* Equipment Status */}
+                 <div className="flex items-center justify-between p-3 bg-slate-50 rounded-lg border border-slate-100">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 bg-orange-100 text-orange-600 rounded-lg">
+                       <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" /></svg>
+                    </div>
+                    <div>
+                      <div className="text-sm font-semibold text-slate-900">Equipment</div>
+                      <div className="text-xs text-slate-500">Resources</div>
+                    </div>
+                  </div>
+                  {['Approved', 'Accepted'].includes(viewStatusEvent.equipment_approval_status) ? (
+                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">Approved</span>
+                  ) : viewStatusEvent.equipment_approval_status === 'Rejected' ? (
+                     <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">Rejected</span>
+                  ) : (
+                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-800">Pending</span>
+                  )}
+                </div>
+              </div>
+
+               <div className="mt-6 pt-4 border-t border-slate-100 text-center flex flex-col gap-2">
+                   <button 
+                     onClick={() => {
+                        setLoading(true);
+                        fetchEvents().then(() => {
+                           // Try to update viewStatusEvent with fresh data
+                           setEvents(currentEvents => {
+                              const updated = currentEvents.find(e => e.id === viewStatusEvent.id);
+                              if(updated) setViewStatusEvent(updated);
+                              return currentEvents;
+                           });
+                           setLoading(false);
+                        });
+                     }}
+                     className="text-xs text-blue-600 hover:text-blue-800 font-medium flex items-center justify-center gap-1"
+                   >
+                     <svg className={`w-3 h-3 ${loading ? 'animate-spin' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
+                     Refresh Status
+                   </button>
+                  <p className="text-xs text-slate-400">
+                    Event is fully approved only when all items are <span className="text-green-600 font-medium">Approved</span>.
+                  </p>
+              </div>
+            </div>
+          </div>
         )}
 
-        {/* Modal Content - Created by EventFormModal component */}
+        {/* Create/Edit Modal */}
         {showModal && (
           <EventFormModal
             editingId={editingId}

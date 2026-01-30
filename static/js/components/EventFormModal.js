@@ -1098,15 +1098,15 @@ window.EventFormModal = function EventFormModal({
 
         {/* AI ANALYSIS MODAL - Side Panel */}
         {aiSuggestions && (
-          <div className="bg-white rounded-xl overflow-hidden shadow-2xl flex flex-col w-[450px] max-w-md h-[750px] max-h-[90vh] border-l-4 border-slate-900 animate-slideInRight">
+          <div className="bg-white rounded-xl overflow-hidden shadow-2xl flex flex-col w-[450px] max-w-md h-[750px] max-h-[90vh] border-l-4 border-blue-600 animate-slideInRight">
             {/* AI Modal Header */}
-            <div className="bg-slate-900 px-6 py-4 flex-shrink-0">
+            <div className="bg-blue-600 px-6 py-4 flex-shrink-0">
               <div className="flex items-center justify-between">
                 <h3 className="text-base font-bold text-white flex items-center gap-2">
                   <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20"><path d="M13 6a3 3 0 11-6 0 3 3 0 016 0zM18 8a2 2 0 11-4 0 2 2 0 014 0zM14 15a4 4 0 00-8 0v3h8v-3zM6 8a2 2 0 11-4 0 2 2 0 014 0zM16 18v-3a5.972 5.972 0 00-.75-2.906A3.005 3.005 0 0119 15v3h-3zM4.75 12.094A5.973 5.973 0 004 15v3H1v-3a3 3 0 013.75-2.906z" /></svg>
                   AI Analysis
                 </h3>
-                <button onClick={() => setAiSuggestions(null)} className="text-slate-400 hover:text-white hover:bg-slate-800 p-1.5 rounded-full transition">
+                <button onClick={() => setAiSuggestions(null)} className="text-blue-200 hover:text-white hover:bg-blue-700 p-1.5 rounded-full transition">
                   <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" /></svg>
                 </button>
               </div>

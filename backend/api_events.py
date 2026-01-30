@@ -395,6 +395,8 @@ def get_events():
                    DATE_FORMAT(e.end_datetime, '%H:%i') as "endTime",
                    e.expected_attendees as attendees,
                    e.status,
+                   e.venue_approval_status,
+                   e.equipment_approval_status,
                    e.description,
                    e.venue,
                    e.budget,

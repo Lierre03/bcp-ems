@@ -131,12 +131,14 @@ def create_app(config_name='development'):
         return render_template('register.html')
     
     @app.route('/admin')
-    def admin():
+    @app.route('/admin/<path:path>')
+    def admin(path=None):
         """Serve admin dashboard"""
         return send_from_directory(app.template_folder, 'admin.html')
 
     @app.route('/superadmin')
-    def superadmin():
+    @app.route('/superadmin/<path:path>')
+    def superadmin(path=None):
         """Serve admin dashboard for super admin"""
         return send_from_directory(app.template_folder, 'admin.html')
 

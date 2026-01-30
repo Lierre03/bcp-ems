@@ -14,6 +14,7 @@ const UserManagement = window.UserManagement || (() => <div className="p-4 text-
 const AttendanceDashboard = window.AttendanceDashboard || (() => <div className="p-4 text-red-500">Error: Attendance module could not be loaded.</div>);
 const StaffScannerView = window.StaffScannerView || (() => <div className="p-4 text-red-500">Error: Staff Scanner module could not be loaded.</div>);
 const EquipmentApprovals = window.EquipmentApprovals || (() => <div className="p-4 text-red-500">Error: Equipment Approvals module could not be loaded.</div>);
+const VenueApprovals = window.VenueApprovals || (() => <div className="p-4 text-red-500">Error: Venue Approvals module could not be loaded.</div>);
 const RejectionResolutionPage = window.RejectionResolutionPage || (() => <div className="p-4 text-red-500">Error: Resolution Page module could not be loaded.</div>);
 const ResourceFulfillment = window.ResourceFulfillment || (() => <div className="p-4 text-red-500">Error: Fulfillment module could not be loaded.</div>);
 const ResourceFulfillmentV2 = window.ResourceFulfillmentV2 || (() => <div className="p-4 text-red-500">Error: Fulfillment V2 module could not be loaded.</div>);
@@ -81,12 +82,43 @@ window.AdminDashboard = function AdminDashboard() {
      return localStorage.getItem('sidebarCollapsed') === 'true';
   });
 
+  // URL Mapping Configuration
+  const VIEW_TO_PATH = {
+    'events': 'events-manager',
+    'approvals': 'account-approvals',
+    'analytics': 'analytics-dashboard',
+    'feedback': 'event-feedback',
+    'ai-training': 'ai-training',
+    'calendar': 'event-calendar',
+    'resources': 'resource-management',
+    'inventory': 'resource-fulfillment',
+    'inventory-v2': 'resource-fulfillment-v2',
+    'inventory-calendar': 'logistics-calendar',
+    'equipment-review': 'equipment-review',
+    'attendance': 'attendance-monitoring',
+    'users': 'user-management',
+    'staff-scanner': 'attendance-scanner',
+    'staff-approvals': 'resource-approvals',
+    'venue-approvals': 'venue-approvals'
+  };
+
   useEffect(() => {
     localStorage.setItem('sidebarCollapsed', isSidebarCollapsed);
   }, [isSidebarCollapsed]);
   
-  // Load last active view from localStorage, default to 'events'
+  // Load last active view from URL or localStorage, default to 'events'
   const [activeView, setActiveView] = useState(() => {
+    // 1. Try to parse from URL first
+    const path = window.location.pathname;
+    const segments = path.split('/').filter(Boolean); // e.g. ['superadmin', 'events-manager']
+    
+    if (segments.length > 1) {
+       const slug = segments[segments.length - 1]; // check last segment
+       const foundView = Object.keys(VIEW_TO_PATH).find(key => VIEW_TO_PATH[key] === slug);
+       if (foundView) return foundView;
+    }
+
+    // 2. Fallback to localStorage
     return localStorage.getItem('adminActiveView') || 'events';
   });
   const [eventIdToOpen, setEventIdToOpen] = useState(null);
@@ -94,6 +126,46 @@ window.AdminDashboard = function AdminDashboard() {
   const [rescheduleEventId, setRescheduleEventId] = useState(null);
   const [rejectionEventId, setRejectionEventId] = useState(null);
   const [pendingApprovalCount, setPendingApprovalCount] = useState(0);
+
+  // Sync URL when activeView changes
+  useEffect(() => {
+    if (!user) return; // Wait for user info to determine base path
+
+    const basePath = user.role_name === 'Super Admin' ? '/superadmin' : '/admin';
+    const slug = VIEW_TO_PATH[activeView];
+    
+    if (slug) {
+        const newPath = `${basePath}/${slug}`;
+        // Verify we aren't already there to avoid duplicate history entries
+        if (window.location.pathname !== newPath) {
+            window.history.pushState({ view: activeView }, '', newPath + window.location.hash);
+        }
+    }
+    
+    localStorage.setItem('adminActiveView', activeView);
+  }, [activeView, user]);
+
+  // Handle Browser Back/Forward
+  useEffect(() => {
+    const handlePopState = (event) => {
+        if (event.state && event.state.view) {
+            setActiveView(event.state.view);
+        } else {
+            // Fallback: parse URL again
+            const path = window.location.pathname;
+            const segments = path.split('/').filter(Boolean);
+            if (segments.length > 1) {
+                const slug = segments[segments.length - 1];
+                const foundView = Object.keys(VIEW_TO_PATH).find(key => VIEW_TO_PATH[key] === slug);
+                if (foundView) setActiveView(foundView);
+            } else {
+               setActiveView('events');
+            }
+        }
+    };
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, []); // Run once on mount
 
   // Alert and Confirm State
   const [alertState, setAlertState] = useState({ isOpen: false, title: '', message: '' });
@@ -246,7 +318,7 @@ window.AdminDashboard = function AdminDashboard() {
     if (activeView === 'ai-training' && !isSuperAdmin) {
       setActiveView('events');
     }
-    if ((activeView === 'staff-scanner' || activeView === 'staff-approvals') && !isSuperAdmin && !isStaff) {
+    if ((activeView === 'staff-scanner' || activeView === 'staff-approvals' || activeView === 'venue-approvals') && !isSuperAdmin && !isStaff) {
       setActiveView('events');
     }
   }, [user, activeView, isSuperAdmin, isStaff]);
@@ -365,8 +437,10 @@ const iconClass = "w-5 h-5";
         }, {
           id: 'staff-approvals',
           label: 'Resource Approvals',
-          icon: <svg className={iconClass} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-        }
+          icon: <svg className={iconClass} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>        }, {
+          id: 'venue-approvals',
+          label: 'Venue Approvals',
+          icon: <svg className={iconClass} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" /></svg>        }
       ]
     }] : [])
   ];
@@ -415,7 +489,8 @@ const iconClass = "w-5 h-5";
                                   activeView === 'inventory-calendar' ? 'Logistics Calendar' :
                                     activeView === 'equipment-review' ? 'Equipment Approval Review' :
                                       activeView === 'staff-scanner' ? 'QR Attendance Scanner' :
-                                        activeView === 'staff-approvals' ? 'Resource Approvals' : 'User Management'}
+                                        activeView === 'staff-approvals' ? 'Resource Approvals' : 
+                                          activeView === 'venue-approvals' ? 'Venue Approvals' : 'User Management'}
                 </h1>
                 <p className="text-gray-500 text-xs mt-1">
                   {activeView === 'events' ? 'Create, manage, and track all school events' :
@@ -431,7 +506,8 @@ const iconClass = "w-5 h-5";
                                     activeView === 'calendar' ? 'View scheduled events across all venues' :
                                       activeView === 'attendance' ? 'Monitor student attendance and check-ins' :
                                         activeView === 'staff-scanner' ? 'Scan participant QR codes for event attendance' :
-                                          activeView === 'staff-approvals' ? 'Approve or reject equipment and venue requests' :
+                                          activeView === 'staff-approvals' ? 'Approve or reject equipment requests' :
+                                            activeView === 'venue-approvals' ? 'Approve or reject venue booking requests' :
                                             'Manage system users and permissions'}
                 </p>
               </div>
@@ -464,6 +540,7 @@ const iconClass = "w-5 h-5";
           {activeView === 'users' && <UserManagement />}
           {activeView === 'staff-scanner' && <StaffScannerView />}
           {activeView === 'staff-approvals' && <EquipmentApprovals />}
+          {activeView === 'venue-approvals' && <VenueApprovals />}
           
           {/* Global Modals */}
           <AlertModal 

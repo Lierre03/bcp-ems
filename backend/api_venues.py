@@ -733,9 +733,11 @@ def get_equipment_requests():
             JOIN users u ON e.requestor_id = u.id
             WHERE e.deleted_at IS NULL
             AND e.status IN ('Under Review', 'Approved', 'Rejected', 'Conflict_Rejected')
-            AND e.equipment IS NOT NULL
-            AND e.equipment != '[]'
-            AND e.equipment != 'null'
+            AND (
+                (e.equipment IS NOT NULL AND e.equipment != '[]' AND e.equipment != 'null')
+                OR 
+                (e.venue IS NOT NULL AND e.venue != '')
+            )
             ORDER BY e.start_datetime ASC
         """
         rows = db.execute_query(query)
@@ -774,11 +776,18 @@ def get_equipment_requests():
         
         for row in rows:
             # Parse equipment JSON
+            equipment_list = []
             try:
-                equipment_list = json.loads(row['equipment']) if isinstance(row['equipment'], str) else row['equipment']
-                if not isinstance(equipment_list, list) or len(equipment_list) == 0:
-                    continue
+                raw_eq = row['equipment']
+                if raw_eq and raw_eq != 'null':
+                    equipment_list = json.loads(raw_eq) if isinstance(raw_eq, str) else raw_eq
+                    if not isinstance(equipment_list, list):
+                        equipment_list = []
             except (json.JSONDecodeError, TypeError):
+                equipment_list = []
+            
+            # Check if we should process this event (must have either equipment or venue)
+            if not equipment_list and not row.get('venue'):
                 continue
             
             # Calculate precise "Requested X time ago"
@@ -832,7 +841,7 @@ def get_equipment_requests():
                         'status': item_status
                     })
             
-            if items:  # Only include events that have valid equipment items
+            if items or row.get('venue'):  # Include if has equipment OR venue
                 # Check for venue/time conflicts with other Under Review/Approved events
                 has_conflict = False
                 conflicting_event = None
